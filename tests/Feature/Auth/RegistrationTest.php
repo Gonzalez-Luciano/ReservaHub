@@ -4,6 +4,7 @@ namespace Tests\Feature\Auth;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
 class RegistrationTest extends TestCase
@@ -31,7 +32,7 @@ class RegistrationTest extends TestCase
 
         $user = User::firstWhere('email', 'ana@example.com');
         $this->assertNotNull($user);
-        $this->assertTrue(\Illuminate\Support\Facades\Hash::check('password', $user->password));
+        $this->assertTrue(Hash::check('password', $user->password));
     }
 
     public function test_registration_requires_unique_email(): void
