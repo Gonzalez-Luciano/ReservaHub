@@ -2,15 +2,17 @@
 
 namespace App\Models;
 
+use App\Enums\Role;
 use Database\Factories\UserFactory;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-#[Fillable(['name', 'email', 'password'])]
+#[Fillable(['name', 'email', 'password', 'business_id', 'role', 'is_active'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable implements MustVerifyEmail
 {
@@ -27,6 +29,28 @@ class User extends Authenticatable implements MustVerifyEmail
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'role' => Role::class,
+            'is_active' => 'boolean',
         ];
+    }
+
+    public function business(): BelongsTo
+    {
+        return $this->belongsTo(Business::class);
+    }
+
+    public function isOwner(): bool
+    {
+        return $this->role === Role::Owner;
+    }
+
+    public function isAdmin(): bool
+    {
+        return $this->role === Role::Admin;
+    }
+
+    public function hasBusiness(): bool
+    {
+        return $this->business_id !== null;
     }
 }
