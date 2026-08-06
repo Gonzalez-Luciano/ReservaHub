@@ -4,10 +4,12 @@ import InputError from '../../Components/InputError';
 
 export default function Register() {
     const { data, setData, post, processing, errors, reset } = useForm({
+        account_type: 'business',
         name: '',
         email: '',
         password: '',
         password_confirmation: '',
+        business_name: '',
     });
 
     function submit(e) {
@@ -20,6 +22,47 @@ export default function Register() {
     return (
         <AuthCard title="Crear cuenta">
             <form onSubmit={submit} className="space-y-4">
+                <div>
+                    <label className="block text-sm font-medium text-gray-700">Tipo de cuenta</label>
+                    <div className="mt-1 flex gap-4">
+                        <label className="flex items-center gap-2 text-sm">
+                            <input
+                                type="radio"
+                                name="account_type"
+                                value="business"
+                                checked={data.account_type === 'business'}
+                                onChange={() => setData('account_type', 'business')}
+                            />
+                            Tengo un negocio
+                        </label>
+                        <label className="flex items-center gap-2 text-sm">
+                            <input
+                                type="radio"
+                                name="account_type"
+                                value="customer"
+                                checked={data.account_type === 'customer'}
+                                onChange={() => setData('account_type', 'customer')}
+                            />
+                            Quiero reservar turnos
+                        </label>
+                    </div>
+                    <InputError message={errors.account_type} />
+                </div>
+                {data.account_type === 'business' && (
+                    <div>
+                        <label htmlFor="business_name" className="block text-sm font-medium text-gray-700">
+                            Nombre del negocio
+                        </label>
+                        <input
+                            id="business_name"
+                            type="text"
+                            value={data.business_name}
+                            onChange={(e) => setData('business_name', e.target.value)}
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+                        />
+                        <InputError message={errors.business_name} />
+                    </div>
+                )}
                 <div>
                     <label htmlFor="name" className="block text-sm font-medium text-gray-700">
                         Nombre
