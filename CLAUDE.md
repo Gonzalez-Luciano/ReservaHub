@@ -4,18 +4,43 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project status
 
-This repo currently contains only the design spec (`01-reservahub.md`) — no Laravel application has been scaffolded yet, and this is not (yet) a git repository. Before writing code, check whether the project has since been scaffolded (look for `composer.json`, `artisan`); if not, follow Fase 0 in the spec to bootstrap it:
+The Laravel app is scaffolded and this is a git repository (Fase 0 and Fase 1 are done — see `docs/superpowers/plans/`). `01-reservahub.md` is still the authoritative spec for anything not yet implemented.
+
+Standard Laravel commands apply: `php artisan test` (or a specific test with `php artisan test --filter=TestName`), `vendor/bin/pint --test` for formatting. For the frontend, see **Package manager** below before running any JS command.
+
+## Development environment: Docker (Laravel Sail)
+
+The project runs under Docker via Laravel Sail — `compose.yaml` at the repo root defines `laravel.test` (app), `pgsql`, `redis`, and `mailpit`. There is no working native (non-Docker) path: `.env`'s `DB_HOST`/`REDIS_HOST`/`MAIL_HOST` point at Docker service names (`pgsql`, `redis`, `mailpit`), which only resolve inside the `laravel.test` container's network. Always develop and test against the containers, not `php artisan serve` on the host.
+
+**`vendor/bin/sail` does not work in Git Bash on Windows** — it hard-refuses with `Unsupported operating system [MINGW64_NT-...]`. Use `docker compose` directly instead, and pass dummy `WWWUSER`/`WWWGROUP` values (Sail's wrapper normally injects these; without it you'll get harmless "variable not set" warnings but the containers still run fine):
 
 ```bash
-composer create-project laravel/laravel reservahub
-cd reservahub
-php artisan key:generate
-php artisan migrate
-npm install
-npm run build
+WWWUSER=1000 WWWGROUP=1000 docker compose up -d
+docker compose exec laravel.test php artisan migrate:fresh --force
+docker compose exec laravel.test php artisan test
+docker compose exec laravel.test vendor/bin/pint --test
 ```
 
-Once scaffolded, standard Laravel commands apply: `php artisan test` (or a specific test with `php artisan test --filter=TestName`), `vendor/bin/pint --test` for formatting, `php artisan serve`, `npm run dev`.
+**Testing a feature branch or worktree in parallel with the main checkout:** `docker compose`'s default project name is derived from the current directory's basename, so running `docker compose up -d` from a git worktree at a different path (e.g. `.claude/worktrees/<branch-name>/`) automatically gets its own project name, containers, network, and volumes — it won't collide with a stack already running from the main checkout. It *will* collide on **host ports** though (both stacks default to 80, 5432, 6379, 1025, 8025, 5173), so before bringing up a second stack, add distinct forwarded ports to that worktree's `.env` (values must stay ≤ 65535):
+
+```
+APP_URL=http://localhost:8180
+APP_PORT=8180
+FORWARD_DB_PORT=54320
+FORWARD_REDIS_PORT=63790
+FORWARD_MAILPIT_PORT=10250
+FORWARD_MAILPIT_DASHBOARD_PORT=8026
+VITE_PORT=5273
+```
+Also set `DB_HOST=pgsql` in that `.env` (not `127.0.0.1` — that only works for a *native* host process talking to a container's forwarded port, and there is no working native path here per above). Mailpit's dashboard (to inspect sent verification/reset emails) is then at `http://localhost:<FORWARD_MAILPIT_DASHBOARD_PORT>`.
+
+**Running the frontend build in a container:** if the JS dev server (`pnpm dev`) was ever run natively on the host against this same working directory, it writes `public/hot`, which makes Laravel's `@vite` directive emit script tags pointing at that (now-dead) native Vite server instead of the built assets — resulting in a blank page with a console `@vitejs/plugin-react can't detect preamble` error. Delete `public/hot` (`rm -f public/hot`) and run `pnpm build` if you hit this.
+
+**Tearing down a worktree's stack:** `docker compose down -v` (from that worktree's directory) before or when the worktree itself is removed. The `superpowers:finishing-a-development-branch` skill's cleanup step only runs `git worktree remove` — it has no knowledge of Docker, so a Sail stack brought up for manual testing in a worktree is never torn down automatically and will keep running (and holding its forwarded ports) after the branch is merged unless done by hand.
+
+## Package manager: pnpm, not npm
+
+This project uses **pnpm**, not npm — there is no `package-lock.json`, only `pnpm-lock.yaml`. Always use `pnpm install` / `pnpm dev` / `pnpm build`, never the `npm` equivalents.
 
 ## What this is
 
