@@ -61,6 +61,26 @@ class RegistrationTest extends TestCase
         $this->assertNull($user->business_id);
     }
 
+    public function test_new_customer_can_register_with_empty_business_name_field(): void
+    {
+        $response = $this->post('/register', [
+            'account_type' => 'customer',
+            'name' => 'Carla Cliente',
+            'email' => 'carla2@example.com',
+            'password' => 'password',
+            'password_confirmation' => 'password',
+            'business_name' => '',
+        ]);
+
+        $this->assertAuthenticated();
+        $response->assertRedirect('/');
+
+        $user = User::firstWhere('email', 'carla2@example.com');
+        $this->assertNotNull($user);
+        $this->assertSame(Role::Customer, $user->role);
+        $this->assertNull($user->business_id);
+    }
+
     public function test_business_registration_requires_business_name(): void
     {
         $response = $this->post('/register', [
