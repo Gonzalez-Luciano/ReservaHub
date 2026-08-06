@@ -11,7 +11,7 @@ class UserPolicy
     {
         return $user->business_id !== null
             && $user->business_id === $target->business_id
-            && in_array($user->role, [Role::Owner, Role::Admin], true);
+            && in_array($user->role, Role::managers(), true);
     }
 
     public function delete(User $user, User $target): bool

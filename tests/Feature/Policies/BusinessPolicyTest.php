@@ -38,4 +38,17 @@ class BusinessPolicyTest extends TestCase
 
         $this->assertFalse($employee->can('update', $business));
     }
+
+    public function test_user_with_null_business_id_is_denied_even_against_unpersisted_business(): void
+    {
+        $owner = User::factory()->create(['role' => Role::Owner, 'business_id' => null]);
+
+        // An unpersisted/empty Business model has a null id, matching the
+        // user's null business_id under naive equality — the null guard
+        // must prevent this from evaluating true.
+        $business = new Business;
+
+        $this->assertFalse($owner->can('view', $business));
+        $this->assertFalse($owner->can('update', $business));
+    }
 }

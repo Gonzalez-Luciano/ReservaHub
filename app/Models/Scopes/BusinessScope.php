@@ -2,6 +2,7 @@
 
 namespace App\Models\Scopes;
 
+use App\Exceptions\MissingBusinessContextException;
 use App\Models\Business;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -13,6 +14,12 @@ class BusinessScope implements Scope
     {
         if ($business = Business::current()) {
             $builder->where($model->getTable().'.business_id', $business->id);
+
+            return;
+        }
+
+        if (! app()->runningInConsole()) {
+            throw MissingBusinessContextException::forModel($model::class);
         }
     }
 }

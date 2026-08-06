@@ -38,4 +38,32 @@ class EnsureBusinessContextTest extends TestCase
         $response->assertOk();
         $response->assertInertia(fn ($page) => $page->where('business.name', 'Peluquería Norte'));
     }
+
+    public function test_inactive_user_gets_403(): void
+    {
+        $business = Business::factory()->create();
+        $owner = User::factory()->create([
+            'role' => Role::Owner,
+            'business_id' => $business->id,
+            'is_active' => false,
+        ]);
+
+        $response = $this->actingAs($owner)->get('/dashboard');
+
+        $response->assertForbidden();
+    }
+
+    public function test_user_with_inactive_business_gets_403(): void
+    {
+        $business = Business::factory()->create(['is_active' => false]);
+        $owner = User::factory()->create([
+            'role' => Role::Owner,
+            'business_id' => $business->id,
+            'is_active' => true,
+        ]);
+
+        $response = $this->actingAs($owner)->get('/dashboard');
+
+        $response->assertForbidden();
+    }
 }

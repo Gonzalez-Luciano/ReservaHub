@@ -14,7 +14,11 @@ class EnsureBusinessContext
     {
         $user = $request->user();
 
-        if (! $user || ! $user->hasBusiness() || ! in_array($user->role, [Role::Owner, Role::Admin, Role::Employee], true)) {
+        if (! $user || ! $user->hasBusiness() || ! in_array($user->role, Role::businessStaff(), true)) {
+            abort(403);
+        }
+
+        if (! $user->is_active || ! $user->business->is_active) {
             abort(403);
         }
 

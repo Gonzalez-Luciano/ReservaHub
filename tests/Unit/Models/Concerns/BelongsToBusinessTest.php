@@ -2,11 +2,13 @@
 
 namespace Tests\Unit\Models\Concerns;
 
+use App\Exceptions\MissingBusinessContextException;
 use App\Models\Business;
 use App\Models\Concerns\BelongsToBusiness;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Schema;
+use ReflectionProperty;
 use Tests\TestCase;
 
 class BelongsToBusinessTest extends TestCase
@@ -48,7 +50,7 @@ class BelongsToBusinessTest extends TestCase
         $this->assertSame('A', ScopeTestModel::first()->name);
     }
 
-    public function test_query_is_unfiltered_when_no_business_bound(): void
+    public function test_query_throws_when_no_business_bound_outside_console(): void
     {
         $businessA = Business::factory()->create();
         $businessB = Business::factory()->create();
@@ -58,7 +60,34 @@ class BelongsToBusinessTest extends TestCase
         ScopeTestModel::create(['business_id' => $businessB->id, 'name' => 'B']);
         ScopeTestModel::reguard();
 
+        $this->setRunningInConsole(false);
+
+        $this->expectException(MissingBusinessContextException::class);
+        $this->expectExceptionMessage(ScopeTestModel::class);
+
+        ScopeTestModel::count();
+    }
+
+    public function test_query_is_unfiltered_when_no_business_bound_in_console(): void
+    {
+        $businessA = Business::factory()->create();
+        $businessB = Business::factory()->create();
+
+        ScopeTestModel::unguard();
+        ScopeTestModel::create(['business_id' => $businessA->id, 'name' => 'A']);
+        ScopeTestModel::create(['business_id' => $businessB->id, 'name' => 'B']);
+        ScopeTestModel::reguard();
+
+        $this->setRunningInConsole(true);
+
         $this->assertSame(2, ScopeTestModel::count());
+    }
+
+    private function setRunningInConsole(bool $value): void
+    {
+        $property = new ReflectionProperty(app(), 'isRunningInConsole');
+        $property->setAccessible(true);
+        $property->setValue(app(), $value);
     }
 
     public function test_business_id_is_auto_filled_on_create(): void
