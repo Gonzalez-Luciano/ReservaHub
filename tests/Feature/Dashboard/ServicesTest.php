@@ -65,8 +65,18 @@ class ServicesTest extends TestCase
         $service = Service::factory()->for($business)->create();
 
         $this->actingAs($employee)->get('/dashboard/services')->assertOk();
-        $this->actingAs($employee)->post('/dashboard/services', ['name' => 'X'])->assertForbidden();
-        $this->actingAs($employee)->put("/dashboard/services/{$service->id}", ['name' => 'X'])->assertForbidden();
+
+        $validPayload = [
+            'name' => 'X',
+            'duration_minutes' => 30,
+            'buffer_minutes' => 0,
+            'price' => 10,
+            'deposit_amount' => null,
+            'is_active' => true,
+        ];
+
+        $this->actingAs($employee)->post('/dashboard/services', $validPayload)->assertForbidden();
+        $this->actingAs($employee)->put("/dashboard/services/{$service->id}", $validPayload)->assertForbidden();
         $this->actingAs($employee)->delete("/dashboard/services/{$service->id}")->assertForbidden();
     }
 
