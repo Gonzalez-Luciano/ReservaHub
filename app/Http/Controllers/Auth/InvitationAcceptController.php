@@ -18,6 +18,10 @@ class InvitationAcceptController extends Controller
     {
         $invitation = $this->findAcceptable($token);
 
+        if (! $invitation) {
+            return Inertia::render('Invitations/Unavailable');
+        }
+
         return Inertia::render('Invitations/Accept', [
             'token' => $token,
             'email' => $invitation->email,
@@ -25,9 +29,13 @@ class InvitationAcceptController extends Controller
         ]);
     }
 
-    public function store(AcceptInvitationRequest $request, AcceptInvitation $action): RedirectResponse
+    public function store(AcceptInvitationRequest $request, AcceptInvitation $action): Response|RedirectResponse
     {
         $invitation = $this->findAcceptable($request->validated('token'));
+
+        if (! $invitation) {
+            return Inertia::render('Invitations/Unavailable');
+        }
 
         $user = $action->handle($invitation, $request->validated('name'), $request->validated('password'));
 
@@ -36,13 +44,15 @@ class InvitationAcceptController extends Controller
         return redirect('/dashboard');
     }
 
-    private function findAcceptable(string $token): EmployeeInvitation
+    private function findAcceptable(string $token): ?EmployeeInvitation
     {
         $invitation = EmployeeInvitation::withoutGlobalScope(BusinessScope::class)
             ->where('token', $token)
             ->first();
 
-        abort_if(! $invitation || $invitation->isAccepted() || $invitation->isExpired(), 404);
+        if (! $invitation || $invitation->isAccepted() || $invitation->isExpired()) {
+            return null;
+        }
 
         return $invitation;
     }
