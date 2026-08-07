@@ -154,4 +154,30 @@ class SchedulesTest extends TestCase
             'day_of_week' => 1, 'start_time' => '09:00', 'end_time' => '18:00',
         ])->assertForbidden();
     }
+
+    public function test_invalid_day_of_week_returns_validation_error_not_500(): void
+    {
+        $business = Business::factory()->create();
+        $owner = User::factory()->create(['role' => Role::Owner, 'business_id' => $business->id]);
+        $employee = User::factory()->create(['role' => Role::Employee, 'business_id' => $business->id]);
+
+        $this->actingAs($owner)->post("/dashboard/employees/{$employee->id}/schedule", [
+            'day_of_week' => 'abc',
+            'start_time' => '09:00',
+            'end_time' => '18:00',
+        ])->assertInvalid(['day_of_week']);
+    }
+
+    public function test_owner_cannot_delete_schedule_break_of_another_business(): void
+    {
+        $businessA = Business::factory()->create();
+        $businessB = Business::factory()->create();
+        $ownerA = User::factory()->create(['role' => Role::Owner, 'business_id' => $businessA->id]);
+        $employeeB = User::factory()->create(['role' => Role::Employee, 'business_id' => $businessB->id]);
+        $scheduleB = Schedule::factory()->for($businessB)->create(['employee_id' => $employeeB->id]);
+        $breakB = $scheduleB->breaks()->create(['start_time' => '13:00', 'end_time' => '14:00']);
+
+        $this->actingAs($ownerA)->delete("/dashboard/schedule-breaks/{$breakB->id}")
+            ->assertForbidden();
+    }
 }

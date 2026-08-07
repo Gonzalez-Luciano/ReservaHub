@@ -29,6 +29,10 @@ class ScheduleRequest extends FormRequest
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator) {
+            if ($validator->errors()->has('day_of_week')) {
+                return;
+            }
+
             $employeeId = $this->route('employee')?->id ?? $this->route('schedule')?->employee_id;
             $scheduleId = $this->route('schedule')?->id;
 
