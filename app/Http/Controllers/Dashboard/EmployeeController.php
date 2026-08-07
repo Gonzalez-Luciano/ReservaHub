@@ -24,7 +24,9 @@ class EmployeeController extends Controller
                 ->where('role', Role::Employee)
                 ->orderBy('name')
                 ->get(['id', 'name', 'email', 'is_active']),
-            'invitations' => EmployeeInvitation::pending()->orderBy('created_at', 'desc')->get(),
+            'invitations' => EmployeeInvitation::pending()
+                ->orderBy('created_at', 'desc')
+                ->get(['id', 'email', 'name', 'expires_at']),
         ]);
     }
 }

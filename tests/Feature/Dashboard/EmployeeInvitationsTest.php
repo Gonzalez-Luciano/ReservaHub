@@ -69,7 +69,8 @@ class EmployeeInvitationsTest extends TestCase
         $business = Business::factory()->create();
         $employee = User::factory()->create(['role' => Role::Employee, 'business_id' => $business->id]);
 
-        $this->actingAs($employee)->post('/dashboard/employees/invitations', ['email' => 'x@example.com'])
+        // Should be forbidden even with valid, available email (not validation error)
+        $this->actingAs($employee)->post('/dashboard/employees/invitations', ['email' => 'valid@example.com'])
             ->assertForbidden();
     }
 

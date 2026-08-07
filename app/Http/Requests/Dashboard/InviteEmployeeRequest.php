@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Dashboard;
 
+use App\Enums\Role;
 use App\Models\EmployeeInvitation;
 use Closure;
 use Illuminate\Foundation\Http\FormRequest;
@@ -11,7 +12,7 @@ class InviteEmployeeRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        return $this->user() !== null && in_array($this->user()->role, Role::managers(), true);
     }
 
     /**
