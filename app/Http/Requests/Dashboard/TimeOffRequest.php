@@ -2,13 +2,14 @@
 
 namespace App\Http\Requests\Dashboard;
 
+use App\Enums\Role;
 use Illuminate\Foundation\Http\FormRequest;
 
 class TimeOffRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        return $this->user() !== null && in_array($this->user()->role, Role::managers(), true);
     }
 
     /**

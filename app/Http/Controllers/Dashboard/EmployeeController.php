@@ -35,7 +35,7 @@ class EmployeeController extends Controller
 
         return Inertia::render('Dashboard/Employees/Index', [
             'employees' => $employees,
-            'invitations' => EmployeeInvitation::pending()->orderBy('created_at', 'desc')->get(),
+            'invitations' => EmployeeInvitation::pending()->orderBy('created_at', 'desc')->get(['id', 'email', 'name', 'expires_at']),
             'services' => Service::where('is_active', true)->orderBy('name')->get(['id', 'name']),
         ]);
     }

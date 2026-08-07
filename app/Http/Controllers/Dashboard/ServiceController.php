@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Dashboard;
 use App\Actions\Services\CreateService;
 use App\Actions\Services\DeleteService;
 use App\Actions\Services\UpdateService;
+use App\Enums\Role;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Dashboard\ServiceRequest;
 use App\Models\Service;
@@ -18,8 +19,14 @@ class ServiceController extends Controller
     {
         $this->authorize('viewAny', Service::class);
 
+        $query = Service::orderBy('name');
+
+        if (! in_array(auth()->user()->role, Role::managers(), true)) {
+            $query->where('is_active', true);
+        }
+
         return Inertia::render('Dashboard/Services/Index', [
-            'services' => Service::orderBy('name')->get(),
+            'services' => $query->get(),
         ]);
     }
 

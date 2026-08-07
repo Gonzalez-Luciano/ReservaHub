@@ -5,12 +5,14 @@ namespace App\Models;
 use App\Models\Concerns\BelongsToBusiness;
 use Database\Factories\EmployeeInvitationFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['business_id', 'email', 'name', 'token', 'invited_by_id', 'expires_at', 'accepted_at'])]
+#[Fillable(['email', 'name', 'token', 'invited_by_id', 'expires_at', 'accepted_at'])]
+#[Hidden(['token'])]
 class EmployeeInvitation extends Model
 {
     /** @use HasFactory<EmployeeInvitationFactory> */

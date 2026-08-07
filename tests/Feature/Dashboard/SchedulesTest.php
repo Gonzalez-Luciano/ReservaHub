@@ -178,6 +178,34 @@ class SchedulesTest extends TestCase
         $breakB = $scheduleB->breaks()->create(['start_time' => '13:00', 'end_time' => '14:00']);
 
         $this->actingAs($ownerA)->delete("/dashboard/schedule-breaks/{$breakB->id}")
-            ->assertForbidden();
+            ->assertNotFound();
+    }
+
+    public function test_employee_cannot_view_colleagues_schedule(): void
+    {
+        $business = Business::factory()->create();
+        $employee = User::factory()->create(['role' => Role::Employee, 'business_id' => $business->id]);
+        $colleague = User::factory()->create(['role' => Role::Employee, 'business_id' => $business->id]);
+
+        $this->actingAs($employee)->get("/dashboard/employees/{$colleague->id}/schedule")->assertForbidden();
+    }
+
+    public function test_cannot_narrow_schedule_leaving_existing_break_out_of_range(): void
+    {
+        $business = Business::factory()->create();
+        $owner = User::factory()->create(['role' => Role::Owner, 'business_id' => $business->id]);
+        $employee = User::factory()->create(['role' => Role::Employee, 'business_id' => $business->id]);
+        $schedule = Schedule::factory()->for($business)->create([
+            'employee_id' => $employee->id,
+            'start_time' => '09:00',
+            'end_time' => '18:00',
+        ]);
+        $schedule->breaks()->create(['start_time' => '13:00', 'end_time' => '14:00']);
+
+        $this->actingAs($owner)->put("/dashboard/schedules/{$schedule->id}", [
+            'day_of_week' => $schedule->day_of_week->value,
+            'start_time' => '10:00',
+            'end_time' => '12:00',
+        ])->assertInvalid(['start_time']);
     }
 }

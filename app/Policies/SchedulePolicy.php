@@ -10,7 +10,7 @@ class SchedulePolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->business_id !== null;
+        return in_array($user->role, Role::managers(), true);
     }
 
     public function create(User $user): bool

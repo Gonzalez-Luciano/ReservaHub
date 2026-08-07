@@ -90,4 +90,15 @@ class ServicesTest extends TestCase
         $this->actingAs($ownerA)->get("/dashboard/services/{$serviceB->id}/edit")->assertNotFound();
         $this->actingAs($ownerA)->delete("/dashboard/services/{$serviceB->id}")->assertNotFound();
     }
+
+    public function test_employee_does_not_see_inactive_services(): void
+    {
+        $business = Business::factory()->create();
+        $employee = User::factory()->create(['role' => Role::Employee, 'business_id' => $business->id]);
+        Service::factory()->for($business)->create(['is_active' => true, 'name' => 'Activo']);
+        Service::factory()->for($business)->create(['is_active' => false, 'name' => 'Inactivo']);
+
+        $this->actingAs($employee)->get('/dashboard/services')
+            ->assertInertia(fn ($page) => $page->has('services', 1)->where('services.0.name', 'Activo'));
+    }
 }

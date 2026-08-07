@@ -14,6 +14,10 @@ class DemoSeeder extends Seeder
 {
     public function run(): void
     {
+        if (Business::where('slug', 'peluqueria-demo')->exists()) {
+            return;
+        }
+
         $business = Business::create([
             'name' => 'Peluquería Demo',
             'slug' => 'peluqueria-demo',

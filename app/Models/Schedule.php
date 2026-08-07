@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['business_id', 'employee_id', 'day_of_week', 'start_time', 'end_time', 'is_active'])]
+#[Fillable(['employee_id', 'day_of_week', 'start_time', 'end_time', 'is_active'])]
 class Schedule extends Model
 {
     /** @use HasFactory<ScheduleFactory> */

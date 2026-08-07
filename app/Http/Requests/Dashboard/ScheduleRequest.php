@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Dashboard;
 
+use App\Enums\Role;
 use App\Models\Schedule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Validator;
@@ -10,7 +11,7 @@ class ScheduleRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        return $this->user() !== null && in_array($this->user()->role, Role::managers(), true);
     }
 
     /**

@@ -13,11 +13,6 @@ class ServicePolicy
         return $user->business_id !== null;
     }
 
-    public function view(User $user, Service $service): bool
-    {
-        return $user->business_id === $service->business_id;
-    }
-
     public function create(User $user): bool
     {
         return in_array($user->role, Role::managers(), true);

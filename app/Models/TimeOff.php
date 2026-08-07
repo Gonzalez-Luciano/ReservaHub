@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['business_id', 'employee_id', 'starts_at', 'ends_at', 'reason'])]
+#[Fillable(['employee_id', 'starts_at', 'ends_at', 'reason'])]
 class TimeOff extends Model
 {
     /** @use HasFactory<TimeOffFactory> */

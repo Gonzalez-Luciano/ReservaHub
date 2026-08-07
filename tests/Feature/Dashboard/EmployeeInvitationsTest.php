@@ -119,4 +119,14 @@ class EmployeeInvitationsTest extends TestCase
                 ->has('employees', 1)
                 ->where('employees.0.name', 'Ana'));
     }
+
+    public function test_invitation_token_is_never_exposed_to_the_client(): void
+    {
+        $business = Business::factory()->create();
+        $owner = User::factory()->create(['role' => Role::Owner, 'business_id' => $business->id]);
+        EmployeeInvitation::factory()->for($business)->create(['invited_by_id' => $owner->id]);
+
+        $this->actingAs($owner)->get('/dashboard/employees')
+            ->assertInertia(fn ($page) => $page->has('invitations.0')->missing('invitations.0.token'));
+    }
 }

@@ -75,6 +75,7 @@ class ScheduleController extends Controller
     {
         // ScheduleBreak has no BelongsToBusiness scope of its own — authorizing via
         // its parent schedule is what actually blocks cross-business access here.
+        abort_unless($scheduleBreak->schedule, 404);
         $this->authorize('update', $scheduleBreak->schedule);
 
         $employeeId = $scheduleBreak->schedule->employee_id;
