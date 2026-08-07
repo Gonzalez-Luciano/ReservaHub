@@ -42,6 +42,10 @@ Also set `DB_HOST=pgsql` in that `.env` (not `127.0.0.1` — that only works for
 
 This project uses **pnpm**, not npm — there is no `package-lock.json`, only `pnpm-lock.yaml`. Always use `pnpm install` / `pnpm dev` / `pnpm build`, never the `npm` equivalents.
 
+## Localization: `APP_LOCALE=es`
+
+The app's default locale is Spanish (`config/app.php` → `env('APP_LOCALE', 'es')`, `.env.example` sets `APP_LOCALE=es`, `APP_FALLBACK_LOCALE=en`). Laravel's built-in validation/auth/passwords/pagination strings are translated via `lang/es/` (published with `laravel-lang/lang`, `php artisan lang:add es`) — added in Fase 3 after mixed English/Spanish validation errors surfaced (custom messages were already hardcoded in Spanish; Laravel's default rule messages weren't). Custom validation messages (`ValidationException::withMessages([...])`, Form Request `messages()`) must be written in Spanish directly, same as before — only Laravel's own built-in strings needed the `lang/` files. If a new Laravel version adds rules/strings not yet in `lang/es/validation.php`, re-run `php artisan lang:add es` to refresh it.
+
 ## What this is
 
 ReservaHub is a SaaS booking/appointment system (in Spanish) for businesses that work by time slots — hair salons, gyms, workshops, tutors, studios, etc. It's a learning/demo project meant to showcase a complete Laravel build: MVC, auth, roles/permissions, simple multi-tenancy, availability rules, overlap prevention, a REST API, payments + webhooks, queues, notifications, scheduled tasks, real-time updates (Reverb), tests, Docker, and CI/CD.
