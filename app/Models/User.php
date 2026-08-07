@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
@@ -44,6 +45,11 @@ class User extends Authenticatable implements MustVerifyEmail
     {
         return $this->belongsToMany(Service::class, 'employee_service', 'employee_id', 'service_id')
             ->withTimestamps();
+    }
+
+    public function schedules(): HasMany
+    {
+        return $this->hasMany(Schedule::class, 'employee_id');
     }
 
     public function isOwner(): bool

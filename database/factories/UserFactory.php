@@ -69,4 +69,15 @@ class UserFactory extends Factory
             'business_id' => null,
         ]);
     }
+
+    /**
+     * Indicate that the user is an employee of a new business.
+     */
+    public function employee(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'role' => Role::Employee,
+            'business_id' => Business::factory(),
+        ]);
+    }
 }

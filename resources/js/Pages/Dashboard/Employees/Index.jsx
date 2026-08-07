@@ -1,4 +1,4 @@
-import { router, useForm } from '@inertiajs/react';
+import { Link, router, useForm } from '@inertiajs/react';
 import DashboardLayout from '../../../Components/DashboardLayout';
 import InputError from '../../../Components/InputError';
 
@@ -76,6 +76,10 @@ export default function Index({ employees, invitations, services }) {
                                 <td className="py-2">{employee.email}</td>
                                 <td className="py-2">
                                     {employee.is_active ? 'Activo' : 'Inactivo'}
+                                    {' · '}
+                                    <Link href={`/dashboard/employees/${employee.id}/schedule`} className="underline">
+                                        Horario
+                                    </Link>
                                     <EmployeeServices employee={employee} services={services} />
                                 </td>
                             </tr>
