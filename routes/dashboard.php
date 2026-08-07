@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Dashboard\EmployeeController;
 use App\Http\Controllers\Dashboard\EmployeeInvitationController;
+use App\Http\Controllers\Dashboard\EmployeeServiceController;
 use App\Http\Controllers\Dashboard\ServiceController;
 use App\Http\Controllers\DashboardController;
 use Illuminate\Support\Facades\Route;
@@ -16,5 +17,6 @@ Route::middleware(['auth', 'business'])->group(function () {
         Route::post('employees/invitations', [EmployeeInvitationController::class, 'store'])->name('employees.invitations.store');
         Route::post('employees/invitations/{invitation}/resend', [EmployeeInvitationController::class, 'resend'])->name('employees.invitations.resend');
         Route::delete('employees/invitations/{invitation}', [EmployeeInvitationController::class, 'destroy'])->name('employees.invitations.destroy');
+        Route::put('employees/{employee}/services', [EmployeeServiceController::class, 'update'])->name('employees.services.update');
     });
 });

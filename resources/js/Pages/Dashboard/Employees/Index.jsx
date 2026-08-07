@@ -2,7 +2,43 @@ import { router, useForm } from '@inertiajs/react';
 import DashboardLayout from '../../../Components/DashboardLayout';
 import InputError from '../../../Components/InputError';
 
-export default function Index({ employees, invitations }) {
+function EmployeeServices({ employee, services }) {
+    const { data, setData, put, processing } = useForm({ service_ids: employee.service_ids });
+
+    function toggle(id) {
+        setData(
+            'service_ids',
+            data.service_ids.includes(id)
+                ? data.service_ids.filter((serviceId) => serviceId !== id)
+                : [...data.service_ids, id],
+        );
+    }
+
+    function save(e) {
+        e.preventDefault();
+        put(`/dashboard/employees/${employee.id}/services`);
+    }
+
+    return (
+        <form onSubmit={save} className="mt-2 flex flex-wrap items-center gap-3 text-xs text-gray-600">
+            {services.map((service) => (
+                <label key={service.id} className="flex items-center gap-1">
+                    <input
+                        type="checkbox"
+                        checked={data.service_ids.includes(service.id)}
+                        onChange={() => toggle(service.id)}
+                    />
+                    {service.name}
+                </label>
+            ))}
+            <button type="submit" disabled={processing} className="underline disabled:opacity-50">
+                Guardar servicios
+            </button>
+        </form>
+    );
+}
+
+export default function Index({ employees, invitations, services }) {
     const { data, setData, post, processing, errors, reset } = useForm({ email: '', name: '' });
 
     function invite(e) {
@@ -35,10 +71,13 @@ export default function Index({ employees, invitations }) {
                     </thead>
                     <tbody>
                         {employees.map((employee) => (
-                            <tr key={employee.id} className="border-b">
+                            <tr key={employee.id} className="border-b align-top">
                                 <td className="py-2">{employee.name}</td>
                                 <td className="py-2">{employee.email}</td>
-                                <td className="py-2">{employee.is_active ? 'Activo' : 'Inactivo'}</td>
+                                <td className="py-2">
+                                    {employee.is_active ? 'Activo' : 'Inactivo'}
+                                    <EmployeeServices employee={employee} services={services} />
+                                </td>
                             </tr>
                         ))}
                     </tbody>
