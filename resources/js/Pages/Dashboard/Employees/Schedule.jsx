@@ -34,7 +34,62 @@ function ScheduleBreakForm({ schedule }) {
     );
 }
 
-export default function Schedule({ employee, schedules }) {
+function TimeOffForm({ employee }) {
+    const { data, setData, post, processing, errors, reset } = useForm({
+        starts_at: '',
+        ends_at: '',
+        reason: '',
+    });
+
+    function submit(e) {
+        e.preventDefault();
+        post(`/dashboard/employees/${employee.id}/time-offs`, { onSuccess: () => reset() });
+    }
+
+    return (
+        <form onSubmit={submit} className="flex max-w-xl flex-wrap items-end gap-4">
+            <div>
+                <label className="block text-sm font-medium text-gray-700">Desde</label>
+                <input
+                    type="datetime-local"
+                    value={data.starts_at}
+                    onChange={(e) => setData('starts_at', e.target.value)}
+                    className="mt-1 block rounded-md border-gray-300 shadow-sm"
+                />
+                <InputError message={errors.starts_at} />
+            </div>
+            <div>
+                <label className="block text-sm font-medium text-gray-700">Hasta</label>
+                <input
+                    type="datetime-local"
+                    value={data.ends_at}
+                    onChange={(e) => setData('ends_at', e.target.value)}
+                    className="mt-1 block rounded-md border-gray-300 shadow-sm"
+                />
+                <InputError message={errors.ends_at} />
+            </div>
+            <div>
+                <label className="block text-sm font-medium text-gray-700">Motivo (opcional)</label>
+                <input
+                    type="text"
+                    value={data.reason}
+                    onChange={(e) => setData('reason', e.target.value)}
+                    className="mt-1 block rounded-md border-gray-300 shadow-sm"
+                />
+                <InputError message={errors.reason} />
+            </div>
+            <button
+                type="submit"
+                disabled={processing}
+                className="rounded-md bg-gray-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+            >
+                Agregar
+            </button>
+        </form>
+    );
+}
+
+export default function Schedule({ employee, schedules, timeOffs }) {
     const { data, setData, post, processing, errors, reset } = useForm({
         day_of_week: 1,
         start_time: '09:00',
@@ -99,7 +154,7 @@ export default function Schedule({ employee, schedules }) {
                 </table>
 
                 <h2 className="mb-4 text-lg font-semibold">Agregar horario</h2>
-                <form onSubmit={addSchedule} className="flex max-w-xl flex-wrap items-end gap-4">
+                <form onSubmit={addSchedule} className="mb-8 flex max-w-xl flex-wrap items-end gap-4">
                     <div>
                         <label className="block text-sm font-medium text-gray-700">Día</label>
                         <select
@@ -141,6 +196,38 @@ export default function Schedule({ employee, schedules }) {
                         Agregar
                     </button>
                 </form>
+
+                <h2 className="mb-4 text-lg font-semibold">Licencias</h2>
+                <table className="mb-8 w-full text-left text-sm">
+                    <thead>
+                        <tr className="border-b text-gray-500">
+                            <th className="py-2">Desde</th>
+                            <th className="py-2">Hasta</th>
+                            <th className="py-2">Motivo</th>
+                            <th className="py-2"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {timeOffs.map((timeOff) => (
+                            <tr key={timeOff.id} className="border-b">
+                                <td className="py-2">{timeOff.starts_at}</td>
+                                <td className="py-2">{timeOff.ends_at}</td>
+                                <td className="py-2">{timeOff.reason}</td>
+                                <td className="py-2 text-right">
+                                    <button
+                                        onClick={() => router.delete(`/dashboard/time-offs/${timeOff.id}`)}
+                                        className="text-red-600 underline"
+                                    >
+                                        Eliminar
+                                    </button>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+
+                <h2 className="mb-4 text-lg font-semibold">Agregar licencia</h2>
+                <TimeOffForm employee={employee} />
             </div>
         </DashboardLayout>
     );

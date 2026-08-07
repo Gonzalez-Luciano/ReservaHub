@@ -52,6 +52,11 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->hasMany(Schedule::class, 'employee_id');
     }
 
+    public function timeOffs(): HasMany
+    {
+        return $this->hasMany(TimeOff::class, 'employee_id');
+    }
+
     public function isOwner(): bool
     {
         return $this->role === Role::Owner;

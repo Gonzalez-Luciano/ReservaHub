@@ -5,6 +5,7 @@ use App\Http\Controllers\Dashboard\EmployeeInvitationController;
 use App\Http\Controllers\Dashboard\EmployeeServiceController;
 use App\Http\Controllers\Dashboard\ScheduleController;
 use App\Http\Controllers\Dashboard\ServiceController;
+use App\Http\Controllers\Dashboard\TimeOffController;
 use App\Http\Controllers\DashboardController;
 use Illuminate\Support\Facades\Route;
 
@@ -25,5 +26,7 @@ Route::middleware(['auth', 'business'])->group(function () {
         Route::delete('schedules/{schedule}', [ScheduleController::class, 'destroy'])->name('schedules.destroy');
         Route::post('schedules/{schedule}/breaks', [ScheduleController::class, 'storeBreak'])->name('schedules.breaks.store');
         Route::delete('schedule-breaks/{scheduleBreak}', [ScheduleController::class, 'destroyBreak'])->name('schedule-breaks.destroy');
+        Route::post('employees/{employee}/time-offs', [TimeOffController::class, 'store'])->name('employees.time-offs.store');
+        Route::delete('time-offs/{timeOff}', [TimeOffController::class, 'destroy'])->name('time-offs.destroy');
     });
 });

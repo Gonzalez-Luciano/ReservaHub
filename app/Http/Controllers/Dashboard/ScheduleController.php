@@ -29,6 +29,7 @@ class ScheduleController extends Controller
         return Inertia::render('Dashboard/Employees/Schedule', [
             'employee' => $employee->only(['id', 'name', 'email']),
             'schedules' => $employee->schedules()->with('breaks')->orderBy('day_of_week')->get(),
+            'timeOffs' => $employee->timeOffs()->orderBy('starts_at')->get(),
         ]);
     }
 
