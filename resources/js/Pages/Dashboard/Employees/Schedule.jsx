@@ -30,6 +30,7 @@ function ScheduleBreakForm({ schedule }) {
                 Agregar pausa
             </button>
             <InputError message={errors.start_time} />
+            <InputError message={errors.end_time} />
         </form>
     );
 }

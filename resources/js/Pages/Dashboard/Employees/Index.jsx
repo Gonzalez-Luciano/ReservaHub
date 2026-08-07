@@ -3,7 +3,7 @@ import DashboardLayout from '../../../Components/DashboardLayout';
 import InputError from '../../../Components/InputError';
 
 function EmployeeServices({ employee, services }) {
-    const { data, setData, put, processing } = useForm({ service_ids: employee.service_ids });
+    const { data, setData, put, processing, errors } = useForm({ service_ids: employee.service_ids });
 
     function toggle(id) {
         setData(
@@ -34,6 +34,7 @@ function EmployeeServices({ employee, services }) {
             <button type="submit" disabled={processing} className="underline disabled:opacity-50">
                 Guardar servicios
             </button>
+            <InputError message={errors.service_ids} />
         </form>
     );
 }
