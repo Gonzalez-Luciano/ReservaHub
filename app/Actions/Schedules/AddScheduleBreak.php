@@ -26,6 +26,19 @@ class AddScheduleBreak
             ]);
         }
 
+        $overlapsExistingBreak = $schedule->breaks()->get()->contains(function (ScheduleBreak $existing) use ($breakStart, $breakEnd) {
+            $existingStart = Carbon::parse($existing->start_time);
+            $existingEnd = Carbon::parse($existing->end_time);
+
+            return $breakStart->lt($existingEnd) && $existingStart->lt($breakEnd);
+        });
+
+        if ($overlapsExistingBreak) {
+            throw ValidationException::withMessages([
+                'start_time' => 'La pausa se superpone con otra pausa existente.',
+            ]);
+        }
+
         return $schedule->breaks()->create($data);
     }
 }

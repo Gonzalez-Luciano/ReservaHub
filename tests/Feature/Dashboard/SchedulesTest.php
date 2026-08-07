@@ -114,6 +114,46 @@ class SchedulesTest extends TestCase
         ])->assertRedirect("/dashboard/employees/{$employee->id}/schedule");
     }
 
+    public function test_break_overlapping_an_existing_break_is_rejected(): void
+    {
+        $business = Business::factory()->create();
+        $owner = User::factory()->create(['role' => Role::Owner, 'business_id' => $business->id]);
+        $employee = User::factory()->create(['role' => Role::Employee, 'business_id' => $business->id]);
+        $schedule = Schedule::factory()->for($business)->create([
+            'employee_id' => $employee->id,
+            'start_time' => '09:00',
+            'end_time' => '18:00',
+        ]);
+        $schedule->breaks()->create(['start_time' => '09:49', 'end_time' => '10:04']);
+
+        $this->actingAs($owner)->post("/dashboard/schedules/{$schedule->id}/breaks", [
+            'start_time' => '09:50',
+            'end_time' => '10:03',
+        ])->assertInvalid(['start_time']);
+
+        $this->assertSame(1, $schedule->breaks()->count());
+    }
+
+    public function test_break_adjacent_to_an_existing_break_is_accepted(): void
+    {
+        $business = Business::factory()->create();
+        $owner = User::factory()->create(['role' => Role::Owner, 'business_id' => $business->id]);
+        $employee = User::factory()->create(['role' => Role::Employee, 'business_id' => $business->id]);
+        $schedule = Schedule::factory()->for($business)->create([
+            'employee_id' => $employee->id,
+            'start_time' => '09:00',
+            'end_time' => '18:00',
+        ]);
+        $schedule->breaks()->create(['start_time' => '09:00', 'end_time' => '10:00']);
+
+        $this->actingAs($owner)->post("/dashboard/schedules/{$schedule->id}/breaks", [
+            'start_time' => '10:00',
+            'end_time' => '11:00',
+        ])->assertRedirect("/dashboard/employees/{$employee->id}/schedule");
+
+        $this->assertSame(2, $schedule->breaks()->count());
+    }
+
     public function test_owner_can_delete_schedule_and_break(): void
     {
         $business = Business::factory()->create();
