@@ -25,6 +25,8 @@ return new class extends Migration
             $table->timestamps();
 
             $table->index('business_id');
+            $table->index('customer_id');
+            $table->index('service_id');
             $table->index(['employee_id', 'starts_at', 'ends_at']);
             $table->index(['status', 'starts_at']);
         });

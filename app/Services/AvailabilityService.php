@@ -15,17 +15,30 @@ use Carbon\CarbonImmutable;
 class AvailabilityService
 {
     /**
+     * Free slots for an employee on a given calendar day.
+     *
+     * `$date`'s year/month/day — read from whatever timezone `$date` itself
+     * carries — is the calendar date being queried **in the business's own
+     * timezone**. `$date` is never converted as an instant, so a caller may pass
+     * e.g. a UTC-midnight date for a business in any timezone and still get that
+     * same calendar day back. Time-of-day on `$date` is ignored.
+     *
      * @return array<int, array{starts_at: CarbonImmutable, ends_at: CarbonImmutable}>
+     *
+     * @throws \InvalidArgumentException when `$service` or `$employee` belongs to another business.
      */
     public function getAvailableSlots(Business $business, Service $service, User $employee, CarbonImmutable $date): array
     {
-        app()->instance(Business::class, $business);
+        if ($service->business_id !== $business->id || $employee->business_id !== $business->id) {
+            throw new \InvalidArgumentException('Service and employee must belong to the given business.');
+        }
 
         $timezone = $business->timezone;
-        $localDate = $date->setTimezone($timezone)->startOfDay();
+        $localDate = CarbonImmutable::create($date->year, $date->month, $date->day, 0, 0, 0, $timezone);
         $dayOfWeek = DayOfWeek::from($localDate->dayOfWeek);
 
         $schedule = Schedule::query()
+            ->where('business_id', $business->id)
             ->where('employee_id', $employee->id)
             ->where('day_of_week', $dayOfWeek)
             ->where('is_active', true)
@@ -49,6 +62,7 @@ class AvailabilityService
         }
 
         $timeOffs = TimeOff::query()
+            ->where('business_id', $business->id)
             ->where('employee_id', $employee->id)
             ->where('starts_at', '<', $windowEnd->utc())
             ->where('ends_at', '>', $windowStart->utc())
@@ -65,15 +79,20 @@ class AvailabilityService
         $candidates = $this->generateCandidates($freeIntervals, $service->duration_minutes);
 
         $busySpans = Booking::query()
+            ->where('business_id', $business->id)
             ->where('employee_id', $employee->id)
             ->whereIn('status', [BookingStatus::Pending, BookingStatus::Confirmed, BookingStatus::Completed])
-            ->where('starts_at', '<', $windowEnd->utc())
+            // A candidate's occupied span reaches to `start + duration + buffer`,
+            // so a booking may start up to the requested service's buffer past the
+            // window end and still overlap the last candidate. A booking starting
+            // at or after that bound provably cannot overlap any candidate.
+            ->where('starts_at', '<', $windowEnd->utc()->addMinutes($service->buffer_minutes))
             ->where('starts_at', '>', $windowStart->utc()->subDay())
             ->with('service')
             ->get()
             ->map(fn (Booking $booking) => [
                 $booking->starts_at->toImmutable()->setTimezone($timezone),
-                $booking->ends_at->toImmutable()->setTimezone($timezone)->addMinutes($booking->service->buffer_minutes),
+                $booking->ends_at->toImmutable()->setTimezone($timezone)->addMinutes($booking->service?->buffer_minutes ?? 0),
             ])
             ->all();
 
