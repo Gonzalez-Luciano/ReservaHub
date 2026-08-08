@@ -265,4 +265,37 @@ class AvailabilityServiceTest extends TestCase
         $starts = array_map(fn (array $slot) => $slot['starts_at']->format('H:i'), $slots);
         $this->assertSame(['09:30'], $starts);
     }
+
+    public function test_booking_ending_before_window_still_blocks_via_buffer_reaching_into_window(): void
+    {
+        $business = Business::factory()->create();
+        $employee = User::factory()->employee()->create(['business_id' => $business->id]);
+        $service = Service::factory()->for($business)->create(['duration_minutes' => 30, 'buffer_minutes' => 15]);
+        $date = $this->nextMonday();
+
+        Schedule::factory()->create([
+            'business_id' => $business->id,
+            'employee_id' => $employee->id,
+            'day_of_week' => DayOfWeek::Monday,
+            'start_time' => '09:00',
+            'end_time' => '11:00',
+            'is_active' => true,
+        ]);
+
+        // Booking ends at 08:50, before the 09:00 window start, but its 15-minute
+        // buffer pushes its occupied end to 09:05 — reaching into the window.
+        Booking::factory()->create([
+            'business_id' => $business->id,
+            'employee_id' => $employee->id,
+            'service_id' => $service->id,
+            'status' => BookingStatus::Confirmed,
+            'starts_at' => $date->setTime(8, 20),
+            'ends_at' => $date->setTime(8, 50),
+        ]);
+
+        $slots = $this->service->getAvailableSlots($business, $service, $employee, $date);
+
+        $starts = array_map(fn (array $slot) => $slot['starts_at']->format('H:i'), $slots);
+        $this->assertNotContains('09:00', $starts);
+    }
 }

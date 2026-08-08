@@ -68,7 +68,7 @@ class AvailabilityService
             ->where('employee_id', $employee->id)
             ->whereIn('status', [BookingStatus::Pending, BookingStatus::Confirmed, BookingStatus::Completed])
             ->where('starts_at', '<', $windowEnd->utc())
-            ->where('ends_at', '>', $windowStart->utc())
+            ->where('starts_at', '>', $windowStart->utc()->subDay())
             ->with('service')
             ->get()
             ->map(fn (Booking $booking) => [
