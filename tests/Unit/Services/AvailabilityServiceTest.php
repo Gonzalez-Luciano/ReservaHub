@@ -28,6 +28,13 @@ class AvailabilityServiceTest extends TestCase
         $this->service = new AvailabilityService;
     }
 
+    protected function tearDown(): void
+    {
+        CarbonImmutable::setTestNow();
+
+        parent::tearDown();
+    }
+
     private function nextMonday(string $timezone = 'UTC'): CarbonImmutable
     {
         return CarbonImmutable::parse('next monday', $timezone)->startOfDay();
@@ -297,5 +304,52 @@ class AvailabilityServiceTest extends TestCase
 
         $starts = array_map(fn (array $slot) => $slot['starts_at']->format('H:i'), $slots);
         $this->assertNotContains('09:00', $starts);
+    }
+
+    public function test_excludes_past_slots_when_date_is_today(): void
+    {
+        $business = Business::factory()->create(['timezone' => 'UTC']);
+        $employee = User::factory()->employee()->create(['business_id' => $business->id]);
+        $service = Service::factory()->for($business)->create(['duration_minutes' => 30, 'buffer_minutes' => 0]);
+        $today = CarbonImmutable::now('UTC')->startOfDay();
+
+        Schedule::factory()->create([
+            'business_id' => $business->id,
+            'employee_id' => $employee->id,
+            'day_of_week' => DayOfWeek::from($today->dayOfWeek),
+            'start_time' => '09:00',
+            'end_time' => '11:00',
+            'is_active' => true,
+        ]);
+
+        CarbonImmutable::setTestNow($today->setTime(9, 45));
+
+        $slots = $this->service->getAvailableSlots($business, $service, $employee, $today);
+
+        $starts = array_map(fn (array $slot) => $slot['starts_at']->format('H:i'), $slots);
+        $this->assertSame(['10:00', '10:30'], $starts);
+    }
+
+    public function test_does_not_filter_by_current_time_for_a_future_date(): void
+    {
+        $business = Business::factory()->create(['timezone' => 'UTC']);
+        $employee = User::factory()->employee()->create(['business_id' => $business->id]);
+        $service = Service::factory()->for($business)->create(['duration_minutes' => 30, 'buffer_minutes' => 0]);
+        $date = $this->nextMonday();
+
+        Schedule::factory()->create([
+            'business_id' => $business->id,
+            'employee_id' => $employee->id,
+            'day_of_week' => DayOfWeek::Monday,
+            'start_time' => '09:00',
+            'end_time' => '10:00',
+            'is_active' => true,
+        ]);
+
+        CarbonImmutable::setTestNow($date->subDay());
+
+        $slots = $this->service->getAvailableSlots($business, $service, $employee, $date);
+
+        $this->assertCount(2, $slots);
     }
 }

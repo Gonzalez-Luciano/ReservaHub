@@ -77,8 +77,15 @@ class AvailabilityService
             ])
             ->all();
 
+        $now = CarbonImmutable::now($timezone);
+        $isToday = $localDate->isSameDay($now);
+
         $slots = [];
         foreach ($candidates as $start) {
+            if ($isToday && $start->lt($now)) {
+                continue;
+            }
+
             $end = $start->addMinutes($service->duration_minutes);
             $occupiedEnd = $end->addMinutes($service->buffer_minutes);
 
