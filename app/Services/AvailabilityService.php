@@ -2,7 +2,9 @@
 
 namespace App\Services;
 
+use App\Enums\BookingStatus;
 use App\Enums\DayOfWeek;
+use App\Models\Booking;
 use App\Models\Business;
 use App\Models\Schedule;
 use App\Models\Service;
@@ -62,12 +64,29 @@ class AvailabilityService
 
         $candidates = $this->generateCandidates($freeIntervals, $service->duration_minutes);
 
+        $busySpans = Booking::query()
+            ->where('employee_id', $employee->id)
+            ->whereIn('status', [BookingStatus::Pending, BookingStatus::Confirmed, BookingStatus::Completed])
+            ->where('starts_at', '<', $windowEnd->utc())
+            ->where('ends_at', '>', $windowStart->utc())
+            ->with('service')
+            ->get()
+            ->map(fn (Booking $booking) => [
+                $booking->starts_at->toImmutable()->setTimezone($timezone),
+                $booking->ends_at->toImmutable()->setTimezone($timezone)->addMinutes($booking->service->buffer_minutes),
+            ])
+            ->all();
+
         $slots = [];
         foreach ($candidates as $start) {
-            $slots[] = [
-                'starts_at' => $start,
-                'ends_at' => $start->addMinutes($service->duration_minutes),
-            ];
+            $end = $start->addMinutes($service->duration_minutes);
+            $occupiedEnd = $end->addMinutes($service->buffer_minutes);
+
+            if ($this->overlapsAny($start, $occupiedEnd, $busySpans)) {
+                continue;
+            }
+
+            $slots[] = ['starts_at' => $start, 'ends_at' => $end];
         }
 
         return $slots;
@@ -90,6 +109,20 @@ class AvailabilityService
         }
 
         return $candidates;
+    }
+
+    /**
+     * @param  array<int, array{0: CarbonImmutable, 1: CarbonImmutable}>  $spans
+     */
+    private function overlapsAny(CarbonImmutable $start, CarbonImmutable $end, array $spans): bool
+    {
+        foreach ($spans as [$spanStart, $spanEnd]) {
+            if ($start->lt($spanEnd) && $spanStart->lt($end)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

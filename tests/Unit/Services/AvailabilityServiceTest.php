@@ -2,7 +2,9 @@
 
 namespace Tests\Unit\Services;
 
+use App\Enums\BookingStatus;
 use App\Enums\DayOfWeek;
+use App\Models\Booking;
 use App\Models\Business;
 use App\Models\Schedule;
 use App\Models\Service;
@@ -164,5 +166,103 @@ class AvailabilityServiceTest extends TestCase
 
         $starts = array_map(fn (array $slot) => $slot['starts_at']->format('H:i'), $slots);
         $this->assertSame(['09:00', '10:30'], $starts);
+    }
+
+    public function test_existing_booking_blocks_its_slot_and_the_next_one_via_buffer(): void
+    {
+        $business = Business::factory()->create();
+        $employee = User::factory()->employee()->create(['business_id' => $business->id]);
+        $service = Service::factory()->for($business)->create(['duration_minutes' => 30, 'buffer_minutes' => 10]);
+        $date = $this->nextMonday();
+
+        Schedule::factory()->create([
+            'business_id' => $business->id,
+            'employee_id' => $employee->id,
+            'day_of_week' => DayOfWeek::Monday,
+            'start_time' => '09:00',
+            'end_time' => '11:00',
+            'is_active' => true,
+        ]);
+
+        Booking::factory()->create([
+            'business_id' => $business->id,
+            'employee_id' => $employee->id,
+            'service_id' => $service->id,
+            'status' => BookingStatus::Confirmed,
+            'starts_at' => $date->setTime(10, 0),
+            'ends_at' => $date->setTime(10, 30),
+        ]);
+
+        $slots = $this->service->getAvailableSlots($business, $service, $employee, $date);
+
+        $starts = array_map(fn (array $slot) => $slot['starts_at']->format('H:i'), $slots);
+        $this->assertSame(['09:00'], $starts);
+    }
+
+    public function test_cancelled_and_no_show_bookings_do_not_block_slots(): void
+    {
+        $business = Business::factory()->create();
+        $employee = User::factory()->employee()->create(['business_id' => $business->id]);
+        $service = Service::factory()->for($business)->create(['duration_minutes' => 30, 'buffer_minutes' => 0]);
+        $date = $this->nextMonday();
+
+        Schedule::factory()->create([
+            'business_id' => $business->id,
+            'employee_id' => $employee->id,
+            'day_of_week' => DayOfWeek::Monday,
+            'start_time' => '09:00',
+            'end_time' => '10:00',
+            'is_active' => true,
+        ]);
+
+        Booking::factory()->cancelled()->create([
+            'business_id' => $business->id,
+            'employee_id' => $employee->id,
+            'service_id' => $service->id,
+            'starts_at' => $date->setTime(9, 0),
+            'ends_at' => $date->setTime(9, 30),
+        ]);
+        Booking::factory()->noShow()->create([
+            'business_id' => $business->id,
+            'employee_id' => $employee->id,
+            'service_id' => $service->id,
+            'starts_at' => $date->setTime(9, 30),
+            'ends_at' => $date->setTime(10, 0),
+        ]);
+
+        $slots = $this->service->getAvailableSlots($business, $service, $employee, $date);
+
+        $this->assertCount(2, $slots);
+    }
+
+    public function test_zero_buffer_allows_back_to_back_slots(): void
+    {
+        $business = Business::factory()->create();
+        $employee = User::factory()->employee()->create(['business_id' => $business->id]);
+        $service = Service::factory()->for($business)->create(['duration_minutes' => 30, 'buffer_minutes' => 0]);
+        $date = $this->nextMonday();
+
+        Schedule::factory()->create([
+            'business_id' => $business->id,
+            'employee_id' => $employee->id,
+            'day_of_week' => DayOfWeek::Monday,
+            'start_time' => '09:00',
+            'end_time' => '10:00',
+            'is_active' => true,
+        ]);
+
+        Booking::factory()->create([
+            'business_id' => $business->id,
+            'employee_id' => $employee->id,
+            'service_id' => $service->id,
+            'status' => BookingStatus::Confirmed,
+            'starts_at' => $date->setTime(9, 0),
+            'ends_at' => $date->setTime(9, 30),
+        ]);
+
+        $slots = $this->service->getAvailableSlots($business, $service, $employee, $date);
+
+        $starts = array_map(fn (array $slot) => $slot['starts_at']->format('H:i'), $slots);
+        $this->assertSame(['09:30'], $starts);
     }
 }
