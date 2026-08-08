@@ -346,7 +346,7 @@ class AvailabilityServiceTest extends TestCase
             'is_active' => true,
         ]);
 
-        CarbonImmutable::setTestNow($date->subDay());
+        CarbonImmutable::setTestNow($date->addYear());
 
         $slots = $this->service->getAvailableSlots($business, $service, $employee, $date);
 
