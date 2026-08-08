@@ -6,6 +6,7 @@ use App\Enums\DayOfWeek;
 use App\Models\Business;
 use App\Models\Schedule;
 use App\Models\Service;
+use App\Models\TimeOff;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 
@@ -42,6 +43,20 @@ class AvailabilityService
                 $freeIntervals,
                 $localDate->setTimeFromTimeString($break->start_time),
                 $localDate->setTimeFromTimeString($break->end_time),
+            );
+        }
+
+        $timeOffs = TimeOff::query()
+            ->where('employee_id', $employee->id)
+            ->where('starts_at', '<', $windowEnd->utc())
+            ->where('ends_at', '>', $windowStart->utc())
+            ->get();
+
+        foreach ($timeOffs as $timeOff) {
+            $freeIntervals = $this->subtractInterval(
+                $freeIntervals,
+                $timeOff->starts_at->toImmutable()->setTimezone($timezone),
+                $timeOff->ends_at->toImmutable()->setTimezone($timezone),
             );
         }
 

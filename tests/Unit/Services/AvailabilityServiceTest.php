@@ -6,6 +6,7 @@ use App\Enums\DayOfWeek;
 use App\Models\Business;
 use App\Models\Schedule;
 use App\Models\Service;
+use App\Models\TimeOff;
 use App\Models\User;
 use App\Services\AvailabilityService;
 use Carbon\CarbonImmutable;
@@ -106,5 +107,62 @@ class AvailabilityServiceTest extends TestCase
 
         $starts = array_map(fn (array $slot) => $slot['starts_at']->format('H:i'), $slots);
         $this->assertSame(['09:00', '09:30', '10:30'], $starts);
+    }
+
+    public function test_excludes_slots_during_a_full_day_time_off(): void
+    {
+        $business = Business::factory()->create();
+        $employee = User::factory()->employee()->create(['business_id' => $business->id]);
+        $service = Service::factory()->for($business)->create(['duration_minutes' => 30, 'buffer_minutes' => 0]);
+        $date = $this->nextMonday();
+
+        Schedule::factory()->create([
+            'business_id' => $business->id,
+            'employee_id' => $employee->id,
+            'day_of_week' => DayOfWeek::Monday,
+            'start_time' => '09:00',
+            'end_time' => '10:00',
+            'is_active' => true,
+        ]);
+
+        TimeOff::factory()->create([
+            'business_id' => $business->id,
+            'employee_id' => $employee->id,
+            'starts_at' => $date->subDay(),
+            'ends_at' => $date->addDay(),
+        ]);
+
+        $slots = $this->service->getAvailableSlots($business, $service, $employee, $date);
+
+        $this->assertSame([], $slots);
+    }
+
+    public function test_excludes_slots_during_a_partial_day_time_off(): void
+    {
+        $business = Business::factory()->create();
+        $employee = User::factory()->employee()->create(['business_id' => $business->id]);
+        $service = Service::factory()->for($business)->create(['duration_minutes' => 30, 'buffer_minutes' => 0]);
+        $date = $this->nextMonday();
+
+        Schedule::factory()->create([
+            'business_id' => $business->id,
+            'employee_id' => $employee->id,
+            'day_of_week' => DayOfWeek::Monday,
+            'start_time' => '09:00',
+            'end_time' => '11:00',
+            'is_active' => true,
+        ]);
+
+        TimeOff::factory()->create([
+            'business_id' => $business->id,
+            'employee_id' => $employee->id,
+            'starts_at' => $date->setTime(9, 30),
+            'ends_at' => $date->setTime(10, 30),
+        ]);
+
+        $slots = $this->service->getAvailableSlots($business, $service, $employee, $date);
+
+        $starts = array_map(fn (array $slot) => $slot['starts_at']->format('H:i'), $slots);
+        $this->assertSame(['09:00', '10:30'], $starts);
     }
 }
