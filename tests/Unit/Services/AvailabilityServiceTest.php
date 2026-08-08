@@ -352,4 +352,38 @@ class AvailabilityServiceTest extends TestCase
 
         $this->assertCount(2, $slots);
     }
+
+    public function test_computes_correct_local_slots_when_business_timezone_crosses_utc_midnight(): void
+    {
+        // Asia/Tokyo is UTC+9: a 00:00-02:00 local schedule falls on the
+        // *previous* UTC calendar day (15:00-17:00 UTC).
+        $business = Business::factory()->create(['timezone' => 'Asia/Tokyo']);
+        $employee = User::factory()->employee()->create(['business_id' => $business->id]);
+        $service = Service::factory()->for($business)->create(['duration_minutes' => 30, 'buffer_minutes' => 0]);
+        $date = CarbonImmutable::parse('next monday', 'Asia/Tokyo')->startOfDay();
+
+        Schedule::factory()->create([
+            'business_id' => $business->id,
+            'employee_id' => $employee->id,
+            'day_of_week' => DayOfWeek::Monday,
+            'start_time' => '00:00',
+            'end_time' => '02:00',
+            'is_active' => true,
+        ]);
+
+        TimeOff::factory()->create([
+            'business_id' => $business->id,
+            'employee_id' => $employee->id,
+            'starts_at' => $date->setTime(0, 30)->utc(),
+            'ends_at' => $date->setTime(1, 0)->utc(),
+        ]);
+
+        $slots = $this->service->getAvailableSlots($business, $service, $employee, $date);
+
+        $this->assertCount(3, $slots);
+        $this->assertSame('00:00', $slots[0]['starts_at']->format('H:i'));
+        $this->assertSame('Asia/Tokyo', $slots[0]['starts_at']->getTimezone()->getName());
+        $this->assertSame('01:00', $slots[1]['starts_at']->format('H:i'));
+        $this->assertSame('01:30', $slots[2]['starts_at']->format('H:i'));
+    }
 }
