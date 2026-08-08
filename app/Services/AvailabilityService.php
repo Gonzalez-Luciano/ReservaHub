@@ -35,7 +35,17 @@ class AvailabilityService
         $windowStart = $localDate->setTimeFromTimeString($schedule->start_time);
         $windowEnd = $localDate->setTimeFromTimeString($schedule->end_time);
 
-        $candidates = $this->generateCandidates([[$windowStart, $windowEnd]], $service->duration_minutes);
+        $freeIntervals = [[$windowStart, $windowEnd]];
+
+        foreach ($schedule->breaks as $break) {
+            $freeIntervals = $this->subtractInterval(
+                $freeIntervals,
+                $localDate->setTimeFromTimeString($break->start_time),
+                $localDate->setTimeFromTimeString($break->end_time),
+            );
+        }
+
+        $candidates = $this->generateCandidates($freeIntervals, $service->duration_minutes);
 
         $slots = [];
         foreach ($candidates as $start) {
@@ -65,5 +75,32 @@ class AvailabilityService
         }
 
         return $candidates;
+    }
+
+    /**
+     * @param  array<int, array{0: CarbonImmutable, 1: CarbonImmutable}>  $intervals
+     * @return array<int, array{0: CarbonImmutable, 1: CarbonImmutable}>
+     */
+    private function subtractInterval(array $intervals, CarbonImmutable $blockStart, CarbonImmutable $blockEnd): array
+    {
+        $result = [];
+
+        foreach ($intervals as [$start, $end]) {
+            if ($blockEnd->lte($start) || $blockStart->gte($end)) {
+                $result[] = [$start, $end];
+
+                continue;
+            }
+
+            if ($blockStart->gt($start)) {
+                $result[] = [$start, $blockStart];
+            }
+
+            if ($blockEnd->lt($end)) {
+                $result[] = [$blockEnd, $end];
+            }
+        }
+
+        return $result;
     }
 }

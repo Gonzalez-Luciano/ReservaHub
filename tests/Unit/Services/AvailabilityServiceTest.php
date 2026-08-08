@@ -85,4 +85,26 @@ class AvailabilityServiceTest extends TestCase
 
         $this->assertSame([], $slots);
     }
+
+    public function test_excludes_slots_overlapping_a_schedule_break(): void
+    {
+        $business = Business::factory()->create();
+        $employee = User::factory()->employee()->create(['business_id' => $business->id]);
+        $service = Service::factory()->for($business)->create(['duration_minutes' => 30, 'buffer_minutes' => 0]);
+
+        $schedule = Schedule::factory()->create([
+            'business_id' => $business->id,
+            'employee_id' => $employee->id,
+            'day_of_week' => DayOfWeek::Monday,
+            'start_time' => '09:00',
+            'end_time' => '11:00',
+            'is_active' => true,
+        ]);
+        $schedule->breaks()->create(['start_time' => '10:00', 'end_time' => '10:30']);
+
+        $slots = $this->service->getAvailableSlots($business, $service, $employee, $this->nextMonday());
+
+        $starts = array_map(fn (array $slot) => $slot['starts_at']->format('H:i'), $slots);
+        $this->assertSame(['09:00', '09:30', '10:30'], $starts);
+    }
 }
