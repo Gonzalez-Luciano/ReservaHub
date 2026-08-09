@@ -30,12 +30,16 @@ class RescheduleBooking
 
         $service = $booking->service;
         $employee = $booking->employee;
-        $oldStart = $booking->starts_at->format('Y-m-d H:i');
+        $oldStart = $booking->starts_at->setTimezone($business->timezone)->format('Y-m-d H:i');
         $newStart = CarbonImmutable::parse($data['starts_at'])->setTimezone($business->timezone);
         $newEnd = $newStart->addMinutes($service->duration_minutes);
 
         return DB::transaction(function () use ($business, $service, $employee, $booking, $newStart, $newEnd, $oldStart, $actingUser) {
             DB::statement('select pg_advisory_xact_lock(hashtext(?))', [(string) $employee->id]);
+
+            if ($newStart->lt(CarbonImmutable::now($business->timezone))) {
+                throw ValidationException::withMessages(['starts_at' => 'No se puede reprogramar a un horario que ya pasó.']);
+            }
 
             $available = collect($this->availabilityService->getAvailableSlots($business, $service, $employee, $newStart, excludeBookingId: $booking->id))
                 ->contains(fn (array $slot) => $slot['starts_at']->equalTo($newStart));
