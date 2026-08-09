@@ -34,6 +34,7 @@ class CancelBookingTest extends TestCase
         $this->assertNotNull($cancelled->cancelled_at);
         $this->assertDatabaseHas('booking_status_histories', [
             'booking_id' => $booking->id,
+            'from_status' => 'pending',
             'to_status' => 'cancelled',
             'changed_by' => $staff->id,
         ]);
@@ -54,6 +55,12 @@ class CancelBookingTest extends TestCase
         $cancelled = app(CancelBooking::class)->handle($booking, $customer);
 
         $this->assertSame(BookingStatus::Cancelled, $cancelled->status);
+        $this->assertDatabaseHas('booking_status_histories', [
+            'booking_id' => $booking->id,
+            'from_status' => 'confirmed',
+            'to_status' => 'cancelled',
+            'changed_by' => $customer->id,
+        ]);
     }
 
     public function test_customer_cannot_cancel_inside_the_cancellation_window(): void
