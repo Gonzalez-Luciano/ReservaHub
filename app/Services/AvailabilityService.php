@@ -27,7 +27,7 @@ class AvailabilityService
      *
      * @throws \InvalidArgumentException when `$service` or `$employee` belongs to another business.
      */
-    public function getAvailableSlots(Business $business, Service $service, User $employee, CarbonImmutable $date): array
+    public function getAvailableSlots(Business $business, Service $service, User $employee, CarbonImmutable $date, ?int $excludeBookingId = null): array
     {
         if ($service->business_id !== $business->id || $employee->business_id !== $business->id) {
             throw new \InvalidArgumentException('Service and employee must belong to the given business.');
@@ -88,6 +88,7 @@ class AvailabilityService
             // at or after that bound provably cannot overlap any candidate.
             ->where('starts_at', '<', $windowEnd->utc()->addMinutes($service->buffer_minutes))
             ->where('starts_at', '>', $windowStart->utc()->subDay())
+            ->when($excludeBookingId, fn ($query, $id) => $query->where('id', '!=', $id))
             ->with('service')
             ->get()
             ->map(fn (Booking $booking) => [

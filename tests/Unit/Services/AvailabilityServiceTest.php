@@ -538,4 +538,36 @@ class AvailabilityServiceTest extends TestCase
 
         $this->service->getAvailableSlots($business, $service, $foreignEmployee, $this->nextMonday());
     }
+
+    public function test_excludes_a_given_booking_id_from_the_busy_span_calculation(): void
+    {
+        $business = Business::factory()->create();
+        $employee = User::factory()->employee()->create(['business_id' => $business->id]);
+        $service = Service::factory()->for($business)->create(['duration_minutes' => 30, 'buffer_minutes' => 0]);
+        $date = $this->nextMonday();
+
+        Schedule::factory()->create([
+            'business_id' => $business->id,
+            'employee_id' => $employee->id,
+            'day_of_week' => DayOfWeek::Monday,
+            'start_time' => '09:00',
+            'end_time' => '10:00',
+            'is_active' => true,
+        ]);
+
+        $booking = Booking::factory()->create([
+            'business_id' => $business->id,
+            'employee_id' => $employee->id,
+            'service_id' => $service->id,
+            'status' => BookingStatus::Confirmed,
+            'starts_at' => $date->setTime(9, 0),
+            'ends_at' => $date->setTime(9, 30),
+        ]);
+
+        $withoutExclusion = $this->service->getAvailableSlots($business, $service, $employee, $date);
+        $withExclusion = $this->service->getAvailableSlots($business, $service, $employee, $date, excludeBookingId: $booking->id);
+
+        $this->assertSame(['09:30'], array_map(fn (array $slot) => $slot['starts_at']->format('H:i'), $withoutExclusion));
+        $this->assertSame(['09:00', '09:30'], array_map(fn (array $slot) => $slot['starts_at']->format('H:i'), $withExclusion));
+    }
 }
