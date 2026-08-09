@@ -40,6 +40,10 @@ class CreateBooking
         $booking = DB::transaction(function () use ($business, $service, $employee, $customer, $startsAt, $endsAt, $data, $actingUser) {
             DB::statement('select pg_advisory_xact_lock(hashtext(?))', [(string) $employee->id]);
 
+            if ($startsAt->lt(CarbonImmutable::now($business->timezone))) {
+                throw ValidationException::withMessages(['starts_at' => 'No se puede reservar en un horario que ya pasó.']);
+            }
+
             $available = collect($this->availabilityService->getAvailableSlots($business, $service, $employee, $startsAt))
                 ->contains(fn (array $slot) => $slot['starts_at']->equalTo($startsAt));
 

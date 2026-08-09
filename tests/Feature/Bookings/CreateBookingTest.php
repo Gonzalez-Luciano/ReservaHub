@@ -115,6 +115,32 @@ class CreateBookingTest extends TestCase
             'ends_at' => $slot->addMinutes(30),
         ]);
 
+        try {
+            app(CreateBooking::class)->handle($business, [
+                'customer_id' => $customer->id,
+                'employee_id' => $employee->id,
+                'service_id' => $service->id,
+                'starts_at' => $slot->toIso8601String(),
+                'source' => 'web',
+                'notes' => null,
+            ], $customer);
+
+            $this->fail('Expected a ValidationException to be thrown.');
+        } catch (ValidationException $e) {
+            $this->assertArrayHasKey('starts_at', $e->errors());
+        }
+
+        // Only the pre-existing booking from setup should survive — the
+        // rejected attempt must not leave a partial write behind.
+        $this->assertDatabaseCount('bookings', 1);
+        $this->assertDatabaseCount('booking_status_histories', 0);
+    }
+
+    public function test_rejects_a_slot_entirely_in_the_past(): void
+    {
+        ['business' => $business, 'employee' => $employee, 'service' => $service, 'customer' => $customer] = $this->setUpBusinessWithSchedule();
+        $slot = $this->nextMonday()->subWeeks(2)->setTime(9, 0);
+
         $this->expectException(ValidationException::class);
 
         app(CreateBooking::class)->handle($business, [
