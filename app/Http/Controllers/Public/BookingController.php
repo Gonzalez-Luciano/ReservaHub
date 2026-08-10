@@ -43,9 +43,7 @@ class BookingController extends Controller
             'notes' => null,
         ], $request->user());
 
-        // TODO(Task 12): once `Public\MyBookingsController` exists, redirect here to
-        // `public.bookings.mine.index` instead — that route doesn't exist yet in this task.
-        return redirect()->route('public.business.show', $business);
+        return redirect()->route('public.bookings.mine.index');
     }
 
     private function employeesFor(Request $request): array
