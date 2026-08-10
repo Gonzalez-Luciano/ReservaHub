@@ -159,4 +159,14 @@ class BookingsTest extends TestCase
             'starts_at' => $newStart->setTimezone('UTC')->format('Y-m-d H:i:s'),
         ]);
     }
+
+    public function test_create_page_does_not_500_on_malformed_query_params(): void
+    {
+        $business = Business::factory()->create();
+        $staff = User::factory()->employee()->create(['business_id' => $business->id]);
+
+        $this->actingAs($staff)
+            ->get('/dashboard/bookings/create?employee_id=abc&service_id=abc&date=not-a-date')
+            ->assertOk();
+    }
 }

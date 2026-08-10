@@ -119,7 +119,13 @@ class BookingController extends Controller
         $serviceId = $request->query('service_id');
         $date = $request->query('date');
 
-        if (! $employeeId || ! $serviceId || ! $date) {
+        if (! $employeeId || ! is_numeric($employeeId) || ! $serviceId || ! is_numeric($serviceId) || ! $date) {
+            return [];
+        }
+
+        try {
+            $parsedDate = CarbonImmutable::parse($date, Business::current()->timezone);
+        } catch (\Exception) {
             return [];
         }
 
@@ -130,11 +136,6 @@ class BookingController extends Controller
             return [];
         }
 
-        return $availabilityService->getAvailableSlots(
-            Business::current(),
-            $service,
-            $employee,
-            CarbonImmutable::parse($date, Business::current()->timezone),
-        );
+        return $availabilityService->getAvailableSlots(Business::current(), $service, $employee, $parsedDate);
     }
 }
