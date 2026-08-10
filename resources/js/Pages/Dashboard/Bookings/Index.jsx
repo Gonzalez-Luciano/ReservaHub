@@ -1,6 +1,7 @@
-import { Link, router } from '@inertiajs/react';
+import { Link, router, usePage } from '@inertiajs/react';
 import { useState } from 'react';
 import DashboardLayout from '../../../Components/DashboardLayout';
+import InputError from '../../../Components/InputError';
 
 const STATUS_LABELS = {
     pending: 'Pendiente',
@@ -18,6 +19,7 @@ const CONFIRM_MESSAGES = {
 };
 
 export default function Index({ bookings }) {
+    const { errors } = usePage().props;
     const [reschedulingId, setReschedulingId] = useState(null);
     const [rescheduleDate, setRescheduleDate] = useState('');
     const [rescheduleSlots, setRescheduleSlots] = useState([]);
@@ -139,6 +141,7 @@ export default function Index({ bookings }) {
                                                     </option>
                                                 ))}
                                             </select>
+                                            <InputError message={errors.starts_at} />
                                             <div className="mt-2 flex gap-3">
                                                 <button
                                                     onClick={() => submitReschedule(booking)}
