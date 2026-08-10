@@ -35,7 +35,7 @@ class RescheduleBooking
         $newEnd = $newStart->addMinutes($service->duration_minutes);
 
         return DB::transaction(function () use ($business, $service, $employee, $booking, $newStart, $newEnd, $oldStart, $actingUser) {
-            DB::statement('select pg_advisory_xact_lock(hashtext(?))', [(string) $employee->id]);
+            DB::statement('select pg_advisory_xact_lock(hashtext(?))', ['booking-employee-'.$employee->id]);
 
             if ($newStart->lt(CarbonImmutable::now($business->timezone))) {
                 throw ValidationException::withMessages(['starts_at' => 'No se puede reprogramar a un horario que ya pasó.']);

@@ -13,6 +13,18 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
 
+/**
+ * Covers the integration-level half of overlap-safety: a second CreateBooking
+ * call for an already-claimed slot is rejected. This does NOT exercise genuine
+ * OS-level concurrency — a single PHP process cannot host two truly parallel
+ * database transactions without spawning a second process, which this fase
+ * does not do. The lock's actual blocking/serialization semantics (session B
+ * cannot acquire the advisory lock while session A holds it, and can once A
+ * commits) are proven separately, with two real Postgres sessions, by
+ * tests/Unit/Database/AdvisoryLockTest.php. Together the two tests cover:
+ * "the lock mechanism works" (AdvisoryLockTest) and "CreateBooking uses it
+ * correctly to reject a slot someone else already claimed" (this test).
+ */
 class BookingConcurrencyTest extends TestCase
 {
     use RefreshDatabase;
@@ -27,6 +39,7 @@ class BookingConcurrencyTest extends TestCase
         $business = Business::factory()->create(['timezone' => 'UTC']);
         $employee = User::factory()->employee()->create(['business_id' => $business->id]);
         $service = Service::factory()->for($business)->create(['duration_minutes' => 30, 'buffer_minutes' => 0]);
+        $service->employees()->attach($employee->id);
         $customerA = User::factory()->customer()->create();
         $customerB = User::factory()->customer()->create();
         $slot = $this->nextMonday()->setTime(9, 0);
@@ -40,8 +53,6 @@ class BookingConcurrencyTest extends TestCase
             'is_active' => true,
         ]);
 
-        $service->employees()->attach($employee->id);
-
         $payload = fn (User $customer) => [
             'customer_id' => $customer->id,
             'employee_id' => $employee->id,
@@ -54,7 +65,13 @@ class BookingConcurrencyTest extends TestCase
         $first = app(CreateBooking::class)->handle($business, $payload($customerA), $customerA);
         $this->assertNotNull($first->id);
 
-        $this->expectException(ValidationException::class);
-        app(CreateBooking::class)->handle($business, $payload($customerB), $customerB);
+        try {
+            app(CreateBooking::class)->handle($business, $payload($customerB), $customerB);
+            $this->fail('Expected ValidationException for an already-claimed slot.');
+        } catch (ValidationException $e) {
+            $this->assertArrayHasKey('starts_at', $e->errors());
+        }
+
+        $this->assertDatabaseCount('bookings', 1);
     }
 }

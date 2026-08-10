@@ -50,7 +50,7 @@ class CreateBooking
         $endsAt = $startsAt->addMinutes($service->duration_minutes);
 
         $booking = DB::transaction(function () use ($business, $service, $employee, $customer, $startsAt, $endsAt, $data, $actingUser) {
-            DB::statement('select pg_advisory_xact_lock(hashtext(?))', [(string) $employee->id]);
+            DB::statement('select pg_advisory_xact_lock(hashtext(?))', ['booking-employee-'.$employee->id]);
 
             if ($startsAt->lt(CarbonImmutable::now($business->timezone))) {
                 throw ValidationException::withMessages(['starts_at' => 'No se puede reservar en un horario que ya pasó.']);
