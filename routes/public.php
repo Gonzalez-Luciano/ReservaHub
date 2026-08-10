@@ -14,7 +14,7 @@ Route::prefix('negocios/{business:slug}')->middleware(BindPublicBusiness::class)
 
 Route::middleware('auth')->prefix('mis-reservas')->name('public.bookings.mine.')->group(function () {
     Route::get('/', [MyBookingsController::class, 'index'])->name('index');
-    Route::post('/{booking}/cancel', [MyBookingsController::class, 'cancel'])->name('cancel');
-    Route::put('/{booking}/reschedule', [MyBookingsController::class, 'reschedule'])->name('reschedule');
-    Route::get('/{booking}/reschedule-slots', [MyBookingsController::class, 'rescheduleSlots'])->name('reschedule-slots');
+    Route::post('/{booking}/cancel', [MyBookingsController::class, 'cancel'])->name('cancel')->whereNumber('booking');
+    Route::put('/{booking}/reschedule', [MyBookingsController::class, 'reschedule'])->name('reschedule')->whereNumber('booking');
+    Route::get('/{booking}/reschedule-slots', [MyBookingsController::class, 'rescheduleSlots'])->name('reschedule-slots')->whereNumber('booking');
 });

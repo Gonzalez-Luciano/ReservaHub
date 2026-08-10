@@ -8,6 +8,7 @@ use App\Actions\Bookings\ConfirmBooking;
 use App\Actions\Bookings\CreateBooking;
 use App\Actions\Bookings\MarkNoShow;
 use App\Actions\Bookings\RescheduleBooking;
+use App\Enums\Role;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Dashboard\BookingRequest;
 use App\Http\Requests\Dashboard\RescheduleBookingRequest;
@@ -42,7 +43,7 @@ class BookingController extends Controller
 
         return Inertia::render('Dashboard/Bookings/Form', [
             'services' => Service::where('is_active', true)->orderBy('name')->get(['id', 'name', 'duration_minutes']),
-            'employees' => User::where('business_id', Business::current()->id)->where('role', 'employee')->orderBy('name')->get(['id', 'name']),
+            'employees' => User::where('business_id', Business::current()->id)->where('role', Role::Employee)->orderBy('name')->get(['id', 'name']),
             'slots' => $this->slotsFor($availabilityService, $request),
         ]);
     }

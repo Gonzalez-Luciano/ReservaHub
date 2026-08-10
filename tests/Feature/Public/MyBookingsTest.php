@@ -171,4 +171,11 @@ class MyBookingsTest extends TestCase
 
         $this->assertSame([], $response['slots']);
     }
+
+    public function test_non_numeric_booking_id_returns_not_found(): void
+    {
+        $customer = User::factory()->customer()->create();
+
+        $this->actingAs($customer)->post('/mis-reservas/abc/cancel')->assertNotFound();
+    }
 }
