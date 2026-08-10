@@ -49,7 +49,7 @@ export default function Form({ services, employees, slots }) {
                         <label className="block text-sm font-medium text-gray-700">Servicio</label>
                         <select
                             value={data.service_id}
-                            onChange={(e) => setData('service_id', e.target.value)}
+                            onChange={(e) => setData((d) => ({ ...d, service_id: e.target.value, employee_id: '', starts_at: '' }))}
                             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
                         >
                             <option value="">Elegir…</option>
@@ -63,7 +63,7 @@ export default function Form({ services, employees, slots }) {
                         <label className="block text-sm font-medium text-gray-700">Empleado</label>
                         <select
                             value={data.employee_id}
-                            onChange={(e) => setData('employee_id', e.target.value)}
+                            onChange={(e) => setData((d) => ({ ...d, employee_id: e.target.value, starts_at: '' }))}
                             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
                         >
                             <option value="">Elegir…</option>
@@ -78,7 +78,7 @@ export default function Form({ services, employees, slots }) {
                         <input
                             type="date"
                             value={data.date}
-                            onChange={(e) => setData('date', e.target.value)}
+                            onChange={(e) => setData((d) => ({ ...d, date: e.target.value, starts_at: '' }))}
                             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
                         />
                     </div>
