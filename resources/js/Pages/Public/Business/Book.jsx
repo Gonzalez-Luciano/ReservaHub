@@ -1,6 +1,7 @@
 import { router, useForm } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 import InputError from '../../../Components/InputError';
+import PublicLayout from '../../../Components/PublicLayout';
 
 export default function Book({ business, services, employees, slots }) {
     const { data, setData, post, processing, errors } = useForm({
@@ -40,8 +41,9 @@ export default function Book({ business, services, employees, slots }) {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 p-8">
-            <div className="mx-auto max-w-lg">
+        <PublicLayout>
+            <div className="p-8">
+                <div className="mx-auto max-w-lg">
                 <h1 className="mb-6 text-2xl font-bold">Reservar en {business.name}</h1>
                 <form onSubmit={submit} className="space-y-4">
                     <div>
@@ -109,7 +111,8 @@ export default function Book({ business, services, employees, slots }) {
                         Confirmar reserva
                     </button>
                 </form>
+                </div>
             </div>
-        </div>
+        </PublicLayout>
     );
 }

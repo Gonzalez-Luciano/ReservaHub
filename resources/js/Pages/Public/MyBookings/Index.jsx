@@ -1,5 +1,6 @@
 import { router } from '@inertiajs/react';
 import { useState } from 'react';
+import PublicLayout from '../../../Components/PublicLayout';
 
 const STATUS_LABELS = {
     pending: 'Pendiente',
@@ -58,8 +59,9 @@ export default function Index({ bookings }) {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 p-8">
-            <h1 className="mb-6 text-2xl font-bold">Mis reservas</h1>
+        <PublicLayout>
+            <div className="p-8">
+                <h1 className="mb-6 text-2xl font-bold">Mis reservas</h1>
             <ul className="space-y-4">
                 {bookings.map((booking) => {
                     const cutoff = new Date(booking.starts_at);
@@ -119,7 +121,8 @@ export default function Index({ bookings }) {
                         </li>
                     );
                 })}
-            </ul>
-        </div>
+                </ul>
+            </div>
+        </PublicLayout>
     );
 }
