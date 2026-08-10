@@ -18,7 +18,7 @@ class BookingPolicy
     public function view(User $user, Booking $booking): bool
     {
         return $booking->customer_id === $user->id
-            || ($user->business_id !== null && $user->business_id === $booking->business_id);
+            || $this->isStaffOfBooking($user, $booking);
     }
 
     public function createByStaff(User $user, Business $business): bool

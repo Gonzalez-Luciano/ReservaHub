@@ -105,6 +105,22 @@ class BookingPolicyTest extends TestCase
 
         $this->assertFalse($this->policy->cancel($customer, $bookingSoon));
         $this->assertTrue($this->policy->cancel($staff, $bookingSoon));
+        $this->assertFalse($this->policy->reschedule($customer, $bookingSoon));
+        $this->assertTrue($this->policy->reschedule($staff, $bookingSoon));
+    }
+
+    public function test_customer_can_cancel_or_reschedule_a_booking_well_before_the_cutoff(): void
+    {
+        $business = Business::factory()->create(['cancellation_hours' => 24, 'timezone' => 'UTC']);
+        $customer = User::factory()->customer()->create();
+        $bookingFar = Booking::factory()->create([
+            'business_id' => $business->id,
+            'customer_id' => $customer->id,
+            'starts_at' => CarbonImmutable::now('UTC')->addDays(2),
+        ]);
+
+        $this->assertTrue($this->policy->cancel($customer, $bookingFar));
+        $this->assertTrue($this->policy->reschedule($customer, $bookingFar));
     }
 
     public function test_only_staff_can_confirm_complete_or_mark_no_show(): void
