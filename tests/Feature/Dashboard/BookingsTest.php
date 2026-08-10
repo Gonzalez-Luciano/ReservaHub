@@ -40,6 +40,8 @@ class BookingsTest extends TestCase
             'is_active' => true,
         ]);
 
+        $service->employees()->attach($employee->id);
+
         $response = $this->actingAs($staff)->post('/dashboard/bookings', [
             'customer_email' => 'cliente@example.com',
             'employee_id' => $employee->id,

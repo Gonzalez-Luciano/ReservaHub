@@ -40,6 +40,8 @@ class BookingConcurrencyTest extends TestCase
             'is_active' => true,
         ]);
 
+        $service->employees()->attach($employee->id);
+
         $payload = fn (User $customer) => [
             'customer_id' => $customer->id,
             'employee_id' => $employee->id,

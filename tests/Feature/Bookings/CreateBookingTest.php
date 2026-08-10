@@ -47,6 +47,8 @@ class CreateBookingTest extends TestCase
             'is_active' => true,
         ]);
 
+        $service->employees()->attach($employee->id);
+
         app()->instance(Business::class, $business);
 
         return compact('business', 'employee', 'service', 'customer');
@@ -165,6 +167,64 @@ class CreateBookingTest extends TestCase
             'employee_id' => $employee->id,
             'service_id' => $service->id,
             'starts_at' => $outsideHours->toIso8601String(),
+            'source' => 'web',
+            'notes' => null,
+        ], $customer);
+    }
+
+    public function test_rejects_an_inactive_service(): void
+    {
+        ['business' => $business, 'employee' => $employee, 'service' => $service, 'customer' => $customer] = $this->setUpBusinessWithSchedule();
+        $service->update(['is_active' => false]);
+        $slot = $this->nextMonday()->setTime(9, 0);
+
+        $this->expectException(ValidationException::class);
+
+        app(CreateBooking::class)->handle($business, [
+            'customer_id' => $customer->id,
+            'employee_id' => $employee->id,
+            'service_id' => $service->id,
+            'starts_at' => $slot->toIso8601String(),
+            'source' => 'web',
+            'notes' => null,
+        ], $customer);
+    }
+
+    public function test_rejects_an_inactive_employee(): void
+    {
+        ['business' => $business, 'employee' => $employee, 'service' => $service, 'customer' => $customer] = $this->setUpBusinessWithSchedule();
+        $employee->update(['is_active' => false]);
+        $slot = $this->nextMonday()->setTime(9, 0);
+
+        $this->expectException(ValidationException::class);
+
+        app(CreateBooking::class)->handle($business, [
+            'customer_id' => $customer->id,
+            'employee_id' => $employee->id,
+            'service_id' => $service->id,
+            'starts_at' => $slot->toIso8601String(),
+            'source' => 'web',
+            'notes' => null,
+        ], $customer);
+    }
+
+    public function test_rejects_an_employee_not_assigned_to_the_service(): void
+    {
+        ['business' => $business, 'employee' => $employee, 'service' => $service, 'customer' => $customer] = $this->setUpBusinessWithSchedule();
+        // setUpBusinessWithSchedule() attaches the employee to the service by
+        // default (a valid, bookable setup) — detach it here to exercise the
+        // "not assigned" rejection path.
+        $service->employees()->detach($employee->id);
+        $this->assertFalse($service->employees()->whereKey($employee->id)->exists());
+        $slot = $this->nextMonday()->setTime(9, 0);
+
+        $this->expectException(ValidationException::class);
+
+        app(CreateBooking::class)->handle($business, [
+            'customer_id' => $customer->id,
+            'employee_id' => $employee->id,
+            'service_id' => $service->id,
+            'starts_at' => $slot->toIso8601String(),
             'source' => 'web',
             'notes' => null,
         ], $customer);

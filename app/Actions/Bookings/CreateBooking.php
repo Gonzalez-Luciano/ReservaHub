@@ -34,6 +34,18 @@ class CreateBooking
             throw ValidationException::withMessages(['service_id' => 'El servicio no pertenece a este negocio.']);
         }
 
+        if (! $service->is_active) {
+            throw ValidationException::withMessages(['service_id' => 'Este servicio no está disponible.']);
+        }
+
+        if (! $employee->is_active) {
+            throw ValidationException::withMessages(['employee_id' => 'Este empleado no está disponible.']);
+        }
+
+        if (! $service->employees()->whereKey($employee->id)->exists()) {
+            throw ValidationException::withMessages(['employee_id' => 'Ese empleado no realiza este servicio.']);
+        }
+
         $startsAt = CarbonImmutable::parse($data['starts_at'])->setTimezone($business->timezone);
         $endsAt = $startsAt->addMinutes($service->duration_minutes);
 

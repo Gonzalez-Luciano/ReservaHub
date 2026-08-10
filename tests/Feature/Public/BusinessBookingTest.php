@@ -53,6 +53,8 @@ class BusinessBookingTest extends TestCase
             'is_active' => true,
         ]);
 
+        $service->employees()->attach($employee->id);
+
         $response = $this->actingAs($customer)->post('/negocios/barberia-juan/reservar', [
             'service_id' => $service->id,
             'employee_id' => $employee->id,
