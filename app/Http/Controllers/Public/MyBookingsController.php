@@ -19,7 +19,11 @@ class MyBookingsController extends Controller
         return Inertia::render('Public/MyBookings/Index', [
             'bookings' => Booking::withoutGlobalScope(BusinessScope::class)
                 ->where('customer_id', request()->user()->id)
-                ->with(['business:id,name,cancellation_hours', 'employee:id,name', 'service:id,name'])
+                ->with([
+                    'business:id,name,cancellation_hours',
+                    'employee:id,name',
+                    'service' => fn ($query) => $query->withoutGlobalScope(BusinessScope::class)->select('id', 'name'),
+                ])
                 ->orderByDesc('starts_at')
                 ->get(),
         ]);

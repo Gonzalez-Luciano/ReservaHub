@@ -9,8 +9,19 @@ const STATUS_LABELS = {
     no_show: 'Ausencia',
 };
 
+const CONFIRM_MESSAGES = {
+    confirm: '¿Confirmar esta reserva?',
+    complete: '¿Marcar esta reserva como completada?',
+    'no-show': '¿Marcar esta reserva como ausencia?',
+    cancel: '¿Cancelar esta reserva?',
+};
+
 export default function Index({ bookings }) {
     function act(booking, action) {
+        const message = CONFIRM_MESSAGES[action];
+        if (message && !confirm(message)) {
+            return;
+        }
         router.post(`/dashboard/bookings/${booking.id}/${action}`);
     }
 

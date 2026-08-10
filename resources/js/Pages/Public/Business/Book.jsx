@@ -1,5 +1,5 @@
 import { router, useForm } from '@inertiajs/react';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import InputError from '../../../Components/InputError';
 
 export default function Book({ business, services, employees, slots }) {
@@ -9,10 +9,17 @@ export default function Book({ business, services, employees, slots }) {
         date: '',
         starts_at: '',
     });
+    const [loadingEmployees, setLoadingEmployees] = useState(false);
+    const [loadingSlots, setLoadingSlots] = useState(false);
 
     useEffect(() => {
         if (data.service_id) {
-            router.reload({ data: { service_id: data.service_id }, only: ['employees'] });
+            router.reload({
+                data: { service_id: data.service_id },
+                only: ['employees'],
+                onStart: () => setLoadingEmployees(true),
+                onFinish: () => setLoadingEmployees(false),
+            });
         }
     }, [data.service_id]);
 
@@ -21,6 +28,8 @@ export default function Book({ business, services, employees, slots }) {
             router.reload({
                 data: { service_id: data.service_id, employee_id: data.employee_id, date: data.date },
                 only: ['slots'],
+                onStart: () => setLoadingSlots(true),
+                onFinish: () => setLoadingSlots(false),
             });
         }
     }, [data.service_id, data.employee_id, data.date]);
@@ -54,13 +63,15 @@ export default function Book({ business, services, employees, slots }) {
                         <select
                             value={data.employee_id}
                             onChange={(e) => setData('employee_id', e.target.value)}
-                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+                            disabled={loadingEmployees}
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm disabled:opacity-50"
                         >
-                            <option value="">Elegir…</option>
+                            <option value="">{loadingEmployees ? 'Cargando…' : 'Elegir…'}</option>
                             {employees.map((employee) => (
                                 <option key={employee.id} value={employee.id}>{employee.name}</option>
                             ))}
                         </select>
+                        {loadingEmployees && <p className="mt-1 text-sm text-gray-500">Buscando empleados…</p>}
                         <InputError message={errors.employee_id} />
                     </div>
                     <div>
@@ -77,15 +88,17 @@ export default function Book({ business, services, employees, slots }) {
                         <select
                             value={data.starts_at}
                             onChange={(e) => setData('starts_at', e.target.value)}
-                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+                            disabled={loadingSlots}
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm disabled:opacity-50"
                         >
-                            <option value="">Elegir…</option>
+                            <option value="">{loadingSlots ? 'Cargando horarios…' : 'Elegir…'}</option>
                             {slots.map((slot) => (
                                 <option key={slot.starts_at} value={slot.starts_at}>
                                     {new Date(slot.starts_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                 </option>
                             ))}
                         </select>
+                        {loadingSlots && <p className="mt-1 text-sm text-gray-500">Buscando horarios disponibles…</p>}
                         <InputError message={errors.starts_at} />
                     </div>
                     <button
