@@ -87,6 +87,17 @@ class BusinessBookingTest extends TestCase
             ->assertOk();
     }
 
+    public function test_create_page_does_not_500_on_a_non_string_date_query_param(): void
+    {
+        $business = Business::factory()->create(['slug' => 'barberia-juan']);
+        $customer = User::factory()->customer()->create();
+
+        $this->actingAs($customer)
+            ->get('/negocios/barberia-juan/reservar?service_id=1&employee_id=1&date[]=x')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->where('slots', []));
+    }
+
     public function test_public_business_page_only_shows_its_own_services(): void
     {
         $businessA = Business::factory()->create(['slug' => 'barberia-juan']);

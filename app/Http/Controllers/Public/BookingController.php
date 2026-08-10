@@ -65,7 +65,7 @@ class BookingController extends Controller
         $serviceId = $request->query('service_id');
         $date = $request->query('date');
 
-        if (! $employeeId || ! is_numeric($employeeId) || ! $serviceId || ! is_numeric($serviceId) || ! $date) {
+        if (! $employeeId || ! is_numeric($employeeId) || ! $serviceId || ! is_numeric($serviceId) || ! $date || ! is_string($date)) {
             return [];
         }
 
