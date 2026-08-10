@@ -109,6 +109,15 @@ class BookingsTest extends TestCase
             ->assertInertia(fn ($page) => $page->component('Dashboard/Bookings/Index', false)->has('bookings', 2));
     }
 
+    public function test_create_page_renders_the_booking_form(): void
+    {
+        $business = Business::factory()->create();
+        $staff = User::factory()->employee()->create(['business_id' => $business->id]);
+
+        $this->actingAs($staff)->get('/dashboard/bookings/create')
+            ->assertInertia(fn ($page) => $page->component('Dashboard/Bookings/Form'));
+    }
+
     public function test_staff_reschedules_a_booking(): void
     {
         $business = Business::factory()->create(['timezone' => 'UTC']);
