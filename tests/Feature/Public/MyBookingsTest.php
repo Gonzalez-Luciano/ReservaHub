@@ -106,4 +106,69 @@ class MyBookingsTest extends TestCase
             ])
             ->assertForbidden();
     }
+
+    public function test_reschedule_slots_endpoint_returns_available_slots_excluding_the_booking_itself(): void
+    {
+        $business = Business::factory()->create(['timezone' => 'UTC']);
+        $employee = User::factory()->employee()->create(['business_id' => $business->id]);
+        $service = Service::factory()->for($business)->create(['duration_minutes' => 30, 'buffer_minutes' => 0]);
+        $customer = User::factory()->customer()->create();
+        $date = CarbonImmutable::parse('next monday', 'UTC')->startOfDay();
+
+        Schedule::factory()->create([
+            'business_id' => $business->id,
+            'employee_id' => $employee->id,
+            'day_of_week' => DayOfWeek::Monday,
+            'start_time' => '09:00',
+            'end_time' => '10:00',
+            'is_active' => true,
+        ]);
+
+        $booking = Booking::factory()->create([
+            'business_id' => $business->id,
+            'customer_id' => $customer->id,
+            'employee_id' => $employee->id,
+            'service_id' => $service->id,
+            'status' => BookingStatus::Confirmed,
+            'starts_at' => $date->setTime(9, 0),
+            'ends_at' => $date->setTime(9, 30),
+        ]);
+
+        $response = $this->actingAs($customer)
+            ->get("/mis-reservas/{$booking->id}/reschedule-slots?date={$date->format('Y-m-d')}")
+            ->assertOk()
+            ->json();
+
+        $this->assertCount(2, $response['slots']);
+    }
+
+    public function test_reschedule_slots_endpoint_requires_reschedule_authorization(): void
+    {
+        $otherCustomer = User::factory()->customer()->create();
+        $booking = Booking::factory()->create(['status' => BookingStatus::Confirmed]);
+
+        $this->actingAs($otherCustomer)
+            ->get("/mis-reservas/{$booking->id}/reschedule-slots?date=2026-08-17")
+            ->assertForbidden();
+    }
+
+    public function test_reschedule_slots_endpoint_returns_empty_slots_for_malformed_date_array(): void
+    {
+        $business = Business::factory()->create(['cancellation_hours' => 24, 'timezone' => 'UTC']);
+        $customer = User::factory()->customer()->create();
+        $booking = Booking::factory()->create([
+            'business_id' => $business->id,
+            'customer_id' => $customer->id,
+            'status' => BookingStatus::Confirmed,
+            'starts_at' => CarbonImmutable::now('UTC')->addDays(5),
+            'ends_at' => CarbonImmutable::now('UTC')->addDays(5)->addMinutes(30),
+        ]);
+
+        $response = $this->actingAs($customer)
+            ->get("/mis-reservas/{$booking->id}/reschedule-slots?date[]=x")
+            ->assertOk()
+            ->json();
+
+        $this->assertSame([], $response['slots']);
+    }
 }

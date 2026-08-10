@@ -16,4 +16,5 @@ Route::middleware('auth')->prefix('mis-reservas')->name('public.bookings.mine.')
     Route::get('/', [MyBookingsController::class, 'index'])->name('index');
     Route::post('/{booking}/cancel', [MyBookingsController::class, 'cancel'])->name('cancel');
     Route::put('/{booking}/reschedule', [MyBookingsController::class, 'reschedule'])->name('reschedule');
+    Route::get('/{booking}/reschedule-slots', [MyBookingsController::class, 'rescheduleSlots'])->name('reschedule-slots');
 });
