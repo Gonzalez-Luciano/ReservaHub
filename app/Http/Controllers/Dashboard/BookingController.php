@@ -48,6 +48,8 @@ class BookingController extends Controller
 
     public function store(BookingRequest $request, CreateBooking $action): RedirectResponse
     {
+        $this->authorize('createByStaff', [Booking::class, Business::current()]);
+
         $customer = User::where('email', $request->validated('customer_email'))->firstOrFail();
 
         $action->handle(Business::current(), [

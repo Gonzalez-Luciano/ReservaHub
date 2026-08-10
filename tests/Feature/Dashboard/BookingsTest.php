@@ -108,4 +108,44 @@ class BookingsTest extends TestCase
         $this->actingAs($staff)->get('/dashboard/bookings')
             ->assertInertia(fn ($page) => $page->component('Dashboard/Bookings/Index', false)->has('bookings', 2));
     }
+
+    public function test_staff_reschedules_a_booking(): void
+    {
+        $business = Business::factory()->create(['timezone' => 'UTC']);
+        $staff = User::factory()->employee()->create(['business_id' => $business->id]);
+        $employee = User::factory()->employee()->create(['business_id' => $business->id]);
+        $service = Service::factory()->for($business)->create(['duration_minutes' => 30, 'buffer_minutes' => 0]);
+        $date = $this->nextMonday();
+
+        Schedule::factory()->create([
+            'business_id' => $business->id,
+            'employee_id' => $employee->id,
+            'day_of_week' => DayOfWeek::Monday,
+            'start_time' => '09:00',
+            'end_time' => '11:00',
+            'is_active' => true,
+        ]);
+
+        $booking = Booking::factory()->create([
+            'business_id' => $business->id,
+            'employee_id' => $employee->id,
+            'service_id' => $service->id,
+            'status' => BookingStatus::Pending,
+            'starts_at' => $date->setTime(9, 0),
+            'ends_at' => $date->setTime(9, 30),
+        ]);
+
+        $newStart = $date->setTime(10, 0);
+
+        $this->actingAs($staff)
+            ->put("/dashboard/bookings/{$booking->id}/reschedule", [
+                'starts_at' => $newStart->toIso8601String(),
+            ])
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('bookings', [
+            'id' => $booking->id,
+            'starts_at' => $newStart->setTimezone('UTC')->format('Y-m-d H:i:s'),
+        ]);
+    }
 }
