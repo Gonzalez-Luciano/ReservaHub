@@ -25,12 +25,8 @@ class BusinessBookingTest extends TestCase
         $business = Business::factory()->create(['slug' => 'barberia-juan']);
         Service::factory()->for($business)->create(['is_active' => true]);
 
-        // Task 11 (a later task in this plan) is what creates the actual
-        // resources/js/Pages/Public/Business/Show.jsx file; passing
-        // `shouldExist: false` here asserts the server-side component-name
-        // contract without depending on that not-yet-built frontend page.
         $this->get('/negocios/barberia-juan')
-            ->assertInertia(fn ($page) => $page->component('Public/Business/Show', false)->has('services', 1));
+            ->assertInertia(fn ($page) => $page->component('Public/Business/Show')->has('services', 1));
     }
 
     public function test_guest_is_redirected_to_login_when_trying_to_book(): void
@@ -97,7 +93,7 @@ class BusinessBookingTest extends TestCase
         Service::factory()->for($businessB)->create(['is_active' => true, 'name' => 'Corte B']);
 
         $this->get('/negocios/barberia-juan')
-            ->assertInertia(fn ($page) => $page->component('Public/Business/Show', false)
+            ->assertInertia(fn ($page) => $page->component('Public/Business/Show')
                 ->has('services', 1)
                 ->where('services.0.name', 'Corte A')
             );

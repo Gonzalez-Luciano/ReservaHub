@@ -1,0 +1,102 @@
+import { router, useForm } from '@inertiajs/react';
+import { useEffect } from 'react';
+import InputError from '../../../Components/InputError';
+
+export default function Book({ business, services, employees, slots }) {
+    const { data, setData, post, processing, errors } = useForm({
+        service_id: new URLSearchParams(window.location.search).get('service_id') ?? '',
+        employee_id: '',
+        date: '',
+        starts_at: '',
+    });
+
+    useEffect(() => {
+        if (data.service_id) {
+            router.reload({ data: { service_id: data.service_id }, only: ['employees'] });
+        }
+    }, [data.service_id]);
+
+    useEffect(() => {
+        if (data.service_id && data.employee_id && data.date) {
+            router.reload({
+                data: { service_id: data.service_id, employee_id: data.employee_id, date: data.date },
+                only: ['slots'],
+            });
+        }
+    }, [data.service_id, data.employee_id, data.date]);
+
+    function submit(e) {
+        e.preventDefault();
+        post(`/negocios/${business.slug}/reservar`);
+    }
+
+    return (
+        <div className="min-h-screen bg-gray-50 p-8">
+            <div className="mx-auto max-w-lg">
+                <h1 className="mb-6 text-2xl font-bold">Reservar en {business.name}</h1>
+                <form onSubmit={submit} className="space-y-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700">Servicio</label>
+                        <select
+                            value={data.service_id}
+                            onChange={(e) => setData('service_id', e.target.value)}
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+                        >
+                            <option value="">Elegir…</option>
+                            {services.map((service) => (
+                                <option key={service.id} value={service.id}>{service.name}</option>
+                            ))}
+                        </select>
+                        <InputError message={errors.service_id} />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700">Empleado</label>
+                        <select
+                            value={data.employee_id}
+                            onChange={(e) => setData('employee_id', e.target.value)}
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+                        >
+                            <option value="">Elegir…</option>
+                            {employees.map((employee) => (
+                                <option key={employee.id} value={employee.id}>{employee.name}</option>
+                            ))}
+                        </select>
+                        <InputError message={errors.employee_id} />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700">Fecha</label>
+                        <input
+                            type="date"
+                            value={data.date}
+                            onChange={(e) => setData('date', e.target.value)}
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700">Horario</label>
+                        <select
+                            value={data.starts_at}
+                            onChange={(e) => setData('starts_at', e.target.value)}
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+                        >
+                            <option value="">Elegir…</option>
+                            {slots.map((slot) => (
+                                <option key={slot.starts_at} value={slot.starts_at}>
+                                    {new Date(slot.starts_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </option>
+                            ))}
+                        </select>
+                        <InputError message={errors.starts_at} />
+                    </div>
+                    <button
+                        type="submit"
+                        disabled={processing}
+                        className="w-full rounded-md bg-gray-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                    >
+                        Confirmar reserva
+                    </button>
+                </form>
+            </div>
+        </div>
+    );
+}
