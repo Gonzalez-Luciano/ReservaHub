@@ -169,4 +169,53 @@ class BookingsTest extends TestCase
             ->get('/dashboard/bookings/create?employee_id=abc&service_id=abc&date=not-a-date')
             ->assertOk();
     }
+
+    public function test_reschedule_slots_endpoint_returns_available_slots_excluding_the_booking_itself(): void
+    {
+        $business = Business::factory()->create(['timezone' => 'UTC']);
+        $staff = User::factory()->employee()->create(['business_id' => $business->id]);
+        $employee = User::factory()->employee()->create(['business_id' => $business->id]);
+        $service = Service::factory()->for($business)->create(['duration_minutes' => 30, 'buffer_minutes' => 0]);
+        $date = CarbonImmutable::parse('next monday', 'UTC')->startOfDay();
+
+        Schedule::factory()->create([
+            'business_id' => $business->id,
+            'employee_id' => $employee->id,
+            'day_of_week' => DayOfWeek::Monday,
+            'start_time' => '09:00',
+            'end_time' => '10:00',
+            'is_active' => true,
+        ]);
+
+        $booking = Booking::factory()->confirmed()->create([
+            'business_id' => $business->id,
+            'employee_id' => $employee->id,
+            'service_id' => $service->id,
+            'starts_at' => $date->setTime(9, 0),
+            'ends_at' => $date->setTime(9, 30),
+        ]);
+
+        $response = $this->actingAs($staff)
+            ->get("/dashboard/bookings/{$booking->id}/reschedule-slots?date={$date->format('Y-m-d')}")
+            ->assertOk()
+            ->json();
+
+        $starts = array_column($response['slots'], 'starts_at');
+        $this->assertCount(2, $response['slots']);
+        $this->assertStringContainsString('09:00', $starts[0]);
+    }
+
+    public function test_reschedule_slots_endpoint_requires_reschedule_authorization(): void
+    {
+        // Same convention as test_employee_of_another_business_cannot_view_or_act_on_a_booking:
+        // a booking belonging to a different business than the one bound into the
+        // container is invisible to the tenant-scoped query, so implicit route-model
+        // binding 404s before the Policy (and thus authorize('reschedule', ...)) ever runs.
+        $outsider = User::factory()->employee()->create();
+        $booking = Booking::factory()->confirmed()->create();
+
+        $this->actingAs($outsider)
+            ->get("/dashboard/bookings/{$booking->id}/reschedule-slots?date=2026-08-17")
+            ->assertNotFound();
+    }
 }

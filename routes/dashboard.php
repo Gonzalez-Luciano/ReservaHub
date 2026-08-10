@@ -25,6 +25,7 @@ Route::middleware(['auth', 'business'])->group(function () {
         Route::post('bookings/{booking}/complete', [BookingController::class, 'complete'])->name('bookings.complete');
         Route::post('bookings/{booking}/no-show', [BookingController::class, 'noShow'])->name('bookings.noShow');
         Route::put('bookings/{booking}/reschedule', [BookingController::class, 'reschedule'])->name('bookings.reschedule');
+        Route::get('bookings/{booking}/reschedule-slots', [BookingController::class, 'rescheduleSlots'])->name('bookings.reschedule-slots');
 
         Route::get('employees', [EmployeeController::class, 'index'])->name('employees.index');
         Route::post('employees/invitations', [EmployeeInvitationController::class, 'store'])->name('employees.invitations.store');

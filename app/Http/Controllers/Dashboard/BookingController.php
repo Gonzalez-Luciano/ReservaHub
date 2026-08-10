@@ -17,6 +17,7 @@ use App\Models\Service;
 use App\Models\User;
 use App\Services\AvailabilityService;
 use Carbon\CarbonImmutable;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -111,6 +112,33 @@ class BookingController extends Controller
         $action->handle($booking, $request->validated(), $request->user());
 
         return back();
+    }
+
+    public function rescheduleSlots(Booking $booking, AvailabilityService $availabilityService, Request $request): JsonResponse
+    {
+        $this->authorize('reschedule', $booking);
+
+        $date = $request->query('date');
+
+        if (! $date) {
+            return response()->json(['slots' => []]);
+        }
+
+        try {
+            $parsedDate = CarbonImmutable::parse($date, Business::current()->timezone);
+        } catch (\Exception) {
+            return response()->json(['slots' => []]);
+        }
+
+        $slots = $availabilityService->getAvailableSlots(
+            Business::current(),
+            $booking->service,
+            $booking->employee,
+            $parsedDate,
+            excludeBookingId: $booking->id,
+        );
+
+        return response()->json(['slots' => $slots]);
     }
 
     private function slotsFor(AvailabilityService $availabilityService, Request $request): array

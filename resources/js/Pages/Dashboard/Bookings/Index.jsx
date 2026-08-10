@@ -1,4 +1,5 @@
 import { Link, router } from '@inertiajs/react';
+import { useState } from 'react';
 import DashboardLayout from '../../../Components/DashboardLayout';
 
 const STATUS_LABELS = {
@@ -17,12 +18,57 @@ const CONFIRM_MESSAGES = {
 };
 
 export default function Index({ bookings }) {
+    const [reschedulingId, setReschedulingId] = useState(null);
+    const [rescheduleDate, setRescheduleDate] = useState('');
+    const [rescheduleSlots, setRescheduleSlots] = useState([]);
+    const [rescheduleStartsAt, setRescheduleStartsAt] = useState('');
+    const [loadingSlots, setLoadingSlots] = useState(false);
+
     function act(booking, action) {
         const message = CONFIRM_MESSAGES[action];
         if (message && !confirm(message)) {
             return;
         }
         router.post(`/dashboard/bookings/${booking.id}/${action}`);
+    }
+
+    function startReschedule(booking) {
+        setReschedulingId(booking.id);
+        setRescheduleDate('');
+        setRescheduleSlots([]);
+        setRescheduleStartsAt('');
+    }
+
+    function cancelReschedule() {
+        setReschedulingId(null);
+    }
+
+    async function onRescheduleDateChange(booking, date) {
+        setRescheduleDate(date);
+        setRescheduleStartsAt('');
+        setRescheduleSlots([]);
+        if (!date) {
+            return;
+        }
+        setLoadingSlots(true);
+        try {
+            const response = await fetch(`/dashboard/bookings/${booking.id}/reschedule-slots?date=${date}`, {
+                headers: { Accept: 'application/json' },
+            });
+            const data = await response.json();
+            setRescheduleSlots(data.slots ?? []);
+        } finally {
+            setLoadingSlots(false);
+        }
+    }
+
+    function submitReschedule(booking) {
+        if (!rescheduleStartsAt) {
+            return;
+        }
+        router.put(`/dashboard/bookings/${booking.id}/reschedule`, { starts_at: rescheduleStartsAt }, {
+            onSuccess: () => setReschedulingId(null),
+        });
     }
 
     return (
@@ -47,7 +93,7 @@ export default function Index({ bookings }) {
                     </thead>
                     <tbody>
                         {bookings.map((booking) => (
-                            <tr key={booking.id} className="border-b">
+                            <tr key={booking.id} className="border-b align-top">
                                 <td className="py-2">{booking.customer?.name}</td>
                                 <td className="py-2">{booking.employee?.name}</td>
                                 <td className="py-2">{booking.service?.name}</td>
@@ -65,7 +111,45 @@ export default function Index({ bookings }) {
                                         </>
                                     )}
                                     {['pending', 'confirmed'].includes(booking.status) && (
-                                        <button onClick={() => act(booking, 'cancel')} className="text-red-600 underline">Cancelar</button>
+                                        <>
+                                            <button onClick={() => startReschedule(booking)} className="mr-4 underline">Reprogramar</button>
+                                            <button onClick={() => act(booking, 'cancel')} className="text-red-600 underline">Cancelar</button>
+                                        </>
+                                    )}
+                                    {reschedulingId === booking.id && (
+                                        <div className="mt-2 rounded-md border bg-gray-50 p-3 text-left">
+                                            <label className="block text-xs font-medium text-gray-700">Nueva fecha</label>
+                                            <input
+                                                type="date"
+                                                value={rescheduleDate}
+                                                onChange={(e) => onRescheduleDateChange(booking, e.target.value)}
+                                                className="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm"
+                                            />
+                                            <label className="mt-2 block text-xs font-medium text-gray-700">Nuevo horario</label>
+                                            <select
+                                                value={rescheduleStartsAt}
+                                                onChange={(e) => setRescheduleStartsAt(e.target.value)}
+                                                disabled={loadingSlots}
+                                                className="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm disabled:opacity-50"
+                                            >
+                                                <option value="">{loadingSlots ? 'Cargando…' : 'Elegir…'}</option>
+                                                {rescheduleSlots.map((slot) => (
+                                                    <option key={slot.starts_at} value={slot.starts_at}>
+                                                        {new Date(slot.starts_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            <div className="mt-2 flex gap-3">
+                                                <button
+                                                    onClick={() => submitReschedule(booking)}
+                                                    disabled={!rescheduleStartsAt}
+                                                    className="rounded-md bg-gray-900 px-3 py-1 text-xs font-semibold text-white disabled:opacity-50"
+                                                >
+                                                    Confirmar
+                                                </button>
+                                                <button onClick={cancelReschedule} className="text-xs underline">Cancelar</button>
+                                            </div>
+                                        </div>
                                     )}
                                 </td>
                             </tr>
