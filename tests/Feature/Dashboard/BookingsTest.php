@@ -170,6 +170,16 @@ class BookingsTest extends TestCase
             ->assertOk();
     }
 
+    public function test_create_page_does_not_500_on_a_non_string_date_query_param(): void
+    {
+        $business = Business::factory()->create();
+        $staff = User::factory()->employee()->create(['business_id' => $business->id]);
+
+        $this->actingAs($staff)
+            ->get('/dashboard/bookings/create?employee_id=1&service_id=1&date[]=x')
+            ->assertOk();
+    }
+
     public function test_reschedule_slots_endpoint_returns_available_slots_excluding_the_booking_itself(): void
     {
         $business = Business::factory()->create(['timezone' => 'UTC']);
@@ -217,5 +227,17 @@ class BookingsTest extends TestCase
         $this->actingAs($outsider)
             ->get("/dashboard/bookings/{$booking->id}/reschedule-slots?date=2026-08-17")
             ->assertNotFound();
+    }
+
+    public function test_reschedule_slots_endpoint_does_not_500_on_a_non_string_date_query_param(): void
+    {
+        $business = Business::factory()->create();
+        $staff = User::factory()->employee()->create(['business_id' => $business->id]);
+        $booking = Booking::factory()->confirmed()->create(['business_id' => $business->id]);
+
+        $this->actingAs($staff)
+            ->get("/dashboard/bookings/{$booking->id}/reschedule-slots?date[]=x")
+            ->assertOk()
+            ->assertExactJson(['slots' => []]);
     }
 }
