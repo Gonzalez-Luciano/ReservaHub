@@ -19,6 +19,8 @@ class BindPublicBusiness
             $route->setParameter('business', $business);
         }
 
+        abort_unless($business->is_active, 404);
+
         app()->instance(Business::class, $business);
 
         return $next($request);
