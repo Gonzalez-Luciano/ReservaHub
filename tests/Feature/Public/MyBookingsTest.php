@@ -3,8 +3,11 @@
 namespace Tests\Feature\Public;
 
 use App\Enums\BookingStatus;
+use App\Enums\DayOfWeek;
 use App\Models\Booking;
 use App\Models\Business;
+use App\Models\Schedule;
+use App\Models\Service;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -13,6 +16,11 @@ use Tests\TestCase;
 class MyBookingsTest extends TestCase
 {
     use RefreshDatabase;
+
+    private function nextMonday(string $timezone = 'UTC'): CarbonImmutable
+    {
+        return CarbonImmutable::parse('next monday', $timezone)->startOfDay();
+    }
 
     public function test_customer_sees_only_their_own_bookings_across_businesses(): void
     {
@@ -46,5 +54,56 @@ class MyBookingsTest extends TestCase
         $booking = Booking::factory()->create(['status' => BookingStatus::Confirmed]);
 
         $this->actingAs($customer)->post("/mis-reservas/{$booking->id}/cancel")->assertForbidden();
+    }
+
+    public function test_customer_reschedules_their_own_booking(): void
+    {
+        $business = Business::factory()->create(['cancellation_hours' => 24, 'timezone' => 'UTC']);
+        $employee = User::factory()->employee()->create(['business_id' => $business->id]);
+        $service = Service::factory()->for($business)->create(['duration_minutes' => 30, 'buffer_minutes' => 0]);
+        $customer = User::factory()->customer()->create();
+        $date = $this->nextMonday();
+
+        Schedule::factory()->create([
+            'business_id' => $business->id,
+            'employee_id' => $employee->id,
+            'day_of_week' => DayOfWeek::Monday,
+            'start_time' => '09:00',
+            'end_time' => '10:00',
+            'is_active' => true,
+        ]);
+
+        $booking = Booking::factory()->create([
+            'business_id' => $business->id,
+            'customer_id' => $customer->id,
+            'employee_id' => $employee->id,
+            'service_id' => $service->id,
+            'status' => BookingStatus::Confirmed,
+            'starts_at' => $date->setTime(9, 0),
+            'ends_at' => $date->setTime(9, 30),
+        ]);
+
+        $this->actingAs($customer)
+            ->put("/mis-reservas/{$booking->id}/reschedule", [
+                'starts_at' => $date->setTime(9, 30)->toIso8601String(),
+            ])
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('bookings', [
+            'id' => $booking->id,
+            'starts_at' => $date->setTime(9, 30)->format('Y-m-d H:i:s'),
+        ]);
+    }
+
+    public function test_customer_cannot_reschedule_someone_elses_booking(): void
+    {
+        $customer = User::factory()->customer()->create();
+        $booking = Booking::factory()->create(['status' => BookingStatus::Confirmed]);
+
+        $this->actingAs($customer)
+            ->put("/mis-reservas/{$booking->id}/reschedule", [
+                'starts_at' => CarbonImmutable::now('UTC')->addDays(5)->toIso8601String(),
+            ])
+            ->assertForbidden();
     }
 }
