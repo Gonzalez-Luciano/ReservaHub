@@ -467,14 +467,49 @@ npm run build
 
 ### Fase 10 — Producción
 
-1. Docker.
-2. Variables de entorno.
-3. Queue worker.
-4. Scheduler.
-5. Logging.
-6. Backups.
-7. Deploy.
-8. Usuario demo.
+Arquitectura de destino: servidor Linux propio, multiproyecto, definida en `codex_portfolio_home_server/docs/SERVER_ARCHITECTURE.md`. Esta fase debe seguir ese documento a rajatabla; no improvisar variantes (puertos, binding, tunnel, backups) fuera de lo que ahí se especifica.
+
+**Aclaración sobre el frontend:** este proyecto no tiene frontend separado. Usa Inertia + React compilado por `laravel-vite-plugin` y servido por el mismo contenedor Laravel (`pnpm build` → `public/build`, sin proceso Node en runtime). El ejemplo "gateway → React / Laravel" de `SERVER_ARCHITECTURE.md` no aplica acá tal cual: el `gateway` de este stack apunta a un único servicio (`laravel.test`/app), no a dos. No crear un contenedor React/Node de producción para este proyecto.
+
+1. **Ubicación e independencia del proyecto**
+   - Repo propio en `/srv/apps/reserva-hub/` (no dentro del repo del portfolio).
+   - `compose.yaml`, `.env`, volúmenes, red Docker, cola y scheduler exclusivos de este proyecto — nada compartido con otros stacks salvo Docker Engine, `cloudflared` y el SO.
+
+2. **Docker de producción**
+   - Adaptar `compose.yaml` de Sail a un compose de producción: un `gateway` como único servicio que publica puerto al host; `laravel.test`/app, `pgsql`, `redis` quedan solo en la red Docker privada, sin `ports:` públicos.
+   - Volúmenes con nombre asociado al proyecto (ej. `reserva_pgsql_data`), nunca compartidos con otro stack.
+   - `queue worker` y `scheduler` corren como procesos/contenedores propios del stack de este proyecto (no un cron global del host).
+
+3. **Puerto y binding**
+   - Reservar un puerto host único para este proyecto en el registro central de puertos (ver tabla de `SERVER_ARCHITECTURE.md`, ej. `8080`).
+   - El `gateway` debe enlazar a `127.0.0.1:PUERTO`, nunca a `0.0.0.0:PUERTO`.
+
+4. **Variables de entorno**
+   - `.env` de producción fuera de git, solo en el servidor.
+   - `DB_HOST`/`REDIS_HOST` apuntan a los nombres de servicio Docker del stack (igual que en desarrollo, nunca a `127.0.0.1` del host).
+
+5. **Cloudflare Tunnel**
+   - No incluir `cloudflared` en el `compose.yaml` del proyecto: es un servicio `systemd` compartido del host.
+   - Agregar entrada de ruteo `reservas.lucianogonzalez.dev -> http://localhost:PUERTO` a la configuración del tunnel existente.
+   - Token del tunnel es secreto del servidor, nunca en el repo.
+
+6. **Logging**
+   - Logs de la app y del stack accesibles vía `docker compose logs` / `/var/log` del host, sin mezclar con logs de otros proyectos.
+
+7. **Backups**
+   - Backup de `pgsql` (y de storage si aplica) en `/srv/backups/reserva-hub/`, independiente de otros proyectos.
+   - Retención definida, copia fuera del disco principal, restore probado antes de dar la fase por cerrada.
+
+8. **Despliegue**
+   - Seguir la secuencia de "Primera etapa" de `SERVER_ARCHITECTURE.md`: CI valida el commit → conexión segura al servidor → `git pull` en `/srv/apps/reserva-hub` → `docker compose up -d` → migraciones → smoke test → confirmar que `reservas.lucianogonzalez.dev` responde.
+   - No exponer SSH públicamente para automatizar esto; usar alguna de las opciones aceptadas en el documento (runner self-hosted restringido, Cloudflare Access, etc.) solo en una fase de automatización posterior.
+
+9. **Reinicio del servidor**
+   - Verificar que tras reiniciar el host se recuperan solos: Docker, `cloudflared`, este stack marcado con `restart: unless-stopped` (o política equivalente), `pgsql`, la app, el gateway.
+
+10. **Usuario demo**
+    - Seeder de producción con un usuario/empresa demo, sin datos sensibles reales.
+    - Si el dato demo se resetea periódicamente, documentar el reset y limitarlo a esta demo (nunca `migrate:fresh --seed` afectando datos que deban persistir).
 
 ## 8. Tests imprescindibles
 
