@@ -34,6 +34,26 @@ VITE_PORT=5273
 ```
 Also set `DB_HOST=pgsql` in that `.env` (not `127.0.0.1` — that only works for a *native* host process talking to a container's forwarded port, and there is no working native path here per above). Mailpit's dashboard (to inspect sent verification/reset emails) is then at `http://localhost:<FORWARD_MAILPIT_DASHBOARD_PORT>`.
 
+**Bootstrapping a fresh worktree:** a new worktree starts with no `.env`, `vendor/`, `node_modules/` or `public/build` — all four are gitignored, so `git worktree add` does not bring them over. Two of those absences bite in non-obvious ways:
+
+- Without `vendor/`, `docker compose` cannot even *build*: `laravel.test`'s build context is `./vendor/laravel/sail/runtimes/8.5`, which doesn't exist yet. Chicken-and-egg. Break it by running Composer in the already-built Sail image from the main checkout. `MSYS_NO_PATHCONV=1` is required in Git Bash — otherwise it rewrites `/var/www/html` into `C:/Program Files/Git/var/www/html` and Docker rejects it.
+- Without `public/build`, Laravel's `@vite` can't resolve its manifest and **every Inertia page fails to render**. The suite then reports ~28 failures reading `Not a valid Inertia response`, which look like application bugs and are not. Always run the frontend build before trusting a baseline test run in a new worktree.
+
+Full sequence, from the worktree's own directory:
+
+```bash
+cp ../../../.env .env          # then edit the forwarded ports per the block above
+MSYS_NO_PATHCONV=1 docker run --rm -u root \
+  -v "$(pwd -W):/var/www/html" -w /var/www/html \
+  --entrypoint composer sail-8.5/app:latest install --no-interaction
+WWWUSER=1000 WWWGROUP=1000 docker compose up -d
+docker compose exec laravel.test php artisan migrate:fresh --force
+docker compose exec laravel.test bash -lc "pnpm install --frozen-lockfile && rm -f public/hot && pnpm build"
+docker compose exec laravel.test php artisan test
+```
+
+The first `php artisan test` after `up -d` takes roughly ten times longer than the ones after it (~600 s vs ~70 s) — Postgres cold start plus a cold opcache, not a hung suite.
+
 **Running the frontend build in a container:** if the JS dev server (`pnpm dev`) was ever run natively on the host against this same working directory, it writes `public/hot`, which makes Laravel's `@vite` directive emit script tags pointing at that (now-dead) native Vite server instead of the built assets — resulting in a blank page with a console `@vitejs/plugin-react can't detect preamble` error. Delete `public/hot` (`rm -f public/hot`) and run `pnpm build` if you hit this.
 
 **Tearing down a worktree's stack:** `docker compose down -v` (from that worktree's directory) before or when the worktree itself is removed. The `superpowers:finishing-a-development-branch` skill's cleanup step only runs `git worktree remove` — it has no knowledge of Docker, so a Sail stack brought up for manual testing in a worktree is never torn down automatically and will keep running (and holding its forwarded ports) after the branch is merged unless done by hand.
