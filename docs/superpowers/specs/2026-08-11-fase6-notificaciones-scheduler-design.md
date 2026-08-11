@@ -149,6 +149,22 @@ Actualizar `CLAUDE.md` con los servicios nuevos y cómo mirar los mails en Mailp
 - Si `BookingReminderNotification` falla después de que la fila de `booking_reminders` ya se insertó, ese recordatorio se pierde. Es la contrapartida aceptada de insertar antes de enviar; el orden inverso arriesgaría mandar el mail dos veces, que es peor. Los reintentos de la cola cubren los fallos transitorios del worker.
 - Un usuario borrado deja las FK de la reserva en cascada, así que el listener nunca ve un destinatario nulo.
 
+## Impacto sobre lo ya construido
+
+Auditoría del código existente frente a este diseño.
+
+**`RescheduleBooking` debe conservar el formato de `notes`.** Al reestructurarlo para disparar el evento después del commit, la nota del historial tiene que seguir siendo `"Reprogramado de {Y-m-d H:i} a {Y-m-d H:i}"`: `tests/Feature/Bookings/RescheduleBookingTest.php:215` la valida con `assertStringContainsString`.
+
+**Los eventos deben llevar la instancia fresca.** `ConfirmBooking` y `CancelBooking` devuelven `$booking->fresh()`. El `event()` va después de ese `fresh()`, con la instancia actualizada, no con la que todavía tiene el estado viejo.
+
+**`Event::fake()` sin argumentos rompe el tenancy en los tests.** Reemplaza también el dispatcher de eventos de Eloquent, lo que anula el hook `creating` de `BelongsToBusiness` y deja los modelos sin `business_id`. Ya está documentado en `tests/Feature/Bookings/CreateBookingTest.php:59`. Los tests nuevos usan `Notification::fake()`, que no toca el dispatcher, o `Event::fake([ClaseConcreta::class])`.
+
+**Los tests existentes van a ejecutar los listeners en línea.** Con `QUEUE_CONNECTION=sync` en `phpunit.xml`, todo test que no fakee y que pase por una Action de reserva va a correr el listener de verdad: mails al mailer `array` y filas en `notifications`. No rompe nada — `RefreshDatabase` migra la tabla nueva — pero significa que una excepción dentro de un listener rompería alrededor de diez archivos de test a la vez. Los listeners tienen que ser defensivos y su primer test debe correrse antes de tocar el resto.
+
+**`compose.yaml` necesita el bloque `build` repetido.** Los servicios `queue` y `scheduler` no pueden declarar solamente `image: sail-8.5/app`: Compose intentaría bajar esa imagen de un registry, donde no existe. Llevan el mismo bloque `build` que `laravel.test`, con `WWWUSER` y `WWWGROUP`.
+
+Dos cosas que revisé y **no** requieren cambios: `User` no usa `BelongsToBusiness`, así que resolver destinatarios no choca contra `BusinessScope`; y `DemoSeeder` no crea reservas, así que sembrar datos demo no dispara notificaciones.
+
 ## Tests
 
 Sobre el comando. Tocan la base, así que van en `tests/Feature/`:
