@@ -3,6 +3,7 @@
 namespace App\Actions\Bookings;
 
 use App\Enums\BookingStatus;
+use App\Events\BookingConfirmed;
 use App\Models\Booking;
 use App\Models\BookingStatusHistory;
 use App\Models\User;
@@ -25,6 +26,10 @@ class ConfirmBooking
             'changed_by' => $actingUser->id,
         ]);
 
-        return $booking->fresh();
+        $booking = $booking->fresh();
+
+        event(new BookingConfirmed($booking));
+
+        return $booking;
     }
 }
