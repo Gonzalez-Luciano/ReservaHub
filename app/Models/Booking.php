@@ -53,4 +53,9 @@ class Booking extends Model
     {
         return $this->hasMany(BookingStatusHistory::class);
     }
+
+    public function reminders(): HasMany
+    {
+        return $this->hasMany(BookingReminder::class);
+    }
 }
