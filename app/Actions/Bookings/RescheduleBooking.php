@@ -3,6 +3,7 @@
 namespace App\Actions\Bookings;
 
 use App\Enums\BookingStatus;
+use App\Events\BookingRescheduled;
 use App\Models\Booking;
 use App\Models\BookingStatusHistory;
 use App\Models\Business;
@@ -30,11 +31,11 @@ class RescheduleBooking
 
         $service = $booking->service;
         $employee = $booking->employee;
-        $oldStart = $booking->starts_at->setTimezone($business->timezone)->format('Y-m-d H:i');
+        $previousStartsAt = CarbonImmutable::parse($booking->starts_at)->setTimezone($business->timezone);
         $newStart = CarbonImmutable::parse($data['starts_at'])->setTimezone($business->timezone);
         $newEnd = $newStart->addMinutes($service->duration_minutes);
 
-        return DB::transaction(function () use ($business, $service, $employee, $booking, $newStart, $newEnd, $oldStart, $actingUser) {
+        $booking = DB::transaction(function () use ($business, $service, $employee, $booking, $newStart, $newEnd, $previousStartsAt, $actingUser) {
             DB::statement('select pg_advisory_xact_lock(hashtext(?))', ['booking-employee-'.$employee->id]);
 
             if ($newStart->lt(CarbonImmutable::now($business->timezone))) {
@@ -55,10 +56,14 @@ class RescheduleBooking
                 'from_status' => $booking->status,
                 'to_status' => $booking->status,
                 'changed_by' => $actingUser->id,
-                'notes' => "Reprogramado de {$oldStart} a {$newStart->format('Y-m-d H:i')}.",
+                'notes' => "Reprogramado de {$previousStartsAt->format('Y-m-d H:i')} a {$newStart->format('Y-m-d H:i')}.",
             ]);
 
             return $booking->fresh();
         });
+
+        event(new BookingRescheduled($booking, $previousStartsAt));
+
+        return $booking;
     }
 }
