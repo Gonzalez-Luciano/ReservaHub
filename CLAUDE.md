@@ -10,7 +10,13 @@ Standard Laravel commands apply: `php artisan test` (or a specific test with `ph
 
 ## Development environment: Docker (Laravel Sail)
 
-The project runs under Docker via Laravel Sail — `compose.yaml` at the repo root defines `laravel.test` (app), `pgsql`, `redis`, and `mailpit`. There is no working native (non-Docker) path: `.env`'s `DB_HOST`/`REDIS_HOST`/`MAIL_HOST` point at Docker service names (`pgsql`, `redis`, `mailpit`), which only resolve inside the `laravel.test` container's network. Always develop and test against the containers, not `php artisan serve` on the host.
+The project runs under Docker via Laravel Sail — `compose.yaml` at the repo root defines `laravel.test` (app), `pgsql`, `redis`, `mailpit`, `queue` (`php artisan queue:work`), and `scheduler` (`php artisan schedule:work`). There is no working native (non-Docker) path: `.env`'s `DB_HOST`/`REDIS_HOST`/`MAIL_HOST` point at Docker service names (`pgsql`, `redis`, `mailpit`), which only resolve inside the `laravel.test` container's network. Always develop and test against the containers, not `php artisan serve` on the host.
+
+Queued jobs run on Redis (`QUEUE_CONNECTION=redis`), not the `database` driver — the `queue` container is the only consumer. Outgoing mail (booking notifications, reminders, employee invitations) is caught by Mailpit rather than actually sent; inspect it at the dashboard port from **Testing a feature branch or worktree** below (`http://localhost:8025` on the main checkout). `queue:work` boots once and keeps application code in memory, so after editing a listener or a notification class, restart the worker to pick up the change:
+
+```bash
+docker compose restart queue
+```
 
 **`vendor/bin/sail` does not work in Git Bash on Windows** — it hard-refuses with `Unsupported operating system [MINGW64_NT-...]`. Use `docker compose` directly instead, and pass dummy `WWWUSER`/`WWWGROUP` values (Sail's wrapper normally injects these; without it you'll get harmless "variable not set" warnings but the containers still run fine):
 

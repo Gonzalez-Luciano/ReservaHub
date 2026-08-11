@@ -4,12 +4,12 @@ namespace App\Notifications;
 
 use App\Models\EmployeeInvitation;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 use Illuminate\Support\Facades\URL;
 
-// Sent synchronously (not ShouldQueue) — no queue worker runs in normal dev flow yet; revisit if/when queues are wired up in a later fase.
-class EmployeeInvited extends Notification
+class EmployeeInvited extends Notification implements ShouldQueue
 {
     use Queueable;
 
