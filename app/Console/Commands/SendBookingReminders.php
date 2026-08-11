@@ -30,7 +30,7 @@ class SendBookingReminders extends Command
             }
         }
 
-        $this->info("Recordatorios enviados: {$sent}.");
+        $this->info("Recordatorios encolados: {$sent}.");
 
         return self::SUCCESS;
     }
@@ -38,7 +38,7 @@ class SendBookingReminders extends Command
     /**
      * @return LazyCollection<int, Booking>
      */
-    private function pendingBookings(ReminderType $type)
+    private function pendingBookings(ReminderType $type): LazyCollection
     {
         $now = now();
 

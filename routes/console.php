@@ -10,4 +10,4 @@ Artisan::command('inspire', function () {
 
 Schedule::command('bookings:send-reminders')
     ->everyFiveMinutes()
-    ->withoutOverlapping();
+    ->withoutOverlapping(10);

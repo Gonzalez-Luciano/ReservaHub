@@ -9,6 +9,8 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 
 class SendBookingRescheduledNotifications implements ShouldQueue
 {
+    public int $tries = 3;
+
     public function handle(BookingRescheduled $event): void
     {
         $booking = $event->booking;

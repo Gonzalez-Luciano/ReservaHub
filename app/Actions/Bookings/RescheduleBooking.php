@@ -51,6 +51,10 @@ class RescheduleBooking
 
             $booking->update(['starts_at' => $newStart, 'ends_at' => $newEnd]);
 
+            // Los recordatorios ya reclamados apuntaban al horario anterior; sin esto,
+            // el comando nunca volvería a evaluar la reserva para el horario nuevo.
+            $booking->reminders()->delete();
+
             BookingStatusHistory::create([
                 'booking_id' => $booking->id,
                 'from_status' => $booking->status,

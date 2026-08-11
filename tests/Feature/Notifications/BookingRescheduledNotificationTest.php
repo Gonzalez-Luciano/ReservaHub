@@ -6,7 +6,9 @@ use App\Actions\Bookings\RescheduleBooking;
 use App\Enums\BookingStatus;
 use App\Enums\DayOfWeek;
 use App\Enums\NotificationAudience;
+use App\Enums\ReminderType;
 use App\Models\Booking;
+use App\Models\BookingReminder;
 use App\Models\Business;
 use App\Models\Schedule;
 use App\Models\Service;
@@ -102,6 +104,21 @@ class BookingRescheduledNotificationTest extends TestCase
             "Reprogramado de {$previousStart->format('Y-m-d H:i')} a {$newStart->format('Y-m-d H:i')}.",
             $note,
         );
+    }
+
+    public function test_rescheduling_clears_previously_claimed_reminders(): void
+    {
+        Notification::fake();
+        ['booking' => $booking, 'newStart' => $newStart] = $this->makeReschedulableBooking();
+        BookingReminder::factory()->for($booking)->create(['type' => ReminderType::TwentyFourHours]);
+
+        app(RescheduleBooking::class)->handle(
+            $booking,
+            ['starts_at' => $newStart->toDateTimeString()],
+            $booking->customer,
+        );
+
+        $this->assertSame(0, $booking->reminders()->count());
     }
 
     public function test_the_mail_mentions_both_times(): void

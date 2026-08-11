@@ -15,6 +15,8 @@ abstract class BookingNotification extends Notification implements ShouldQueue
 {
     use Queueable;
 
+    public int $tries = 3;
+
     public function __construct(public readonly Booking $booking) {}
 
     /**
