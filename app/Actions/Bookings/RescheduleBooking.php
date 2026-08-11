@@ -49,7 +49,11 @@ class RescheduleBooking
                 throw ValidationException::withMessages(['starts_at' => 'Ese horario ya no está disponible.']);
             }
 
-            $booking->update(['starts_at' => $newStart, 'ends_at' => $newEnd]);
+            // Persistido en UTC: el cast `datetime` escribe los dígitos de reloj
+            // *actuales* del Carbon tal cual y los relee asumiendo UTC, así que
+            // guardar acá un Carbon con display en horario de negocio volvería
+            // con el instante equivocado en la próxima lectura.
+            $booking->update(['starts_at' => $newStart->utc(), 'ends_at' => $newEnd->utc()]);
 
             // Los recordatorios ya reclamados apuntaban al horario anterior; sin esto,
             // el comando nunca volvería a evaluar la reserva para el horario nuevo.

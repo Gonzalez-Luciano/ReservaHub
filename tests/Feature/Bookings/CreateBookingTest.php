@@ -9,6 +9,7 @@ use App\Events\BookingCreated;
 use App\Models\Booking;
 use App\Models\Business;
 use App\Models\Schedule;
+use App\Models\Scopes\BusinessScope;
 use App\Models\Service;
 use App\Models\User;
 use Carbon\CarbonImmutable;
@@ -101,6 +102,53 @@ class CreateBookingTest extends TestCase
         ], $customer);
 
         $this->assertSame(BookingStatus::Pending, $booking->status);
+    }
+
+    public function test_persists_the_slot_so_re_fetching_it_still_shows_the_requested_business_local_time(): void
+    {
+        // Eloquent's 'datetime' cast formats a Carbon value's *current* wall-clock
+        // digits into the stored string as-is, then reinterprets that naive string
+        // as the app timezone (UTC) on the next read. If the Action persists a
+        // Carbon already converted to the business timezone, a non-UTC business
+        // round-trips to the wrong instant on re-fetch — e.g. 09:00 in
+        // America/Argentina/Buenos_Aires (UTC-3) comes back as 06:00.
+        $business = Business::factory()->create(['timezone' => 'America/Argentina/Buenos_Aires']);
+        $employee = User::factory()->employee()->create(['business_id' => $business->id]);
+        $service = Service::factory()->for($business)->create([
+            'duration_minutes' => 30,
+            'buffer_minutes' => 0,
+        ]);
+        $customer = User::factory()->customer()->create();
+
+        Schedule::factory()->create([
+            'business_id' => $business->id,
+            'employee_id' => $employee->id,
+            'day_of_week' => DayOfWeek::Monday,
+            'start_time' => '09:00',
+            'end_time' => '10:00',
+            'is_active' => true,
+        ]);
+
+        $service->employees()->attach($employee->id);
+        app()->instance(Business::class, $business);
+
+        $slot = CarbonImmutable::parse('next monday', 'America/Argentina/Buenos_Aires')->startOfDay()->setTime(9, 0);
+
+        $booking = app(CreateBooking::class)->handle($business, [
+            'customer_id' => $customer->id,
+            'employee_id' => $employee->id,
+            'service_id' => $service->id,
+            'starts_at' => $slot->toIso8601String(),
+            'source' => 'web',
+            'notes' => null,
+        ], $customer);
+
+        $refetched = Booking::withoutGlobalScope(BusinessScope::class)->findOrFail($booking->id);
+
+        $this->assertSame(
+            '09:00',
+            $refetched->starts_at->copy()->setTimezone('America/Argentina/Buenos_Aires')->format('H:i'),
+        );
     }
 
     public function test_rejects_a_slot_already_taken_by_another_booking(): void

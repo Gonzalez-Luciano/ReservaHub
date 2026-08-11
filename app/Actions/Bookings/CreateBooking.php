@@ -69,8 +69,12 @@ class CreateBooking
                 'customer_id' => $customer->id,
                 'employee_id' => $employee->id,
                 'service_id' => $service->id,
-                'starts_at' => $startsAt,
-                'ends_at' => $endsAt,
+                // Persisted in UTC: the `datetime` cast writes a Carbon value's
+                // *current* wall-clock digits verbatim and reads them back
+                // assuming UTC, so storing a business-timezone-labeled Carbon
+                // here would round-trip to the wrong instant on the next fetch.
+                'starts_at' => $startsAt->utc(),
+                'ends_at' => $endsAt->utc(),
                 'status' => $status,
                 'price' => $service->price,
                 'deposit_amount' => $service->deposit_amount,

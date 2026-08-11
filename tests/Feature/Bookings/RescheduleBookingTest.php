@@ -9,6 +9,7 @@ use App\Models\Booking;
 use App\Models\BookingStatusHistory;
 use App\Models\Business;
 use App\Models\Schedule;
+use App\Models\Scopes\BusinessScope;
 use App\Models\Service;
 use App\Models\User;
 use Carbon\CarbonImmutable;
@@ -214,6 +215,49 @@ class RescheduleBookingTest extends TestCase
 
         $this->assertStringContainsString($expectedOld, $history->notes);
         $this->assertStringContainsString($expectedNew, $history->notes);
+    }
+
+    public function test_persists_the_new_slot_so_re_fetching_it_still_shows_the_requested_business_local_time(): void
+    {
+        // Same storage/read mismatch as CreateBookingTest's equivalent test: the
+        // 'datetime' cast writes a Carbon's current wall-clock digits as-is and
+        // rereads them as UTC, so persisting a business-timezone-labeled Carbon
+        // here would round-trip to the wrong instant on the next fetch.
+        $business = Business::factory()->create(['timezone' => 'America/Argentina/Buenos_Aires']);
+        $employee = User::factory()->employee()->create(['business_id' => $business->id]);
+        $service = Service::factory()->for($business)->create(['duration_minutes' => 30, 'buffer_minutes' => 0]);
+        $customer = User::factory()->customer()->create();
+        $date = CarbonImmutable::parse('next monday', 'America/Argentina/Buenos_Aires')->startOfDay();
+
+        Schedule::factory()->create([
+            'business_id' => $business->id,
+            'employee_id' => $employee->id,
+            'day_of_week' => DayOfWeek::Monday,
+            'start_time' => '09:00',
+            'end_time' => '11:00',
+            'is_active' => true,
+        ]);
+
+        $booking = Booking::factory()->create([
+            'business_id' => $business->id,
+            'customer_id' => $customer->id,
+            'employee_id' => $employee->id,
+            'service_id' => $service->id,
+            'status' => BookingStatus::Confirmed,
+            'starts_at' => $date->setTime(9, 0)->utc(),
+            'ends_at' => $date->setTime(9, 30)->utc(),
+        ]);
+
+        app(RescheduleBooking::class)->handle($booking, [
+            'starts_at' => $date->setTime(10, 0)->toIso8601String(),
+        ], $customer);
+
+        $refetched = Booking::withoutGlobalScope(BusinessScope::class)->findOrFail($booking->id);
+
+        $this->assertSame(
+            '10:00',
+            $refetched->starts_at->copy()->setTimezone('America/Argentina/Buenos_Aires')->format('H:i'),
+        );
     }
 
     public function test_rejects_rescheduling_to_a_slot_in_the_past(): void
