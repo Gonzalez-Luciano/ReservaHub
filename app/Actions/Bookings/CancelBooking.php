@@ -4,6 +4,7 @@ namespace App\Actions\Bookings;
 
 use App\Enums\BookingStatus;
 use App\Enums\Role;
+use App\Events\BookingCancelled;
 use App\Models\Booking;
 use App\Models\BookingStatusHistory;
 use App\Models\User;
@@ -39,6 +40,10 @@ class CancelBooking
             'changed_by' => $actingUser->id,
         ]);
 
-        return $booking->fresh();
+        $booking = $booking->fresh();
+
+        event(new BookingCancelled($booking, $actingUser));
+
+        return $booking;
     }
 }
