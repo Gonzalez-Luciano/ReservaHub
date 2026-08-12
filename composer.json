@@ -10,6 +10,7 @@
         "inertiajs/inertia-laravel": "^3.3",
         "laravel-lang/lang": "^15.34",
         "laravel/framework": "^13.8",
+        "laravel/sanctum": "^4.0",
         "laravel/tinker": "^3.0"
     },
     "require-dev": {
