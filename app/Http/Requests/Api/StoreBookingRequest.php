@@ -1,0 +1,43 @@
+<?php
+
+namespace App\Http\Requests\Api;
+
+use App\Enums\Role;
+use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
+
+class StoreBookingRequest extends FormRequest
+{
+    public function authorize(): bool
+    {
+        return true;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function rules(): array
+    {
+        return [
+            'customer_email' => [
+                'required',
+                'email',
+                Rule::exists('users', 'email')->where(fn ($query) => $query->where('role', Role::Customer->value)),
+            ],
+            'employee_id' => ['required', 'integer'],
+            'service_id' => ['required', 'integer'],
+            'starts_at' => ['required', 'date'],
+            'notes' => ['nullable', 'string', 'max:1000'],
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'customer_email.exists' => 'No existe un cliente registrado con ese email.',
+        ];
+    }
+}
