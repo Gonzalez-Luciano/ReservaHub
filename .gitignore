@@ -7,6 +7,7 @@
 .phpunit.result.cache
 /.claude/worktrees
 /.codex
+/.superpowers
 /.cursor/
 /.idea
 /.nova
