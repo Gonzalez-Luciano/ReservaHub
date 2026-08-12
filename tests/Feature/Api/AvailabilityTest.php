@@ -208,28 +208,30 @@ class AvailabilityTest extends TestCase
         $owner = User::factory()->owner()->create(['business_id' => $business->id]);
         Sanctum::actingAs($owner, [], 'sanctum');
 
-        $date = Carbon::now()->next(Carbon::FRIDAY)->format('Y-m-d');
+        // Query for the specific Friday date
+        $targetDate = CarbonImmutable::parse('next friday', $business->timezone);
+        $date = $targetDate->format('Y-m-d');
 
         $response = $this->getJson("/api/availability?service_id={$service->id}&employee_id={$employee->id}&date={$date}");
 
         $response->assertOk()
             ->assertJsonPath('success', true);
 
+        // Build break window using the same target date
+        $breakStart = $targetDate->setTime(12, 0, 0);
+        $breakEnd = $targetDate->setTime(13, 0, 0);
+
         // Verify no slots fall during the break
         foreach ($response['data'] as $slot) {
             $startTime = CarbonImmutable::parse($slot['starts_at']);
             $endTime = CarbonImmutable::parse($slot['ends_at']);
-
-            // None of the slots should overlap with 12:00-13:00
-            $breakStart = CarbonImmutable::createFromTimeString('12:00:00', $business->timezone);
-            $breakEnd = CarbonImmutable::createFromTimeString('13:00:00', $business->timezone);
 
             // If slot starts at or after break end, it's OK
             // If slot ends at or before break start, it's OK
             // Otherwise, it overlaps and shouldn't be in the results
             $this->assertTrue(
                 $endTime->lte($breakStart) || $startTime->gte($breakEnd),
-                "Slot {$slot['starts_at']} - {$slot['ends_at']} overlaps with break 12:00-13:00"
+                "Slot {$slot['starts_at']} - {$slot['ends_at']} overlaps with break {$breakStart->toIso8601String()}-{$breakEnd->toIso8601String()}"
             );
         }
     }
@@ -246,5 +248,48 @@ class AvailabilityTest extends TestCase
 
         $this->getJson("/api/businesses/any-slug/availability?service_id={$service->id}&employee_id={$employee->id}&date={$date}")
             ->assertStatus(401);
+    }
+
+    public function test_slots_are_formatted_in_business_timezone_with_offset(): void
+    {
+        // Use a non-UTC timezone to ensure offset is visible
+        $business = Business::factory()->create(['timezone' => 'America/Argentina/Buenos_Aires']);
+        $service = Service::factory()->for($business)->create(['duration_minutes' => 30, 'buffer_minutes' => 0]);
+        $employee = User::factory()->employee()->create(['business_id' => $business->id]);
+
+        Schedule::factory()
+            ->for($business)
+            ->for($employee, 'employee')
+            ->create([
+                'day_of_week' => DayOfWeek::Monday,
+                'start_time' => '09:00:00',
+                'end_time' => '10:00:00',
+                'is_active' => true,
+            ]);
+
+        $owner = User::factory()->owner()->create(['business_id' => $business->id]);
+        Sanctum::actingAs($owner, [], 'sanctum');
+
+        $targetDate = CarbonImmutable::parse('next monday', $business->timezone);
+        $date = $targetDate->format('Y-m-d');
+
+        $response = $this->getJson("/api/availability?service_id={$service->id}&employee_id={$employee->id}&date={$date}");
+
+        $response->assertOk();
+
+        // Verify timestamps are in ISO-8601 format with timezone offset, not UTC
+        $this->assertNotEmpty($response['data']);
+        $slot = $response['data'][0];
+
+        // The timestamp should contain a timezone offset like -03:00, not a literal Z
+        $this->assertStringContainsString('-03:00', $slot['starts_at'], 'Timestamp should be in business timezone (Buenos Aires = -03:00)');
+        $this->assertStringNotContainsString('Z', $slot['starts_at'], 'Timestamp should not use UTC Z notation');
+
+        // Verify it's a proper ISO-8601 string
+        $this->assertMatchesRegularExpression(
+            '/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}/',
+            $slot['starts_at'],
+            'Timestamp should match ISO-8601 format with timezone offset'
+        );
     }
 }

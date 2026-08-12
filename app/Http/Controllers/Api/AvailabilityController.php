@@ -2,7 +2,10 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\Role;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\AvailabilityRequest;
+use App\Http\Resources\SlotResource;
 use App\Models\Business;
 use App\Models\Service;
 use App\Models\User;
@@ -10,47 +13,25 @@ use App\Services\AvailabilityService;
 use App\Support\ApiResponse;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 
 class AvailabilityController extends Controller
 {
-    public function __construct(
-        private AvailabilityService $availabilityService,
-    ) {}
-
-    public function index(Request $request): JsonResponse
-    {
-        $validated = $request->validate([
-            'service_id' => 'required|numeric',
-            'employee_id' => 'required|numeric',
-            'date' => 'required|date_format:Y-m-d',
-        ]);
-
+    public function index(
+        AvailabilityRequest $request,
+        AvailabilityService $availability,
+    ): JsonResponse {
         $business = Business::current();
 
-        // Load service scoped to business
-        $service = Service::where('business_id', $business->id)
-            ->findOrFail($validated['service_id']);
+        $service = Service::findOrFail($request->validated('service_id'));
 
-        // Load employee scoped to business
         $employee = User::where('business_id', $business->id)
-            ->findOrFail($validated['employee_id']);
+            ->where('role', Role::Employee)
+            ->findOrFail($request->validated('employee_id'));
 
-        // Convert date string to CarbonImmutable (business timezone)
-        $date = CarbonImmutable::createFromFormat(
-            'Y-m-d',
-            $validated['date'],
-            $business->timezone
-        )->startOfDay();
+        $date = CarbonImmutable::parse($request->validated('date'), $business->timezone);
 
-        // Get available slots
-        $slots = $this->availabilityService->getAvailableSlots(
-            $business,
-            $service,
-            $employee,
-            $date
-        );
+        $slots = $availability->getAvailableSlots($business, $service, $employee, $date);
 
-        return ApiResponse::success($slots);
+        return ApiResponse::success(SlotResource::collection($slots));
     }
 }
