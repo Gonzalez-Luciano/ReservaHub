@@ -18,16 +18,13 @@ class AuthController extends Controller
     {
         $user = User::where('email', $request->validated('email'))->first();
 
-        if (! $user || ! Hash::check($request->validated('password'), $user->password)) {
+        $invalidCredentials = ! $user
+            || ! Hash::check($request->validated('password'), $user->password)
+            || ! $user->is_active
+            || ($user->hasBusiness() && ! $user->business->is_active);
+
+        if ($invalidCredentials) {
             return ApiResponse::error('Estas credenciales no coinciden con nuestros registros.', null, 401);
-        }
-
-        if (! $user->is_active) {
-            return ApiResponse::error('Esta cuenta está desactivada.', null, 401);
-        }
-
-        if ($user->hasBusiness() && ! $user->business->is_active) {
-            return ApiResponse::error('El negocio asociado a esta cuenta está desactivado.', null, 401);
         }
 
         $token = $user->createToken($request->validated('device_name'))->plainTextToken;
