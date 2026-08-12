@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\AvailabilityController;
 use App\Http\Controllers\Api\EmployeeController;
 use App\Http\Controllers\Api\ServiceController;
 use App\Http\Middleware\BindPublicBusiness;
@@ -18,6 +19,7 @@ Route::name('api.')->group(function () {
     Route::middleware(['auth:sanctum', 'business'])->group(function () {
         Route::get('services', [ServiceController::class, 'index'])->name('services.index');
         Route::get('employees', [EmployeeController::class, 'index'])->name('employees.index');
+        Route::get('availability', [AvailabilityController::class, 'index'])->name('availability.index');
     });
 
     Route::middleware(['auth:sanctum', BindPublicBusiness::class])
@@ -26,5 +28,6 @@ Route::name('api.')->group(function () {
         ->group(function () {
             Route::get('services', [ServiceController::class, 'index'])->name('services.index');
             Route::get('employees', [EmployeeController::class, 'index'])->name('employees.index');
+            Route::get('availability', [AvailabilityController::class, 'index'])->name('availability.index');
         });
 });
