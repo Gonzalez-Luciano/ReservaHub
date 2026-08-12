@@ -1,0 +1,84 @@
+# API de ReservaHub
+
+REST sobre `/api`, autenticada con tokens personales de Laravel Sanctum. Todas las respuestas usan el mismo envelope:
+
+```json
+{ "success": true, "data": {}, "message": "", "errors": null }
+```
+
+En error, `success` es `false`, `data` es `null` y `errors` trae el detalle de validación cuando lo hay.
+
+## Autenticación
+
+```bash
+curl -X POST http://localhost/api/auth/login \
+  -H 'Accept: application/json' \
+  -d 'email=owner@example.com&password=password&device_name=cli'
+```
+
+Devuelve `data.token`. Mandalo en cada petición siguiente:
+
+```bash
+curl http://localhost/api/services -H 'Accept: application/json' -H "Authorization: Bearer $TOKEN"
+```
+
+`POST /api/auth/logout` revoca solo el token usado.
+
+## Endpoints
+
+| Método | Ruta | Quién | Qué hace |
+|---|---|---|---|
+| POST | `/api/auth/login` | público | Emite un token |
+| POST | `/api/auth/logout` | autenticado | Revoca el token actual |
+| GET | `/api/services` | staff | Servicios activos del negocio del token |
+| GET | `/api/employees` | staff | Empleados activos; `?service_id=` filtra |
+| GET | `/api/availability` | staff | Slots libres; `?service_id=&employee_id=&date=YYYY-MM-DD` |
+| POST | `/api/bookings` | staff | Crea reserva para un cliente (`customer_email`) |
+| POST | `/api/bookings/{id}/confirm` | staff | Confirma una reserva pendiente |
+| GET | `/api/businesses/{slug}/services` | cliente | Servicios del negocio |
+| GET | `/api/businesses/{slug}/employees` | cliente | Empleados del negocio |
+| GET | `/api/businesses/{slug}/availability` | cliente | Slots libres |
+| POST | `/api/businesses/{slug}/bookings` | cliente | Crea su propia reserva |
+| GET | `/api/bookings` | ambos | Listado paginado; filtros `status`, `from`, `to`, `employee_id`, `per_page` |
+| GET | `/api/bookings/{id}` | ambos | Detalle |
+| PATCH | `/api/bookings/{id}` | ambos | Reprograma (`starts_at`) |
+| POST | `/api/bookings/{id}/cancel` | ambos | Cancela |
+
+Staff ve las reservas de su negocio; un cliente ve solo las propias, de cualquier negocio.
+
+## Paginación
+
+`GET /api/bookings` devuelve `data.items` y `data.meta` (`current_page`, `per_page`, `total`, `last_page`). `per_page` por defecto 15, máximo 100.
+
+## Límites de tasa
+
+60 peticiones por minuto por usuario. `POST /api/auth/login`, 5 por minuto por email + IP. Al excederlos, 429 con el envelope.
+
+## Códigos de error
+
+| Código | Cuándo |
+|---|---|
+| 401 | Sin token, token inválido, credenciales incorrectas, cuenta o negocio inactivo |
+| 403 | El rol no puede realizar la acción (incluye cancelar fuera del plazo) |
+| 404 | Recurso inexistente o de otro negocio |
+| 422 | Validación o regla de negocio (horario ocupado, fuera de horario laboral, estado inválido) |
+| 429 | Límite de tasa superado |
+
+## Ejemplo completo
+
+```bash
+TOKEN=$(curl -s -X POST http://localhost/api/auth/login \
+  -H 'Accept: application/json' \
+  -d 'email=cliente@example.com&password=password&device_name=cli' | jq -r '.data.token')
+
+curl -s "http://localhost/api/businesses/barberia-juan/availability?service_id=1&employee_id=2&date=2026-09-07" \
+  -H 'Accept: application/json' -H "Authorization: Bearer $TOKEN"
+
+curl -s -X POST http://localhost/api/businesses/barberia-juan/bookings \
+  -H 'Accept: application/json' -H "Authorization: Bearer $TOKEN" \
+  -d 'service_id=1&employee_id=2&starts_at=2026-09-07T09:00:00-03:00'
+```
+
+## OpenAPI
+
+Con la app corriendo en local, la especificación navegable está en `http://localhost/docs/api` y el JSON en `http://localhost/docs/api.json`, generados por `dedoc/scramble` a partir de las rutas, los Form Requests y los Resources.

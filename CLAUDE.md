@@ -68,6 +68,16 @@ The first `php artisan test` after `up -d` takes roughly ten times longer than t
 
 This project uses **pnpm**, not npm — there is no `package-lock.json`, only `pnpm-lock.yaml`. Always use `pnpm install` / `pnpm dev` / `pnpm build`, never the `npm` equivalents.
 
+## API REST (Fase 7)
+
+REST bajo `/api`, sin versión, autenticada con tokens Sanctum (`POST /api/auth/login` con `email`, `password`, `device_name`). Sin abilities: autoriza el rol vía Policies.
+
+El negocio se resuelve de dos formas: staff → middleware `business` (`EnsureBusinessContext`) sobre el usuario del token; cliente → `/api/businesses/{slug}/...` con `BindPublicBusiness`. Las rutas de reservas (`GET|PATCH /api/bookings*`, `cancel`) son compartidas y **no** llevan el middleware `business`: el trait `App\Http\Controllers\Api\Concerns\ResolvesBookingScope` liga el negocio si el usuario es staff, o levanta `BusinessScope` si es customer.
+
+Toda respuesta pasa por `App\Support\ApiResponse` y tiene exactamente `{success, data, message, errors}`; las excepciones se mapean a ese mismo envelope en `bootstrap/app.php`. Los listados paginados van en `data.items` + `data.meta`.
+
+Documentación: `docs/api.md` y OpenAPI en `/docs/api` (dedoc/scramble, solo en local).
+
 ## Localization: `APP_LOCALE=es`
 
 The app's default locale is Spanish (`config/app.php` → `env('APP_LOCALE', 'es')`, `.env.example` sets `APP_LOCALE=es`, `APP_FALLBACK_LOCALE=en`). Laravel's built-in validation/auth/passwords/pagination strings are translated via `lang/es/` (published with `laravel-lang/lang`, `php artisan lang:add es`) — added in Fase 3 after mixed English/Spanish validation errors surfaced (custom messages were already hardcoded in Spanish; Laravel's default rule messages weren't). Custom validation messages (`ValidationException::withMessages([...])`, Form Request `messages()`) must be written in Spanish directly, same as before — only Laravel's own built-in strings needed the `lang/` files. If a new Laravel version adds rules/strings not yet in `lang/es/validation.php`, re-run `php artisan lang:add es` to refresh it.
