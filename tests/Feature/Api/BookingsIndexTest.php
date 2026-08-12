@@ -139,4 +139,21 @@ class BookingsIndexTest extends TestCase
             ->assertStatus(422)
             ->assertJsonStructure(['errors' => ['per_page']]);
     }
+
+    public function test_deactivated_staff_user_cannot_list_bookings(): void
+    {
+        $business = Business::factory()->create();
+        $owner = User::factory()->owner()->create(['business_id' => $business->id, 'is_active' => false]);
+        Sanctum::actingAs($owner, [], 'sanctum');
+
+        $this->getJson('/api/bookings')->assertStatus(403);
+    }
+
+    public function test_deactivated_customer_cannot_list_bookings(): void
+    {
+        $customer = User::factory()->customer()->create(['is_active' => false]);
+        Sanctum::actingAs($customer, [], 'sanctum');
+
+        $this->getJson('/api/bookings')->assertStatus(403);
+    }
 }

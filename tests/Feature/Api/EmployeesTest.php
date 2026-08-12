@@ -46,4 +46,30 @@ class EmployeesTest extends TestCase
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.id', $withService->id);
     }
+
+    public function test_staff_employees_endpoint_never_exposes_employee_email(): void
+    {
+        $business = Business::factory()->create();
+        User::factory()->employee()->create(['business_id' => $business->id]);
+
+        $owner = User::factory()->owner()->create(['business_id' => $business->id]);
+        Sanctum::actingAs($owner, [], 'sanctum');
+
+        $this->getJson('/api/employees')
+            ->assertOk()
+            ->assertJsonMissingPath('data.0.email');
+    }
+
+    public function test_public_employees_endpoint_never_exposes_employee_email(): void
+    {
+        $business = Business::factory()->create(['slug' => 'barberia-ana']);
+        User::factory()->employee()->create(['business_id' => $business->id]);
+
+        $customer = User::factory()->customer()->create();
+        Sanctum::actingAs($customer, [], 'sanctum');
+
+        $this->getJson('/api/businesses/barberia-ana/employees')
+            ->assertOk()
+            ->assertJsonMissingPath('data.0.email');
+    }
 }

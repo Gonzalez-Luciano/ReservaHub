@@ -22,8 +22,11 @@ trait ResolvesBookingScope
      */
     protected function bookingQueryFor(User $user): Builder
     {
+        abort_unless($user->is_active, 403);
+
         if (in_array($user->role, Role::businessStaff(), true)) {
             abort_unless($user->hasBusiness(), 403);
+            abort_unless($user->business->is_active, 403);
 
             app()->instance(Business::class, $user->business);
 
