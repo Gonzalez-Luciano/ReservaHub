@@ -4,9 +4,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project status
 
-The Laravel app is scaffolded and this is a git repository (Fase 0 and Fase 1 are done — see `docs/superpowers/plans/`). `01-reservahub.md` is still the authoritative spec for anything not yet implemented.
+Fases 0–7 are implemented (auth, tenancy, services/employees, availability, bookings, notifications/scheduler, REST API + Sanctum — see `docs/superpowers/plans/` and the status table in `01-reservahub.md` §7). Fase 8 (payments) and Fase 9 (Reverb) are not started. `01-reservahub.md` is still the authoritative spec for anything not yet implemented.
 
 Standard Laravel commands apply: `php artisan test` (or a specific test with `php artisan test --filter=TestName`), `vendor/bin/pint --test` for formatting. For the frontend, see **Package manager** below before running any JS command.
+
+## Responsibility boundary: this repo does not operate the production server
+
+**Do not perform Linux host, Cloudflare, or production deployment work from this repository**, and do not add roadmap tasks that assign it here. Production runs on a multiproject home server (`/srv/apps`, `/srv/backups`, shared Docker Engine and `cloudflared`) operated by a separate, dedicated home-server operations workflow that runs on the real Linux machine and discovers the host state itself.
+
+Out of scope here: host provisioning, `/srv` layout, host port registry and loopback binding, `cloudflared` / tunnel / DNS / Cloudflare Access, host firewall, production `.env` and secrets, the host-specific production Compose file, running real migrations on the server, backups/restore/reboot, systemd units, deployment transport, and production rollback.
+
+In scope here: the application, its development Docker boundaries, tests, CI that validates the repo on GitHub (never reaching into the private server), builds, the environment contract, migrations, safe demo/bootstrap data, health checks, and the deployment handoff in `docs/DEPLOYMENT_HANDOFF.md` — the document the external operations workflow consumes. Keep that file in sync when runtime requirements change (new service, new env var, new persistent path, new exposure rule). Do not create speculative production artifacts (`compose.prod.yaml`, systemd units, tunnel config, backup cron, guessed production ports).
 
 ## Development environment: Docker (Laravel Sail)
 

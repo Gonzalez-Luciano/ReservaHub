@@ -361,6 +361,22 @@ POST   /api/webhooks/payments/{provider}
 
 ## 7. Implementación por fases
 
+### Estado actual (verificado contra el código y los tests)
+
+| Fase | Estado | Evidencia |
+|---|---|---|
+| 0 — Preparación | Hecha, salvo el pipeline de CI | Proyecto Laravel 13 + Sail, `.env.example`, Pint, pnpm. **Falta `.github/workflows`** → se cierra en la Fase 10 |
+| 1 — Autenticación | Hecha | `tests/Feature/Auth/*` |
+| 2 — Empresas y tenancy | Hecha | `tests/Feature/Tenancy/*`, `tests/Feature/Policies/*`, `EnsureBusinessContext` |
+| 3 — Servicios y empleados | Hecha | `tests/Feature/Dashboard/*`, `DemoSeeder` |
+| 4 — Motor de disponibilidad | Hecha | `app/Services/AvailabilityService.php`, `tests/Unit/Services/AvailabilityServiceTest.php` |
+| 5 — Reservas | Hecha | `app/Actions/Bookings/*`, `tests/Feature/Bookings/*` (incluye concurrencia) |
+| 6 — Notificaciones y scheduler | Hecha | `app/Notifications/Bookings/*`, `SendBookingReminders`, contenedores `queue` y `scheduler` |
+| 7 — API y Sanctum | Hecha | `routes/api.php`, `tests/Feature/Api/*`, `docs/api.md` + OpenAPI |
+| 8 — Pagos | Pendiente | No existen `payments`/`webhook_events` ni `Services/Payments` |
+| 9 — Tiempo real | Pendiente | Sin Reverb; `BROADCAST_CONNECTION=log` |
+| 10 — Release readiness y handoff | En curso | `docs/DEPLOYMENT_HANDOFF.md` escrito. Pendientes: workflow de CI, README propio, seeder de demo con clientes y reservas, proxies de confianza para operar detrás de un proxy/tunnel |
+
 ### Fase 0 — Preparación
 
 1. Crear repositorio.
@@ -465,51 +481,87 @@ npm run build
 4. Autorizar canal.
 5. Actualizar calendario en vivo.
 
-### Fase 10 — Producción
+### Fase 10 — Release readiness y handoff operativo
 
-Arquitectura de destino: servidor Linux propio, multiproyecto, definida en `codex_portfolio_home_server/docs/SERVER_ARCHITECTURE.md`. Esta fase debe seguir ese documento a rajatabla; no improvisar variantes (puertos, binding, tunnel, backups) fuera de lo que ahí se especifica.
+**Objetivo:** dejar un repositorio verificado y listo para release, con un contrato de runtime y de handoff de despliegue explícito, manteniendo el despliegue físico y las operaciones de host (Linux, Cloudflare, backups) fuera del workflow de desarrollo de la aplicación.
 
-**Aclaración sobre el frontend:** este proyecto no tiene frontend separado. Usa Inertia + React compilado por `laravel-vite-plugin` y servido por el mismo contenedor Laravel (`pnpm build` → `public/build`, sin proceso Node en runtime). El ejemplo "gateway → React / Laravel" de `SERVER_ARCHITECTURE.md` no aplica acá tal cual: el `gateway` de este stack apunta a un único servicio (`laravel.test`/app), no a dos. No crear un contenedor React/Node de producción para este proyecto.
+#### Frontera de responsabilidad
 
-1. **Ubicación e independencia del proyecto**
-   - Repo propio en `/srv/apps/reserva-hub/` (no dentro del repo del portfolio).
-   - `compose.yaml`, `.env`, volúmenes, red Docker, cola y scheduler exclusivos de este proyecto — nada compartido con otros stacks salvo Docker Engine, `cloudflared` y el SO.
+El despliegue real ocurre después, mediante un workflow externo y dedicado de operaciones de home server que corre sobre la máquina Linux real (paquete operativo `home_server_ops_claude`). Ese servidor es intencionalmente multiproyecto (`/srv/apps/`, `/srv/backups/`, Docker Engine y `cloudflared` compartidos): ReservaHub es solo uno de sus proyectos.
 
-2. **Docker de producción**
-   - Adaptar `compose.yaml` de Sail a un compose de producción: un `gateway` como único servicio que publica puerto al host; `laravel.test`/app, `pgsql`, `redis` quedan solo en la red Docker privada, sin `ports:` públicos.
-   - Volúmenes con nombre asociado al proyecto (ej. `reserva_pgsql_data`), nunca compartidos con otro stack.
-   - `queue worker` y `scheduler` corren como procesos/contenedores propios del stack de este proyecto (no un cron global del host).
+```text
+REPOSITORIO RESERVAHUB              EXTERNO: OPERACIONES DE HOME SERVER
+──────────────────────────          ──────────────────────────────────
+aplicación Laravel/Inertia          descubrimiento del Linux real
+límites Docker de la app            /srv/apps y /srv/backups
+requisitos PostgreSQL               registro central de puertos
+requisitos Redis                    adaptación del compose de producción
+requisitos cola/scheduler           secretos de producción
+tests                               volúmenes reales de PostgreSQL/Redis
+CI                                  cloudflared compartido
+build                               hostname de Cloudflare
+contrato de entorno                 firewall del host
+migraciones                         backups y restore
+demo/bootstrap seguro               reinicio y recuperación
+health checks         ── clone →    despliegue y rollback
+documentación de runtime            operación multiproyecto
+handoff de despliegue
+```
 
-3. **Puerto y binding**
-   - Reservar un puerto host único para este proyecto en el registro central de puertos (ver tabla de `SERVER_ARCHITECTURE.md`, ej. `8080`).
-   - El `gateway` debe enlazar a `127.0.0.1:PUERTO`, nunca a `0.0.0.0:PUERTO`.
+Ese agente externo hace su propio descubrimiento (distro, CPU/RAM/discos, estado de Docker, puertos ocupados, estado del tunnel, repo clonado) y recién después decide y ejecuta la configuración productiva real. **Esta fase no adivina esas decisiones ni las documenta como si fueran fijas.**
 
-4. **Variables de entorno**
-   - `.env` de producción fuera de git, solo en el servidor.
-   - `DB_HOST`/`REDIS_HOST` apuntan a los nombres de servicio Docker del stack (igual que en desarrollo, nunca a `127.0.0.1` del host).
+**Fuera del alcance de este repositorio** (lo hace el workflow externo): detectar la distro Linux, inspeccionar hardware, crear `/srv/apps` y `/srv/backups`, elegir la ubicación física de los datos persistentes, instalar/configurar Docker en el host, asignar el puerto de loopback y mantener el registro central de puertos, instalar y configurar `cloudflared`, crear o modificar el tunnel compartido, configurar el hostname DNS de Cloudflare, manejar tokens del tunnel, configurar Cloudflare Access, firewall del host y exposición del router, clonar el repo en el servidor, crear el `.env` de producción y elegir el mecanismo de secretos, escribir el compose de producción específico del host, ejecutar el deploy y las migraciones reales, configurar backups/restore/reboot y unidades `systemd`, elegir el transporte de despliegue (runner self-hosted, SSH, Cloudflare Access) y hacer rollback en el host.
 
-5. **Cloudflare Tunnel**
-   - No incluir `cloudflared` en el `compose.yaml` del proyecto: es un servicio `systemd` compartido del host.
-   - Agregar entrada de ruteo `reservas.lucianogonzalez.dev -> http://localhost:PUERTO` a la configuración del tunnel existente.
-   - Token del tunnel es secreto del servidor, nunca en el repo.
+**No pre-construir** en este repo: `compose.prod.yaml`, overrides específicos del host, configuración de Cloudflare, unidades systemd, scripts de firewall, cron de backups, `.env` de producción, archivos/tokens de tunnel, scripts que provisionen `/srv`, ni puertos de producción adivinados. La regla es: *hacer que ReservaHub sea fácil de desplegar después, sin ejecutar ese despliegue ahora.* Lo que ya existe y es portable (el `compose.yaml` de desarrollo basado en Sail, `.env.example`, seeders) se preserva: es insumo del agente externo, no lastre.
 
-6. **Logging**
-   - Logs de la app y del stack accesibles vía `docker compose logs` / `/var/log` del host, sin mezclar con logs de otros proyectos.
+**Aclaración sobre el frontend:** este proyecto no tiene frontend separado ni proceso Node en runtime. Usa Inertia + React compilado por `laravel-vite-plugin` (`pnpm build` → `public/build`) y servido por el mismo contenedor de la app. No crear un runtime React/Next independiente.
 
-7. **Backups**
-   - Backup de `pgsql` (y de storage si aplica) en `/srv/backups/reserva-hub/`, independiente de otros proyectos.
-   - Retención definida, copia fuera del disco principal, restore probado antes de dar la fase por cerrada.
+#### 10.1 Verificación final de la aplicación
 
-8. **Despliegue**
-   - Seguir la secuencia de "Primera etapa" de `SERVER_ARCHITECTURE.md`: CI valida el commit → conexión segura al servidor → `git pull` en `/srv/apps/reserva-hub` → `docker compose up -d` → migraciones → smoke test → confirmar que `reservas.lucianogonzalez.dev` responde.
-   - No exponer SSH públicamente para automatizar esto; usar alguna de las opciones aceptadas en el documento (runner self-hosted restringido, Cloudflare Access, etc.) solo en una fase de automatización posterior.
+Todo se ejecuta dentro de los contenedores (ver `CLAUDE.md`):
 
-9. **Reinicio del servidor**
-   - Verificar que tras reiniciar el host se recuperan solos: Docker, `cloudflared`, este stack marcado con `restart: unless-stopped` (o política equivalente), `pgsql`, la app, el gateway.
+1. Suite completa: `docker compose exec laravel.test php artisan test`.
+2. Concurrencia: `tests/Feature/Bookings/BookingConcurrencyTest.php` en verde (dos solicitudes al mismo slot, una sola gana).
+3. Aislamiento y autorización: `tests/Feature/Tenancy/*`, `tests/Feature/Policies/*`, `tests/Unit/Policies/*`.
+4. API: `tests/Feature/Api/*` (envelope, auth, disponibilidad, reservas).
+5. Notificaciones y scheduler: `tests/Feature/Notifications/*` (incluye no duplicar recordatorios) y `php artisan schedule:list`.
+6. Cola: worker consumiendo de Redis; verificar que los mails encolados salen (Mailpit en desarrollo).
+7. Formato: `vendor/bin/pint --test`.
+8. Build de frontend: `pnpm install --frozen-lockfile && pnpm build` sin errores y con `public/build` generado.
+9. Dependencias: `composer validate --strict`, `composer audit`, lockfile de pnpm congelado (`--frozen-lockfile`), `pnpm audit`.
+10. Docker: `docker compose config -q` sobre el `compose.yaml` del repo.
+11. Smoke de aplicación: `/up` (health de Laravel), login web, y el flujo de API `login → availability → booking`.
+12. Cuando existan las Fases 8 y 9: tests de pagos/webhooks idempotentes y de reconciliación, y del canal privado de broadcasting. **No inventar checks para tecnologías que el repo todavía no usa.**
 
-10. **Usuario demo**
-    - Seeder de producción con un usuario/empresa demo, sin datos sensibles reales.
-    - Si el dato demo se resetea periódicamente, documentar el reset y limitarlo a esta demo (nunca `migrate:fresh --seed` afectando datos que deban persistir).
+#### 10.2 CI y readiness de release
+
+Ver la sección **9. CI/CD**, sincronizada con el proyecto real (PHP 8.5, Node 24, pnpm, PostgreSQL 18, Redis). CI valida el repositorio en GitHub: tests, Pint, build de frontend, validación de dependencias y del compose. **CI no debe requerir acceso entrante al servidor privado ni administrar el host**; cualquier automatización futura de despliegue la elige el workflow externo de operaciones después de inspeccionar la máquina real.
+
+#### 10.3 Contrato de runtime
+
+Documentar de forma explícita (destino: `docs/DEPLOYMENT_HANDOFF.md`):
+
+- Procesos/servicios de la aplicación (app HTTP, worker de cola, scheduler) y su entrypoint HTTP.
+- Requisitos de PostgreSQL y de Redis, y para qué se usa cada uno.
+- Requisitos de cola y de tareas programadas.
+- Nombres de variables de entorno, quién es dueño de cada una y cuáles son secretas (**nunca valores reales de producción**).
+- Procedimiento de build, de migración y de bootstrap/seed seguro.
+- Health y smoke checks, logs, datos persistentes y necesidades de storage.
+- Qué datos hay que respaldar y qué no debe exponerse públicamente jamás.
+
+#### 10.4 Handoff de despliegue
+
+Mantener `docs/DEPLOYMENT_HANDOFF.md` como contrato de aplicación —no como manual de administración de Linux—: qué necesita saber el agente externo sobre ReservaHub (proyecto Docker aislado, persistencia de PostgreSQL y de storage, si Redis necesita persistencia, cola y scheduler, comando de migración, bootstrap/demo seguro, smoke tests, señales de salud, información relevante para rollback, qué respaldar, exposiciones prohibidas) sin prescribirle lo que debe descubrir por su cuenta.
+
+#### 10.5 Preparación de demo y release
+
+- `DemoSeeder` determinista e idempotente, sin datos reales de clientes ni de pagos.
+- Credenciales de demo documentadas como credenciales de demo, con contraseña rotable desde el entorno; `DatabaseSeeder` no debe usarse en producción (crea un usuario de prueba).
+- README propio del proyecto (hoy sigue siendo el README stock de Laravel): qué es, stack, cómo levantarlo, cómo correr tests, enlaces a `docs/api.md` y `docs/DEPLOYMENT_HANDOFF.md`.
+- Documentación de API vigente (`docs/api.md` + OpenAPI de Scramble, que solo se expone en local).
+- Capturas y material de demo listos.
+- Repositorio limpio (sin archivos generados ni secretos versionados).
+- Tag `v1.0.0` solo cuando se cumplan sus criterios reales: Fases 0–9 completas, suite verde, README y documentación al día y handoff publicado.
 
 ## 8. Tests imprescindibles
 
@@ -538,10 +590,26 @@ Simular dos solicitudes para el mismo turno y verificar que solamente una se con
 
 ## 9. CI/CD
 
+CI valida el repositorio en GitHub. **No administra el servidor privado ni necesita acceso entrante a él**: el despliegue real lo decide y ejecuta el workflow externo de operaciones de home server (ver Fase 10).
+
+Versiones reales del proyecto, verificadas contra el repo y la imagen de Sail:
+
+| Pieza | Versión real | Dónde se define |
+|---|---|---|
+| PHP | 8.5 en runtime (`composer.json` exige `^8.3`) | imagen `sail-8.5/app` |
+| Laravel | 13.x | `composer.json` |
+| Node | 24.x | imagen de Sail |
+| Gestor de paquetes JS | **pnpm** (11.x); no hay `package-lock.json` | `pnpm-lock.yaml` |
+| Base de datos | PostgreSQL 18 | `compose.yaml`, `.env.example` (`DB_CONNECTION=pgsql`) |
+| Redis | `redis:alpine`, solo para la cola en runtime | `compose.yaml`, `QUEUE_CONNECTION=redis` |
+| Tests | PHPUnit 12; `phpunit.xml` fuerza `DB_DATABASE=testing`, `QUEUE_CONNECTION=sync`, `CACHE_STORE=array`, `MAIL_MAILER=array` | `phpunit.xml` |
+
+Como la suite corre con `QUEUE_CONNECTION=sync` y `CACHE_STORE=array`, **CI necesita PostgreSQL pero no Redis**. Sí necesita el build de frontend: sin `public/build`, las páginas Inertia fallan y la suite reporta errores falsos (`Not a valid Inertia response`).
+
 Workflow mínimo:
 
 ```yaml
-name: tests
+name: ci
 
 on:
   push:
@@ -550,17 +618,51 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_DB: testing
+          POSTGRES_USER: sail
+          POSTGRES_PASSWORD: password
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U sail -d testing"
+          --health-interval 10s --health-timeout 5s --health-retries 5
+    env:
+      DB_CONNECTION: pgsql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      DB_DATABASE: testing
+      DB_USERNAME: sail
+      DB_PASSWORD: password
     steps:
       - uses: actions/checkout@v4
       - uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.3'
+          php-version: '8.5'
+          extensions: pdo_pgsql, redis
+          coverage: none
+      - run: composer validate --strict
       - run: composer install --no-interaction --prefer-dist
       - run: cp .env.example .env
       - run: php artisan key:generate
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
       - run: php artisan test
       - run: vendor/bin/pint --test
+      - run: docker compose config -q
+        env:
+          WWWUSER: '1000'
+          WWWGROUP: '1000'
 ```
+
+`composer audit` / `pnpm audit` pueden agregarse como job aparte (no bloqueante) para validación de dependencias.
 
 ## 10. Datos demo
 
@@ -580,6 +682,8 @@ Usuario sugerido:
 owner@reservahub.test
 password
 ```
+
+Implementado parcialmente en `database/seeders/DemoSeeder.php`: siembra empresa, owner, dos empleados, cinco servicios y horarios semanales; **faltan clientes y reservas futuras/pasadas**. Es idempotente (no re-siembra si ya existe `peluqueria-demo`) y no contiene datos reales de clientes ni de pagos. `DatabaseSeeder` además crea un usuario `test@example.com` de conveniencia: **en un entorno público hay que sembrar con `db:seed --class=DemoSeeder`, no con el seeder por defecto**, y la contraseña de demo debe poder rotarse desde el entorno. Nunca correr `migrate:fresh --seed` sobre datos que deban persistir.
 
 ## 11. Capturas recomendadas
 
@@ -607,11 +711,12 @@ password
 ## 13. Entregables para GitHub
 
 - Código.
-- README.
+- README propio del proyecto (reemplazar el README stock de Laravel).
 - Diagrama ER.
-- Colección Postman.
-- Archivo Docker.
-- Workflow GitHub Actions.
+- Documentación de API: `docs/api.md` + OpenAPI (Scramble, expuesto solo en local). Colección Postman opcional.
+- `compose.yaml` de la aplicación (desarrollo, basado en Sail). El compose de producción específico del host lo escribe el workflow externo de operaciones.
+- Workflow GitHub Actions de validación (tests, Pint, build, dependencias). Sin jobs que administren el servidor privado.
+- `docs/DEPLOYMENT_HANDOFF.md`: contrato de runtime y handoff para el agente externo de operaciones.
 - Capturas.
-- Release `v1.0.0`.
+- Release `v1.0.0` cuando se cumplan los criterios de la Fase 10.
 - Issues cerrados que documenten el proceso.
