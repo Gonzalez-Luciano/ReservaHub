@@ -81,6 +81,14 @@ Nombres de variables, no valores. **Este repositorio no contiene ni debe contene
 | `LOG_CHANNEL` / `LOG_STACK` / `LOG_LEVEL` | operador | no | Ver §7 |
 | `TRUSTED_PROXIES` | operador | no | Necesario detrás de proxy/tunnel — ver §10 |
 
+### `SESSION_DRIVER=database` — requisito operativo
+
+Deja de ser una conveniencia. La aplicación invalida las sesiones ajenas
+borrando filas de la tabla `sessions`, y con cualquier otro driver
+`UserAccessRevoker` lanza una excepción: el cambio de contraseña y la
+desactivación de usuarios fallarían con 500 en producción. La tabla `sessions`
+tiene que estar presente y migrada (ya viene en las migraciones base).
+
 ## 5. Build
 
 Sin proceso Node en runtime; el build se hace antes de servir (en la imagen o en el deploy):

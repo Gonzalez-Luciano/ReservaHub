@@ -69,7 +69,7 @@ Funciones:
 - Horarios semanales por empleado.
 - Pausas (`schedule_breaks`).
 - Licencias por empleado (`time_offs`).
-- Feriados del negocio (Fase 8, todavía sin tabla).
+- Feriados del negocio.
 - Bloqueos manuales (se cubren con licencias).
 - Duración configurable por servicio.
 - Zona horaria de la empresa.
@@ -222,6 +222,18 @@ employee_id
 starts_at
 ends_at
 reason
+```
+
+#### business_holidays
+
+```text
+id
+business_id
+name
+starts_on
+ends_on
+created_at
+updated_at
 ```
 
 #### bookings
@@ -377,7 +389,7 @@ POST   /api/webhooks/payments/{provider}
 | 5 — Reservas | Hecha | `app/Actions/Bookings/*`, `tests/Feature/Bookings/*` (incluye concurrencia) |
 | 6 — Notificaciones y scheduler | Hecha | `app/Notifications/Bookings/*`, `SendBookingReminders`, contenedores `queue` y `scheduler` |
 | 7 — API y Sanctum | Hecha | `routes/api.php`, `tests/Feature/Api/*`, `docs/api.md` + OpenAPI |
-| 8 — Gestión de cuenta y negocio | Pendiente | Sin cambio de contraseña logueado, sin edición del negocio, sin alta/baja de usuarios, sin feriados |
+| 8 — Gestión de cuenta y negocio | Hecha | `tests/Feature/Account/*`, `tests/Feature/Dashboard/{BusinessSettingsTest,UserStatusTest,UserStatusConcurrencyTest,HolidaysTest}`, `tests/Feature/Api/{AccountTest,BusinessTest,UsersTest,HolidaysTest}`, `business_holidays` en `AvailabilityService` |
 | 9 — Pagos | Pendiente | No existen `payments`/`webhook_events` ni `Services/Payments` |
 | 10 — Tiempo real | Pendiente | Sin Reverb; `BROADCAST_CONNECTION=log` |
 | 11 — Rediseño y experiencia frontend | Pendiente | Frontend actual mínimo: 17 páginas Inertia y 4 componentes, `Pages/Home.jsx` es un `<h1>`, `Pages/Dashboard/Index.jsx` es un placeholder |
@@ -470,12 +482,12 @@ npm run build
 
 ### Fase 8 — Gestión de cuenta y negocio
 
-Cierra las funciones que §2 promete y que hoy no existen en el backend. Todo esto es trabajo de dominio Laravel: rutas, Form Requests, Policies y Actions, con sus tests. La UI definitiva la resuelve la Fase 11; acá alcanza con pantallas funcionales al nivel del resto del panel.
+Cerró las funciones que §2 prometía y que hasta la Fase 7 no existían en el backend: cambio de contraseña con sesión iniciada, edición de los ajustes del negocio, activación/desactivación de usuarios y feriados a nivel negocio — cada una con su ruta web (`routes/account.php`, `routes/dashboard.php`) y su espejo en la API (`routes/api.php`), Form Request, Policy y Action, con tests unitarios y de feature.
 
-1. **Cambio de contraseña con sesión iniciada.** Hoy solo existe el reset por email (`routes/auth.php`). Pedir la contraseña actual, aplicar las reglas de validación del registro, y decidir explícitamente qué pasa con las demás sesiones y con los tokens de Sanctum al cambiarla.
-2. **Ajustes del negocio.** El negocio se crea al registrarse y queda congelado: no hay controlador ni ruta de actualización. Permitir editar nombre, zona horaria, moneda y `cancellation_hours`, solo para `owner`/`admin` vía Policy. Cuidado con la zona horaria: es la que usa el motor de disponibilidad, así que necesita test de que cambiarla no rompe las reservas ya persistidas en UTC.
-3. **Activación y desactivación de usuarios.** `is_active` ya se respeta en el login web, en el login de API y en `ResolvesBookingScope`, pero no hay forma de cambiarlo. Agregar el control para empleados del propio negocio, impedir que alguien se desactive a sí mismo o desactive al último `owner`, y revocar sesión y tokens al desactivar.
-4. **Feriados del negocio.** `schedule_breaks` (pausas) y `time_offs` (licencias por empleado) existen; los feriados a nivel negocio no. Crear la tabla con `business_id`, integrarlos en `AvailabilityService` junto con pausas y licencias, y cubrirlos con tests unitarios. Decidir qué pasa con las reservas ya creadas en un día que después se marca feriado (no cancelarlas en silencio).
+1. **Cambio de contraseña con sesión iniciada.** `PUT /account/password` (web) y `PUT /api/account/password` (API) exigen la contraseña actual (verificada a mano contra el hash, sin la regla `current_password`, porque el mismo Form Request se reutiliza bajo el guard `sanctum`) y reutilizan las reglas de validación de contraseña del registro. `App\Actions\Account\ChangePassword` revoca el resto del acceso del usuario a través de `App\Support\UserAccessRevoker`: rota el `remember_token`, borra sus tokens de Sanctum y elimina sus demás sesiones de la tabla `sessions` (driver `database`), preservando solo la sesión web que hizo el cambio (`null` desde la API, así que ahí cae también el token que hizo la llamada).
+2. **Ajustes del negocio.** `App\Http\Controllers\Dashboard\BusinessSettingsController` (`GET`/`PUT /dashboard/settings`) y su equivalente en la API (`App\Http\Controllers\Api\BusinessController`, `GET`/`PUT /api/business`) permiten editar nombre, zona horaria, moneda y `cancellation_hours`, autorizado por la Policy `update` de `Business` (solo `owner`/`admin`). `App\Actions\Businesses\UpdateBusinessSettings` asigna esos cuatro campos explícitamente (no un `update($data)` masivo) para no exponer `slug`, `logo_path` ni `is_active`.
+3. **Activación y desactivación de usuarios.** `PUT /dashboard/users/{user}/status` y `PUT /api/users/{user}/status` llaman a `App\Actions\Users\SetUserActiveStatus`, autorizado por `UserPolicy::setActiveStatus`: exige mismo negocio, prohíbe que alguien se desactive a sí mismo, y prohíbe que un `admin` cambie el estado de un `owner` (un `owner` sí puede cambiar el estado de cualquier otro usuario de su negocio, incluidos otros `owner`). El invariante del último `owner` activo vive en la Action, no en la Policy, porque depende del estado actual de los datos: bloquea (`lockForUpdate`, orden fijo por `id` para evitar deadlock entre desactivaciones simultáneas) las filas de owners activos del negocio y rechaza la operación si el objetivo es el único que queda. Al desactivar, cuenta las reservas futuras (`pending`/`confirmed`) del empleado y revoca su acceso con el mismo `UserAccessRevoker` que usa el cambio de contraseña.
+4. **Feriados del negocio.** La tabla `business_holidays` (`business_id`, `name`, `starts_on`, `ends_on`) se integró en `AvailabilityService` junto con pausas y licencias: un día marcado feriado no ofrece slots. `App\Actions\Holidays\CreateBusinessHoliday` rechaza feriados que se superponen con otro feriado existente o con reservas `pending`/`confirmed` ya persistidas en ese rango (con una vista previa de hasta 5 reservas en conflicto en el mensaje de validación) — así nunca cancela reservas en silencio; hay que cancelarlas o reprogramarlas antes de crear el feriado. Rutas web (`GET`/`POST /dashboard/holidays`, `DELETE /dashboard/holidays/{holiday}`) y API (`GET`/`POST /api/holidays`, `DELETE /api/holidays/{holiday}`); no hay edición, solo alta y baja.
 
 **Logo: fuera de alcance.** El logo es fijo y el mismo para todos los negocios (asset del frontend). No hay upload, `businesses.logo_path` queda sin uso a propósito, y la aplicación sigue sin datos de usuario en disco — el contrato de despliegue no gana storage persistente.
 

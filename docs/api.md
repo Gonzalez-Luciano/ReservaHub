@@ -24,17 +24,31 @@ curl http://localhost/api/services -H 'Accept: application/json' -H "Authorizati
 
 `POST /api/auth/logout` revoca solo el token usado.
 
+**Cambio de contraseña por API.** `PUT /api/account/password` revoca **todos**
+los tokens del usuario, incluido el que hizo la llamada. La respuesta llega con
+200 y el mensaje de re-login; cualquier petición posterior con ese token
+devuelve 401. Después de cambiarla hay que volver a `POST /api/auth/login`.
+
 ## Endpoints
 
 | Método | Ruta | Quién | Qué hace |
 |---|---|---|---|
 | POST | `/api/auth/login` | público | Emite un token |
 | POST | `/api/auth/logout` | autenticado | Revoca el token actual |
+| GET | `/api/account` | autenticado | Datos de la cuenta autenticada |
+| PATCH | `/api/account/profile` | autenticado | Actualiza nombre y email |
+| PUT | `/api/account/password` | autenticado | Cambia la contraseña |
 | GET | `/api/services` | staff | Servicios activos del negocio del token |
 | GET | `/api/employees` | staff | Empleados activos; `?service_id=` filtra |
 | GET | `/api/availability` | staff | Slots libres; `?service_id=&employee_id=&date=YYYY-MM-DD` |
 | POST | `/api/bookings` | staff | Crea reserva para un cliente (`customer_email`) |
 | POST | `/api/bookings/{id}/confirm` | staff | Confirma una reserva pendiente |
+| GET | `/api/business` | staff (owner/admin) | Ajustes del negocio |
+| PUT | `/api/business` | staff (owner/admin) | Actualiza los ajustes del negocio |
+| PUT | `/api/users/{user}/status` | staff (owner/admin) | Activa o desactiva un usuario |
+| GET | `/api/holidays` | staff (owner/admin) | Feriados del negocio |
+| POST | `/api/holidays` | staff (owner/admin) | Crea un feriado |
+| DELETE | `/api/holidays/{holiday}` | staff (owner/admin) | Elimina un feriado |
 | GET | `/api/businesses/{slug}/services` | cliente | Servicios del negocio |
 | GET | `/api/businesses/{slug}/employees` | cliente | Empleados del negocio |
 | GET | `/api/businesses/{slug}/availability` | cliente | Slots libres |
@@ -63,6 +77,13 @@ Staff ve las reservas de su negocio; un cliente ve solo las propias, de cualquie
 | 404 | Recurso inexistente o de otro negocio |
 | 422 | Validación o regla de negocio (horario ocupado, fuera de horario laboral, estado inválido) |
 | 429 | Límite de tasa superado |
+
+Un feriado (`business_holidays`) de otro negocio devuelve **404**, no 403: el
+scope de negocio filtra la consulta antes de que el recurso se resuelva, así
+que la API no confirma su existencia. Esto no aplica a `PUT
+/api/users/{user}/status`: el modelo `User` no lleva ese scope (`business_id`
+es nullable, no toda fila pertenece a un negocio), así que un usuario de otro
+negocio sí se resuelve por route-model binding y la Policy lo rechaza con 403.
 
 ## Ejemplo completo
 

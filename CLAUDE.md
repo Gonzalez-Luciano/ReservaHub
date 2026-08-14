@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project status
 
-Fases 0–7 are implemented (auth, tenancy, services/employees, availability, bookings, notifications/scheduler, REST API + Sanctum — see `docs/superpowers/plans/` and the status table in `01-reservahub.md` §7). Fase 8 (account/business management), Fase 9 (payments), Fase 10 (Reverb), Fase 11 (frontend redesign) and Fase 12 (release readiness + handoff) are not started. `01-reservahub.md` is still the authoritative spec for anything not yet implemented.
+Fases 0–8 are implemented (auth, tenancy, services/employees, availability, bookings, notifications/scheduler, REST API + Sanctum, account/business management — see `docs/superpowers/plans/` and the status table in `01-reservahub.md` §7). Fase 9 (payments), Fase 10 (Reverb), Fase 11 (frontend redesign) and Fase 12 (release readiness + handoff) are not started. `01-reservahub.md` is still the authoritative spec for anything not yet implemented.
 
 The frontend is deliberately minimal for now (17 Inertia pages, 4 shared components, Tailwind 4 with no component library, a placeholder dashboard). **Fase 11 owns the redesign** and must start from `superpowers:brainstorming` plus the installed frontend-design skill — not from UI code.
 
@@ -87,6 +87,23 @@ El negocio se resuelve de dos formas: staff → middleware `business` (`EnsureBu
 Toda respuesta pasa por `App\Support\ApiResponse` y tiene exactamente `{success, data, message, errors}`; las excepciones se mapean a ese mismo envelope en `bootstrap/app.php`. Los listados paginados van en `data.items` + `data.meta`.
 
 Documentación: `docs/api.md` y OpenAPI en `/docs/api` (dedoc/scramble, solo en local).
+
+## Revocación de acceso y moneda (Fase 8)
+
+Toda revocación de acceso pasa por `App\Support\UserAccessRevoker::revoke($user, $keepSessionId)`:
+rota el `remember_token`, borra todos los tokens de Sanctum y borra las filas de
+`sessions` del usuario. **Falla cerrado**: lanza `UnsupportedSessionDriverException`
+si `SESSION_DRIVER` no es `database`, porque con otro driver las sesiones web no
+se pueden invalidar. No usar `Auth::logoutOtherDevices()` — `AuthenticateSession`
+no está en el grupo `web`, así que no invalidaría nada.
+
+Lo consumen el cambio de contraseña (`App\Actions\Account\ChangePassword`, que
+preserva la sesión actual en web y no preserva nada por API) y la desactivación
+de usuarios (`App\Actions\Users\SetUserActiveStatus`).
+
+Las monedas válidas son el enum `App\Enums\Currency` (set acotado de códigos
+ISO-4217, sin dependencia externa). La columna `businesses.currency` sigue siendo
+string: el enum se usa para validar y para poblar el formulario.
 
 ## Localization: `APP_LOCALE=es`
 
