@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Dashboard\BookingController;
+use App\Http\Controllers\Dashboard\BusinessSettingsController;
 use App\Http\Controllers\Dashboard\EmployeeController;
 use App\Http\Controllers\Dashboard\EmployeeInvitationController;
 use App\Http\Controllers\Dashboard\EmployeeServiceController;
@@ -14,6 +15,9 @@ Route::middleware(['auth', 'business'])->group(function () {
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
 
     Route::prefix('dashboard')->name('dashboard.')->group(function () {
+        Route::get('settings', [BusinessSettingsController::class, 'edit'])->name('settings.edit');
+        Route::put('settings', [BusinessSettingsController::class, 'update'])->name('settings.update');
+
         Route::resource('services', ServiceController::class)->except(['show']);
 
         Route::get('bookings', [BookingController::class, 'index'])->name('bookings.index');

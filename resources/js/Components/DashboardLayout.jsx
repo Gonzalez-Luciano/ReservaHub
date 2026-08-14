@@ -15,7 +15,11 @@ export default function DashboardLayout({ children }) {
                 {isManager && (
                     <Link href="/dashboard/employees" className="hover:text-gray-900">Empleados</Link>
                 )}
-                <button onClick={() => router.post('/logout')} className="ml-auto hover:text-gray-900">
+                {isManager && (
+                    <Link href="/dashboard/settings" className="hover:text-gray-900">Ajustes</Link>
+                )}
+                <Link href="/account" className="ml-auto hover:text-gray-900">Mi cuenta</Link>
+                <button onClick={() => router.post('/logout')} className="hover:text-gray-900">
                     Salir
                 </button>
             </nav>
