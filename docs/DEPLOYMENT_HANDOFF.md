@@ -74,7 +74,7 @@ Nombres de variables, no valores. **Este repositorio no contiene ni debe contene
 | `CACHE_STORE` | app | no | `database` |
 | `SESSION_DRIVER` | app | no | `database` |
 | `SESSION_SECURE_COOKIE` | operador | no | `true` detrás de HTTPS |
-| `BROADCAST_CONNECTION` | app | no | `log` hasta que exista la Fase 9 (Reverb) |
+| `BROADCAST_CONNECTION` | app | no | `log` hasta que exista la Fase 10 (Reverb) |
 | `FILESYSTEM_DISK` | app | no | `local` |
 | `MAIL_MAILER` / `MAIL_HOST` / `MAIL_PORT` / `MAIL_FROM_ADDRESS` / `MAIL_FROM_NAME` | operador | no | SMTP real |
 | `MAIL_USERNAME` / `MAIL_PASSWORD` | operador | **sí** | |
@@ -135,7 +135,7 @@ Un token válido permite además `GET /api/services` y `GET /api/availability` (
 | Dato | Persistente | Backup | Por qué |
 |---|---|---|---|
 | Volumen de PostgreSQL | **Sí** | **Sí** | Único dato irrecuperable |
-| `storage/app` | Sí | Sí, cuando se usen uploads | Hoy la app no sube archivos (`businesses.logo_path` existe en el esquema pero no hay flujo de carga). Si se implementa, este directorio pasa a ser dato de usuario |
+| `storage/app` | Sí | No, por ahora | La app no sube archivos y no está previsto que lo haga: el logo es un asset fijo del frontend y `businesses.logo_path` queda sin uso a propósito (§2 del roadmap). Si algún día se agregan uploads, este directorio pasa a ser dato de usuario y entra al backup |
 | `storage/logs` | Conveniente | No | Diagnóstico |
 | `storage/framework/{cache,views,sessions}` | No | No | Regenerable; sesiones y cache viven en PostgreSQL |
 | Volumen de Redis | Opcional | No | Solo trabajos encolados |

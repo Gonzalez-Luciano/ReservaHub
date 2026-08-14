@@ -4,7 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project status
 
-Fases 0–7 are implemented (auth, tenancy, services/employees, availability, bookings, notifications/scheduler, REST API + Sanctum — see `docs/superpowers/plans/` and the status table in `01-reservahub.md` §7). Fase 8 (payments) and Fase 9 (Reverb) are not started. `01-reservahub.md` is still the authoritative spec for anything not yet implemented.
+Fases 0–7 are implemented (auth, tenancy, services/employees, availability, bookings, notifications/scheduler, REST API + Sanctum — see `docs/superpowers/plans/` and the status table in `01-reservahub.md` §7). Fase 8 (account/business management), Fase 9 (payments), Fase 10 (Reverb), Fase 11 (frontend redesign) and Fase 12 (release readiness + handoff) are not started. `01-reservahub.md` is still the authoritative spec for anything not yet implemented.
+
+The frontend is deliberately minimal for now (17 Inertia pages, 4 shared components, Tailwind 4 with no component library, a placeholder dashboard). **Fase 11 owns the redesign** and must start from `superpowers:brainstorming` plus the installed frontend-design skill — not from UI code.
 
 Standard Laravel commands apply: `php artisan test` (or a specific test with `php artisan test --filter=TestName`), `vendor/bin/pint --test` for formatting. For the frontend, see **Package manager** below before running any JS command.
 
@@ -156,6 +158,6 @@ REST API under `/api/*`, authenticated via Sanctum (Fase 7). Every response foll
 - A booking with a required deposit stays `pending` until payment is confirmed.
 - Every query must be scoped by `business_id`.
 
-## Real-time (Fase 9)
+## Real-time (Fase 10)
 
 Laravel Reverb, one private channel per business, authorized via channel auth, used to push live calendar updates on booking events.

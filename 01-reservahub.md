@@ -30,8 +30,9 @@ Demostrar que podés construir una aplicación Laravel completa con:
 - Zona horaria.
 - Moneda.
 - Configuración de cancelación.
-- Logo.
 - Estado activo o suspendido.
+
+Logo: fijo, el mismo para todos los negocios (asset del frontend). Sin upload; `businesses.logo_path` queda sin uso a propósito.
 
 ### Usuarios
 
@@ -66,10 +67,10 @@ Funciones:
 ### Disponibilidad
 
 - Horarios semanales por empleado.
-- Pausas.
-- Feriados.
-- Licencias.
-- Bloqueos manuales.
+- Pausas (`schedule_breaks`).
+- Licencias por empleado (`time_offs`).
+- Feriados del negocio (Fase 8, todavía sin tabla).
+- Bloqueos manuales (se cubren con licencias).
 - Duración configurable por servicio.
 - Zona horaria de la empresa.
 
@@ -108,7 +109,8 @@ Canales:
 
 - Email.
 - Base de datos.
-- Opcional: WhatsApp mediante proveedor de prueba o adaptador simulado.
+
+WhatsApp queda **fuera del alcance de este proyecto** (ni real ni simulado).
 
 ### Pagos
 
@@ -129,6 +131,8 @@ Canales:
 - Ingresos estimados.
 - Servicios más solicitados.
 - Empleados con más reservas.
+
+Todavía no implementado: `Pages/Dashboard/Index.jsx` es un placeholder. Qué métricas se construyen, con qué datos reales y para qué rol se decide en la **Fase 11** (§7).
 
 ## 3. Modelo de datos
 
@@ -365,7 +369,7 @@ POST   /api/webhooks/payments/{provider}
 
 | Fase | Estado | Evidencia |
 |---|---|---|
-| 0 — Preparación | Hecha, salvo el pipeline de CI | Proyecto Laravel 13 + Sail, `.env.example`, Pint, pnpm. **Falta `.github/workflows`** → se cierra en la Fase 10 |
+| 0 — Preparación | Hecha, salvo el pipeline de CI | Proyecto Laravel 13 + Sail, `.env.example`, Pint, pnpm. **Falta `.github/workflows`** → se cierra en la Fase 12 |
 | 1 — Autenticación | Hecha | `tests/Feature/Auth/*` |
 | 2 — Empresas y tenancy | Hecha | `tests/Feature/Tenancy/*`, `tests/Feature/Policies/*`, `EnsureBusinessContext` |
 | 3 — Servicios y empleados | Hecha | `tests/Feature/Dashboard/*`, `DemoSeeder` |
@@ -373,9 +377,11 @@ POST   /api/webhooks/payments/{provider}
 | 5 — Reservas | Hecha | `app/Actions/Bookings/*`, `tests/Feature/Bookings/*` (incluye concurrencia) |
 | 6 — Notificaciones y scheduler | Hecha | `app/Notifications/Bookings/*`, `SendBookingReminders`, contenedores `queue` y `scheduler` |
 | 7 — API y Sanctum | Hecha | `routes/api.php`, `tests/Feature/Api/*`, `docs/api.md` + OpenAPI |
-| 8 — Pagos | Pendiente | No existen `payments`/`webhook_events` ni `Services/Payments` |
-| 9 — Tiempo real | Pendiente | Sin Reverb; `BROADCAST_CONNECTION=log` |
-| 10 — Release readiness y handoff | En curso | `docs/DEPLOYMENT_HANDOFF.md` escrito. Pendientes: workflow de CI, README propio, seeder de demo con clientes y reservas, proxies de confianza para operar detrás de un proxy/tunnel |
+| 8 — Gestión de cuenta y negocio | Pendiente | Sin cambio de contraseña logueado, sin edición del negocio, sin alta/baja de usuarios, sin feriados |
+| 9 — Pagos | Pendiente | No existen `payments`/`webhook_events` ni `Services/Payments` |
+| 10 — Tiempo real | Pendiente | Sin Reverb; `BROADCAST_CONNECTION=log` |
+| 11 — Rediseño y experiencia frontend | Pendiente | Frontend actual mínimo: 17 páginas Inertia y 4 componentes, `Pages/Home.jsx` es un `<h1>`, `Pages/Dashboard/Index.jsx` es un placeholder |
+| 12 — Release readiness y handoff | En curso | `docs/DEPLOYMENT_HANDOFF.md` escrito. Pendientes: workflow de CI, README propio, seeder de demo con clientes y reservas, proxies de confianza para operar detrás de un proxy/tunnel |
 
 ### Fase 0 — Preparación
 
@@ -462,7 +468,18 @@ npm run build
 5. Agregar rate limiting.
 6. Documentar con Postman u OpenAPI.
 
-### Fase 8 — Pagos
+### Fase 8 — Gestión de cuenta y negocio
+
+Cierra las funciones que §2 promete y que hoy no existen en el backend. Todo esto es trabajo de dominio Laravel: rutas, Form Requests, Policies y Actions, con sus tests. La UI definitiva la resuelve la Fase 11; acá alcanza con pantallas funcionales al nivel del resto del panel.
+
+1. **Cambio de contraseña con sesión iniciada.** Hoy solo existe el reset por email (`routes/auth.php`). Pedir la contraseña actual, aplicar las reglas de validación del registro, y decidir explícitamente qué pasa con las demás sesiones y con los tokens de Sanctum al cambiarla.
+2. **Ajustes del negocio.** El negocio se crea al registrarse y queda congelado: no hay controlador ni ruta de actualización. Permitir editar nombre, zona horaria, moneda y `cancellation_hours`, solo para `owner`/`admin` vía Policy. Cuidado con la zona horaria: es la que usa el motor de disponibilidad, así que necesita test de que cambiarla no rompe las reservas ya persistidas en UTC.
+3. **Activación y desactivación de usuarios.** `is_active` ya se respeta en el login web, en el login de API y en `ResolvesBookingScope`, pero no hay forma de cambiarlo. Agregar el control para empleados del propio negocio, impedir que alguien se desactive a sí mismo o desactive al último `owner`, y revocar sesión y tokens al desactivar.
+4. **Feriados del negocio.** `schedule_breaks` (pausas) y `time_offs` (licencias por empleado) existen; los feriados a nivel negocio no. Crear la tabla con `business_id`, integrarlos en `AvailabilityService` junto con pausas y licencias, y cubrirlos con tests unitarios. Decidir qué pasa con las reservas ya creadas en un día que después se marca feriado (no cancelarlas en silencio).
+
+**Logo: fuera de alcance.** El logo es fijo y el mismo para todos los negocios (asset del frontend). No hay upload, `businesses.logo_path` queda sin uso a propósito, y la aplicación sigue sin datos de usuario en disco — el contrato de despliegue no gana storage persistente.
+
+### Fase 9 — Pagos
 
 1. Crear contrato `PaymentGateway`.
 2. Crear implementación fake.
@@ -473,7 +490,7 @@ npm run build
 7. Crear job de reconciliación.
 8. Tests con payloads simulados.
 
-### Fase 9 — Tiempo real
+### Fase 10 — Tiempo real
 
 1. Instalar Reverb.
 2. Crear evento de reserva.
@@ -481,7 +498,162 @@ npm run build
 4. Autorizar canal.
 5. Actualizar calendario en vivo.
 
-### Fase 10 — Release readiness y handoff operativo
+### Fase 11 — Rediseño y experiencia frontend
+
+**Objetivo:** convertir una aplicación ya funcional en una demo SaaS profesional, coherente y presentable, sin rediseñar el backend por motivos visuales.
+
+> Mantener ReservaHub como proyecto Laravel orientado a backend, y a la vez lograr que la aplicación completa sea comprensible, creíble, agradable y demostrable para un reclutador o revisor técnico sin que el autor tenga que explicar cada pantalla a mano.
+
+El frontend dejó de ser aceptable como "la interfaz mínima para ejercitar los CRUD". Esta fase no define todavía el diseño final: define el alcance y las preguntas que el brainstorming posterior tiene que resolver.
+
+**Esta fase no está implementada ni diseñada.** Lo que sigue es alcance, no especificación visual.
+
+#### Punto de partida real (verificado en el repositorio)
+
+- 17 páginas Inertia en `resources/js/Pages/` y 4 componentes en `resources/js/Components/` (`AuthCard`, `DashboardLayout`, `InputError`, `PublicLayout`).
+- Tailwind CSS 4 vía `@tailwindcss/vite`, sin librería de componentes; `resources/css/app.css` tiene 9 líneas y solo declara la familia tipográfica.
+- `Pages/Home.jsx` es una portada de una sola línea (`<h1>ReservaHub</h1>` más un enlace condicional). No hay landing pública.
+- `Pages/Dashboard/Index.jsx` es un placeholder que dice explícitamente que el dashboard real llega en una fase posterior; `DashboardController` solo pasa el nombre del negocio. **El dashboard del alcance funcional (§2) no está implementado y ninguna fase previa lo reclama** — esta fase decide qué se construye y con qué datos reales.
+- Áreas ya conectadas: autenticación (login, registro, verificación, recuperación, reset), invitaciones de empleados, servicios, empleados, horarios, pausas, licencias, reservas del panel con su ciclo de vida completo (confirmar, cancelar, completar, ausencia, reprogramar), página pública de negocio, reserva pública y "mis reservas" del cliente.
+- Sin UI (aunque el backend existe o el dominio lo requiere): notificaciones en base de datos, ajustes del negocio, perfil/cuenta del usuario, gestión de tokens de API, listado/descubrimiento de negocios.
+- Pagos (Fase 9) y tiempo real (Fase 10) no existen: **solo se rediseña lo que esté implementado cuando la fase empiece**.
+
+#### Workflow obligatorio al ejecutar esta fase
+
+No empezar escribiendo UI. La ejecución arranca así:
+
+1. Leer el repositorio y el frontend actual.
+2. Inspeccionar rutas, layouts, componentes, páginas Inertia, endpoints/actions de Laravel y flujos de usuario implementados.
+3. Revisar qué fases están realmente completas (tabla de estado de esta sección, contrastada con el código).
+4. Levantar la aplicación.
+5. Inspeccionar pantallas representativas en el navegador.
+6. Invocar la skill `superpowers:brainstorming`.
+7. Hacer **una** pregunta genuinamente abierta de diseño/producto por vez.
+8. Usar la skill de diseño frontend instalada (hoy `frontend-design`) para el trabajo visual/UX; si el nombre en runtime cambió, inspeccionar las skills instaladas y usar la correcta en lugar de adivinar o sustituir por otro workflow.
+9. Comparar enfoques realistas donde la decisión sea significativa.
+10. Presentar la experiencia frontend propuesta para aprobación.
+11. Recién con el diseño aprobado, escribir el plan de implementación.
+
+Superpowers sigue a cargo del proceso (brainstorming y planificación); la skill de diseño frontend se usa para elevar la calidad visual de **esta** aplicación, no para generar una plantilla SaaS genérica desconectada del dominio.
+
+#### 11.1 Auditoría (antes de rediseñar)
+
+Clasificar cada pantalla y componente existente en: *mantener*, *refinar visualmente*, *reestructurar UX*, *funcionalmente incompleta*, *sin conexión con el frontend*, *redundante*, *inconsistente*, *inaccesible*, *obsoleta*. No asumir que todo se reescribe.
+
+Cubre: inventario de UI actual, auditoría de conexión backend↔frontend, auditoría por rol, auditoría de dashboards y auditoría de flujos de demo.
+
+Reglas: preservar el comportamiento que ya funciona salvo razón concreta; **no tocar reglas de negocio de Laravel ya validadas** por motivos de rediseño; si falta la conexión frontend de una capacidad de backend que ya existe, conectarla bien; si falta de verdad un endpoint/action, declararlo explícitamente en lugar de taparlo con comportamiento simulado en el frontend.
+
+#### 11.2 Conexiones backend↔frontend faltantes
+
+Pregunta obligatoria de la auditoría: *¿el backend ya expone funcionalidad útil que el frontend no hace accesible ni comprensible?* Buscar acciones implementadas sin UI usable, estado del backend que no se muestra, transiciones importantes que no se pueden disparar desde la interfaz, falta de feedback de validación/error, notificaciones sin representación visual, estado de pago almacenado pero mal comunicado, capacidades de disponibilidad mal expuestas, comportamiento multi-tenant incomprensible desde la interfaz, y features de tiempo real sin feedback visible.
+
+No agregar UI para cada endpoint automáticamente: decidir por relevancia de producto y valor de demo.
+
+#### 11.3 Experiencia pública y primera impresión
+
+Requisito mayor de la fase: lo que ocurre **antes** de autenticarse. Quien llega sin cuenta debe entender enseguida que ReservaHub es una aplicación SaaS de portfolio/demo, qué problema resuelve, qué tipos de negocio representa, qué flujos importantes puede probar, que el entorno tiene datos de demostración e integraciones simuladas, que no debe usarse con información comercial o de clientes real, y cómo explorar la demo de forma segura.
+
+A resolver en brainstorming (no hardcodear ahora): explicación concisa del producto, qué capacidades de backend destacar, aviso de demo, llamadas a registrarse y a iniciar sesión, si conviene ofrecer cuentas de demo predefinidas, cuánta información técnica va en la página pública, y cómo explicar el comportamiento simulado de pagos/emails sin abrumar a un visitante no técnico. Debe parecer una demo de producto real, no una pantalla de depuración.
+
+#### 11.4 Guía de uso de la demo y términos
+
+Evaluar e implementar la explicación de uso adecuada —guía de demo, términos de uso, aviso de entorno de demostración y aviso de datos ficticios—, combinados o separados según decida el brainstorming. Como mínimo debe quedar claro que: es un entorno de demostración/portfolio; no hay que cargar datos sensibles, de clientes ni de pago reales; algunas integraciones externas están simuladas; los datos de demo pueden reiniciarse; el envío de email puede capturarse localmente en lugar de llegar a destinatarios reales; y que el entorno demuestra el comportamiento del software, no es un servicio comercial en producción.
+
+No fabricar garantías legales ni presentar los términos como asesoramiento legal profesional: tono apropiado para una aplicación de portfolio.
+
+#### 11.5 Flujo de email de demo (Mailpit)
+
+Verificar el entorno real antes de documentar: si Mailpit está presente, cuál es su URL/puerto real, qué notificaciones se pueden demostrar por ahí, y si esa interfaz es solo local. Hoy `compose.yaml` incluye `mailpit` con el dashboard en `FORWARD_MAILPIT_DASHBOARD_PORT` (8025 por defecto en el checkout principal) — **no hardcodear el puerto de memoria**, leerlo de la configuración vigente.
+
+El flujo local documentable es del estilo: registrarse / reservar / pedir reset → abrir la interfaz de Mailpit → inspeccionar el mensaje capturado → seguir el enlace o verificar la notificación.
+
+Mailpit es herramienta local de desarrollo/demo y no debe exponerse públicamente: no diseñar la web pública como si lo estuviera. Mantener separado lo que es tooling local de lo que es funcionalidad de la demo pública; la exposición real de tooling operativo la decide el workflow externo de operaciones.
+
+#### 11.6 Demo multi-rol y multi-tenant
+
+Roles reales implementados (`App\Enums\Role`): `owner`, `admin`, `employee`, `customer`, más el aislamiento entre negocios. Inspeccionar los permisos realmente implementados en vez de confiar en ejemplos viejos del roadmap.
+
+El brainstorming decide el mejor flujo para demostrar esos roles y documentar un procedimiento práctico de prueba local. Donde sea útil, recomendar ventanas normales/incógnito o perfiles de navegador separados para observar varias sesiones autenticadas a la vez:
+
+```text
+ventana normal / perfil
+→ owner/admin
+
+ventana de incógnito
+→ cliente
+
+segundo navegador / perfil
+→ empleado
+```
+
+Verificar antes el comportamiento real de sesión/autenticación. **No** construir funcionalidad artificial de multi-sesión dentro de ReservaHub solo para evitar abrir varios contextos de navegador.
+
+#### 11.7 Diseño y sistema de diseño
+
+Dirección visual definida por brainstorming + skill de diseño frontend. Requisitos: profesional, cohesivo, claramente una aplicación SaaS/de negocio, calidad de portfolio, responsive, accesible, visualmente superior al scaffolding por defecto, usable antes que decorativo, y consistente entre el área pública y la autenticada. El diseño debe salir del dominio de turnos y negocios de ReservaHub.
+
+Evitar: páginas SaaS genéricas con degradados de IA, glassmorphism excesivo, tarjetas de dashboard sin significado, decoraciones de terminal/código, gráficos decorativos con datos inventados, estilos de componente inconsistentes y animación que estorbe la productividad de un CRUD.
+
+Documentar un sistema coherente para al menos: tipografía, espaciado, color, estados semánticos, superficies, bordes, sombras, radios, botones, campos, tablas, tarjetas, badges/estados, navegación, diálogos, comportamiento responsive, iconos y estados de foco. Reutilizar las primitivas buenas que ya existen; no reconstruir componentes por novedad.
+
+#### 11.8 Estados de UX y calidad de aplicación
+
+Diseño consistente para: carga, estado vacío, éxito, error de validación, permiso denegado, fallo de red/servidor, confirmación destructiva, acciones deshabilitadas, operaciones pendientes, paginación, filtros, búsqueda, tablas, formularios, diálogos/modales, notificaciones/toasts y navegación responsive. Revisar si las pantallas CRUD actuales comunican estos estados de forma consistente (hoy no hay sistema de toasts ni de estados compartido).
+
+#### 11.9 Dashboards
+
+No dar por final el dashboard actual (es un placeholder). Preguntar en brainstorming: qué rol necesita dashboard, qué información le sirve de verdad, cuál ya existe en el backend, qué métricas son reales y confiables, qué acciones deben estar a mano, cómo se ven los estados vacíos, si carga y error se entienden, y si se están mostrando métricas de vanidad para llenar la pantalla.
+
+Candidatos, solo con datos reales: reservas de hoy, próximos turnos, cancelaciones, ingresos estimados, señas/pagos pendientes (cuando exista la Fase 9), servicios más solicitados, actividad de empleados, disponibilidad y estado de recordatorios. **No inventar analíticas por estética.**
+
+#### 11.10 Accesibilidad y responsive
+
+Exigir: navegación por teclado, foco visible, etiquetas y errores de formulario accesibles, jerarquía de encabezados sensata, contraste, layouts responsive, comportamiento de tablas en pantallas angostas, accesibilidad de modales/diálogos, respeto por `prefers-reduced-motion` si se agrega movimiento y áreas táctiles claras. Probar flujos representativos en anchos de escritorio y móvil. Es una aplicación de negocio: la usabilidad va antes que los efectos visuales.
+
+#### 11.11 Datos de demo y escenarios guiados
+
+Coordinar con la estrategia de datos de demo segura (§10 del documento y `DemoSeeder`). El diseño debe hacer práctico demostrar escenarios completos: crear cuenta o iniciar sesión, configurar un servicio, configurar la disponibilidad de un empleado, crear una reserva de cliente, observarla desde otro rol/sesión, reprogramar o cancelar, inspeccionar el email de notificación en la herramienta de demo correspondiente, simular el flujo de pago donde esté implementado y observar cambios en tiempo real si la Fase 10 lo soporta.
+
+Los escenarios se derivan de funcionalidad realmente terminada. Conviene documentar un conjunto chico de escenarios canónicos para que un revisor sepa qué probar.
+
+#### 11.12 Frontera técnica
+
+El rediseño de frontend no puede convertirse en una reescritura de la arquitectura Laravel. Preservar Laravel + Inertia + React/Vite salvo que el brainstorming encuentre un defecto técnico concreto. **No** introducir Next.js, una segunda SPA, un despliegue frontend independiente ni otro framework de frontend por el hecho de rediseñar la UI.
+
+#### 11.13 Rendimiento
+
+Revisar build/bundle, JavaScript innecesario, assets pesados, manejo de imágenes, rerenders evitables, rendimiento de tablas/listas, requests caros de dashboard y N+1 evidentes que la nueva UI destape. Si el trabajo de frontend revela un problema real de backend, registrarlo y arreglarlo con alcance justificado en vez de disimularlo en la UI. No optimizar cuellos de botella teóricos.
+
+#### 11.14 Verificación
+
+Determinar la verificación adecuada a partir del stack de tests real (PHPUnit + tests de feature Inertia). Debe cubrir flujos críticos representativos y riesgos de regresión: suite verde, build de frontend, límites de rol, consistencia visual, responsive, accesibilidad y ninguna funcionalidad Laravel/Inertia rota.
+
+Evaluar en la planificación si conviene automatización E2E de navegador. **No** agregar Playwright/Cypress automáticamente por ser una fase de frontend: si aporta valor real para la demo madura, comparar enfoques y pedir aprobación antes de introducir esa infraestructura. La verificación manual en navegador debe incluir explícitamente los flujos multi-rol con ventanas privadas.
+
+#### 11.15 Documentación entregable
+
+Producir o actualizar: decisiones de diseño frontend, flujos de usuario/demo, uso del entorno de demo, flujo local de Mailpit si aplica, workflow de prueba multi-rol, capturas, validación de accesibilidad/responsive, verificación de frontend y limitaciones intencionales conocidas. Sin exponer secretos ni información interna del servidor.
+
+#### 11.16 Criterios de aceptación
+
+- Un visitante entiende en segundos que ReservaHub es un SaaS de reservas de portfolio/demo.
+- Entiende cómo explorar la demo de forma segura.
+- La experiencia sin autenticar se ve intencional y profesional.
+- Los flujos autenticados centrales comparten un sistema visual coherente.
+- La funcionalidad de backend pensada para personas es alcanzable y comprensible desde el frontend.
+- Los dashboards muestran información real y útil, no relleno.
+- Los estados de carga, vacío, éxito, validación, permiso y fallo son coherentes.
+- Los flujos de owner/admin/employee/customer son prácticos de demostrar donde esos roles existen.
+- El flujo local de email de demo está documentado con exactitud si se usa.
+- Se puede demostrar más de un rol sin destruir sesiones útiles todo el tiempo.
+- El comportamiento responsive es deliberado.
+- Hay una línea base de accesibilidad verificada.
+- No hace falta ningún dato real de usuario o de pago.
+- Ningún comportamiento de backend se rompió con el rediseño.
+- El proyecto sigue demostrando fuerza en Laravel/backend y no se presenta como una vidriera de frontend.
+
+### Fase 12 — Release readiness y handoff operativo
 
 **Objetivo:** dejar un repositorio verificado y listo para release, con un contrato de runtime y de handoff de despliegue explícito, manteniendo el despliegue físico y las operaciones de host (Linux, Cloudflare, backups) fuera del workflow de desarrollo de la aplicación.
 
@@ -516,7 +688,7 @@ Ese agente externo hace su propio descubrimiento (distro, CPU/RAM/discos, estado
 
 **Aclaración sobre el frontend:** este proyecto no tiene frontend separado ni proceso Node en runtime. Usa Inertia + React compilado por `laravel-vite-plugin` (`pnpm build` → `public/build`) y servido por el mismo contenedor de la app. No crear un runtime React/Next independiente.
 
-#### 10.1 Verificación final de la aplicación
+#### 12.1 Verificación final de la aplicación
 
 Todo se ejecuta dentro de los contenedores (ver `CLAUDE.md`):
 
@@ -531,13 +703,13 @@ Todo se ejecuta dentro de los contenedores (ver `CLAUDE.md`):
 9. Dependencias: `composer validate --strict`, `composer audit`, lockfile de pnpm congelado (`--frozen-lockfile`), `pnpm audit`.
 10. Docker: `docker compose config -q` sobre el `compose.yaml` del repo.
 11. Smoke de aplicación: `/up` (health de Laravel), login web, y el flujo de API `login → availability → booking`.
-12. Cuando existan las Fases 8 y 9: tests de pagos/webhooks idempotentes y de reconciliación, y del canal privado de broadcasting. **No inventar checks para tecnologías que el repo todavía no usa.**
+12. Cuando existan las Fases 9 y 10: tests de pagos/webhooks idempotentes y de reconciliación, y del canal privado de broadcasting. **No inventar checks para tecnologías que el repo todavía no usa.**
 
-#### 10.2 CI y readiness de release
+#### 12.2 CI y readiness de release
 
 Ver la sección **9. CI/CD**, sincronizada con el proyecto real (PHP 8.5, Node 24, pnpm, PostgreSQL 18, Redis). CI valida el repositorio en GitHub: tests, Pint, build de frontend, validación de dependencias y del compose. **CI no debe requerir acceso entrante al servidor privado ni administrar el host**; cualquier automatización futura de despliegue la elige el workflow externo de operaciones después de inspeccionar la máquina real.
 
-#### 10.3 Contrato de runtime
+#### 12.3 Contrato de runtime
 
 Documentar de forma explícita (destino: `docs/DEPLOYMENT_HANDOFF.md`):
 
@@ -549,11 +721,11 @@ Documentar de forma explícita (destino: `docs/DEPLOYMENT_HANDOFF.md`):
 - Health y smoke checks, logs, datos persistentes y necesidades de storage.
 - Qué datos hay que respaldar y qué no debe exponerse públicamente jamás.
 
-#### 10.4 Handoff de despliegue
+#### 12.4 Handoff de despliegue
 
 Mantener `docs/DEPLOYMENT_HANDOFF.md` como contrato de aplicación —no como manual de administración de Linux—: qué necesita saber el agente externo sobre ReservaHub (proyecto Docker aislado, persistencia de PostgreSQL y de storage, si Redis necesita persistencia, cola y scheduler, comando de migración, bootstrap/demo seguro, smoke tests, señales de salud, información relevante para rollback, qué respaldar, exposiciones prohibidas) sin prescribirle lo que debe descubrir por su cuenta.
 
-#### 10.5 Preparación de demo y release
+#### 12.5 Preparación de demo y release
 
 - `DemoSeeder` determinista e idempotente, sin datos reales de clientes ni de pagos.
 - Credenciales de demo documentadas como credenciales de demo, con contraseña rotable desde el entorno; `DatabaseSeeder` no debe usarse en producción (crea un usuario de prueba).
@@ -561,7 +733,7 @@ Mantener `docs/DEPLOYMENT_HANDOFF.md` como contrato de aplicación —no como ma
 - Documentación de API vigente (`docs/api.md` + OpenAPI de Scramble, que solo se expone en local).
 - Capturas y material de demo listos.
 - Repositorio limpio (sin archivos generados ni secretos versionados).
-- Tag `v1.0.0` solo cuando se cumplan sus criterios reales: Fases 0–9 completas, suite verde, README y documentación al día y handoff publicado.
+- Tag `v1.0.0` solo cuando se cumplan sus criterios reales: Fases 0–11 completas, suite verde, README y documentación al día y handoff publicado.
 
 ## 8. Tests imprescindibles
 
@@ -590,7 +762,7 @@ Simular dos solicitudes para el mismo turno y verificar que solamente una se con
 
 ## 9. CI/CD
 
-CI valida el repositorio en GitHub. **No administra el servidor privado ni necesita acceso entrante a él**: el despliegue real lo decide y ejecuta el workflow externo de operaciones de home server (ver Fase 10).
+CI valida el repositorio en GitHub. **No administra el servidor privado ni necesita acceso entrante a él**: el despliegue real lo decide y ejecuta el workflow externo de operaciones de home server (ver Fase 12).
 
 Versiones reales del proyecto, verificadas contra el repo y la imagen de Sail:
 
@@ -687,6 +859,9 @@ Implementado parcialmente en `database/seeders/DemoSeeder.php`: siembra empresa,
 
 ## 11. Capturas recomendadas
 
+Tomarlas **después** del rediseño de la Fase 11; capturar el frontend actual sería material de portfolio engañoso.
+
+- Landing pública / aviso de demo.
 - Login.
 - Dashboard.
 - Calendario.
@@ -717,6 +892,7 @@ Implementado parcialmente en `database/seeders/DemoSeeder.php`: siembra empresa,
 - `compose.yaml` de la aplicación (desarrollo, basado en Sail). El compose de producción específico del host lo escribe el workflow externo de operaciones.
 - Workflow GitHub Actions de validación (tests, Pint, build, dependencias). Sin jobs que administren el servidor privado.
 - `docs/DEPLOYMENT_HANDOFF.md`: contrato de runtime y handoff para el agente externo de operaciones.
-- Capturas.
-- Release `v1.0.0` cuando se cumplan los criterios de la Fase 10.
+- Documentación de la Fase 11: decisiones de diseño frontend, guía de uso de la demo, workflow multi-rol y flujo local de email.
+- Capturas (posteriores al rediseño de la Fase 11).
+- Release `v1.0.0` cuando se cumplan los criterios de la Fase 12.
 - Issues cerrados que documenten el proceso.
