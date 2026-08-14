@@ -2598,10 +2598,12 @@ Crear `tests/Feature/Api/UsersTest.php`:
 
 namespace Tests\Feature\Api;
 
+use App\Actions\Users\SetUserActiveStatus;
 use App\Enums\Role;
 use App\Models\Business;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
 
 class UsersTest extends TestCase
@@ -2651,20 +2653,36 @@ class UsersTest extends TestCase
         $this->assertTrue($owner->fresh()->is_active);
     }
 
+    /**
+     * Not an HTTP test on purpose, same reasoning as the panel equivalent in
+     * Task 7: with a single owner, every possible HTTP actor is blocked by
+     * the Policy before the Action's last-owner guard ever runs — an admin
+     * is denied outright (test_an_admin_cannot_deactivate_an_owner_over_the_api,
+     * 403), and the owner itself is denied by the not-self check. The guard
+     * only ever fires for a second concurrent request racing a first one
+     * that already committed (covered by Task 8) or for a direct call to the
+     * Action. This test proves the API's `ApiResponse` envelope correctly
+     * wraps a `ValidationException` thrown mid-Action (not from FormRequest
+     * validation) — a code path other API validation tests don't exercise —
+     * by asserting the Action's own exception, since `bootstrap/app.php`
+     * maps ValidationException the same way regardless of where it's thrown.
+     */
     public function test_the_last_active_owner_is_rejected_with_the_validation_envelope(): void
     {
         $business = Business::factory()->create();
         $owner = User::factory()->create(['role' => Role::Owner, 'business_id' => $business->id]);
-        $admin = User::factory()->create(['role' => Role::Admin, 'business_id' => $business->id]);
 
-        $this->withHeader('Authorization', 'Bearer '.$this->tokenFor($admin))
-            ->putJson("/api/users/{$owner->id}/status", ['is_active' => false])
-            ->assertStatus(422)
-            ->assertJsonPath('success', false)
-            ->assertJsonPath(
-                'errors.is_active.0',
+        try {
+            app(SetUserActiveStatus::class)->handle($owner, false);
+            $this->fail('Expected a ValidationException.');
+        } catch (ValidationException $e) {
+            $this->assertSame(
                 'No podés desactivar al último propietario activo del negocio.',
+                $e->errors()['is_active'][0],
             );
+        }
+
+        $this->assertTrue($owner->fresh()->is_active);
     }
 
     public function test_a_user_from_another_business_is_forbidden(): void

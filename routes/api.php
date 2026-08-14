@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\Api\BusinessController;
 use App\Http\Controllers\Api\EmployeeController;
 use App\Http\Controllers\Api\ServiceController;
+use App\Http\Controllers\Api\UserStatusController;
 use App\Http\Middleware\BindPublicBusiness;
 use Illuminate\Support\Facades\Route;
 
@@ -36,6 +37,9 @@ Route::name('api.')->group(function () {
         Route::get('availability', [AvailabilityController::class, 'index'])->name('availability.index');
         Route::post('bookings', [BookingController::class, 'store'])->name('bookings.store');
         Route::post('bookings/{booking}/confirm', [BookingController::class, 'confirm'])->name('bookings.confirm')->whereNumber('booking');
+        Route::put('users/{user}/status', [UserStatusController::class, 'update'])
+            ->name('users.status.update')
+            ->whereNumber('user');
     });
 
     Route::middleware(['auth:sanctum', BindPublicBusiness::class])
