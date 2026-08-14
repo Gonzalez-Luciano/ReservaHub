@@ -1940,6 +1940,7 @@ Crear `tests/Feature/Dashboard/UserStatusTest.php`:
 
 namespace Tests\Feature\Dashboard;
 
+use App\Actions\Users\SetUserActiveStatus;
 use App\Enums\BookingStatus;
 use App\Enums\Role;
 use App\Models\Booking;
@@ -1949,6 +1950,7 @@ use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
 
 class UserStatusTest extends TestCase
@@ -2070,15 +2072,29 @@ class UserStatusTest extends TestCase
         $this->assertTrue($stranger->fresh()->is_active);
     }
 
+    /**
+     * Not an HTTP test on purpose: an admin+single-owner HTTP scenario is
+     * already covered by test_an_admin_cannot_deactivate_an_owner() above,
+     * which asserts 403 — the Policy denies admin-on-owner unconditionally,
+     * before the Action's last-owner guard ever runs. The only actor who can
+     * legitimately reach that guard via HTTP is another active owner, and an
+     * active owner always counts as "another owner remains", so the guard
+     * can never fire over a single synchronous HTTP request in this
+     * architecture. Exercising SetUserActiveStatus::handle() directly is the
+     * only way to test the invariant itself; the concurrent-request case is
+     * covered separately by Task 8.
+     */
     public function test_the_last_active_owner_cannot_be_deactivated(): void
     {
         $business = Business::factory()->create();
         $owner = $this->userFor($business, Role::Owner);
-        $admin = $this->userFor($business, Role::Admin);
 
-        $this->actingAs($admin)
-            ->put("/dashboard/users/{$owner->id}/status", ['is_active' => false])
-            ->assertSessionHasErrors('is_active');
+        try {
+            app(SetUserActiveStatus::class)->handle($owner, false);
+            $this->fail('Expected a ValidationException.');
+        } catch (ValidationException $e) {
+            $this->assertArrayHasKey('is_active', $e->errors());
+        }
 
         $this->assertTrue($owner->fresh()->is_active);
     }
