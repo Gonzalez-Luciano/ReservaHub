@@ -7,6 +7,7 @@ Route::get('/', function () {
     return Inertia::render('Home');
 });
 
+require __DIR__.'/account.php';
 require __DIR__.'/auth.php';
 require __DIR__.'/dashboard.php';
 require __DIR__.'/invitations.php';
