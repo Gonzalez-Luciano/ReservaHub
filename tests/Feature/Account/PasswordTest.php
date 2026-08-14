@@ -6,17 +6,19 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Tests\Concerns\WithDatabaseSessions;
 use Tests\TestCase;
 
 class PasswordTest extends TestCase
 {
     use RefreshDatabase;
+    use WithDatabaseSessions;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        config()->set('session.driver', 'database');
+        $this->setUpWithDatabaseSessions();
     }
 
     private function insertSession(string $id, int $userId): void

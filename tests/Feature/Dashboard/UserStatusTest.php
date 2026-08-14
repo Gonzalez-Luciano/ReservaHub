@@ -13,17 +13,19 @@ use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use Tests\Concerns\WithDatabaseSessions;
 use Tests\TestCase;
 
 class UserStatusTest extends TestCase
 {
     use RefreshDatabase;
+    use WithDatabaseSessions;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        config()->set('session.driver', 'database');
+        $this->setUpWithDatabaseSessions();
     }
 
     private function userFor(Business $business, Role $role): User

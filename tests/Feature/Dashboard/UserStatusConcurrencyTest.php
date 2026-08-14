@@ -9,6 +9,8 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Illuminate\Validation\ValidationException;
 use PDO;
+use PDOException;
+use Tests\Concerns\WithDatabaseSessions;
 use Tests\TestCase;
 
 /**
@@ -19,6 +21,18 @@ use Tests\TestCase;
 class UserStatusConcurrencyTest extends TestCase
 {
     use DatabaseMigrations;
+    use WithDatabaseSessions;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        // Solo el segundo test llama a la Action real (y por lo tanto a
+        // UserAccessRevoker), pero setearlo acá para ambos es inofensivo: el
+        // primer test no toca el driver de sesión en ningún punto, así que
+        // esto no interfiere con el timing de las dos sesiones PDO crudas.
+        $this->setUpWithDatabaseSessions();
+    }
 
     private function rawConnection(): PDO
     {
@@ -67,7 +81,9 @@ class UserStatusConcurrencyTest extends TestCase
         $sessionA = $this->rawConnection();
         $sessionB = $this->rawConnection();
 
-        // A abre su transacción y toma los locks de los dos owners activos.
+        // A abre su transacción y toma los locks de los dos owners activos,
+        // SIN comitear todavía: la transacción queda abierta a propósito para
+        // que B pueda chocar contra el lock mientras A lo sostiene.
         $sessionA->beginTransaction();
         $lockStatement = $sessionA->prepare(
             'select id from users where business_id = :business and role = :role and is_active = true order by id for update'
@@ -77,12 +93,49 @@ class UserStatusConcurrencyTest extends TestCase
 
         $this->assertCount(2, $lockedIds);
 
+        // Mientras A sostiene el lock, B intenta tomar el mismo lock sin
+        // esperar (NOWAIT): Postgres debe negárselo de inmediato con 55P03
+        // (lock_not_available). Esto es lo que prueba que el lock realmente
+        // bloquea a una transacción concurrente, y no solo que dos llamadas
+        // secuenciales al guard producen el resultado correcto.
+        $sessionB->beginTransaction();
+
+        $deniedWhileHeld = false;
+        $deniedSqlState = null;
+
+        try {
+            $nowaitStatement = $sessionB->prepare(
+                'select id from users where business_id = :business and role = :role and is_active = true order by id for update nowait'
+            );
+            $nowaitStatement->execute(['business' => $business->id, 'role' => Role::Owner->value]);
+        } catch (PDOException $exception) {
+            $deniedWhileHeld = true;
+            $deniedSqlState = $exception->errorInfo[0] ?? $exception->getCode();
+        }
+
+        $this->assertTrue(
+            $deniedWhileHeld,
+            'B debería haber sido rechazado por NOWAIT mientras A sostiene el lock.'
+        );
+        $this->assertSame(
+            '55P03',
+            $deniedSqlState,
+            'Se esperaba el SQLSTATE de lock no disponible (55P03).'
+        );
+
+        // Postgres deja la transacción de B abortada tras el error; hay que
+        // hacer rollback antes de poder usar la sesión de nuevo.
+        $sessionB->rollBack();
+
         // A desactiva al primero y comitea, liberando los locks.
         $sessionA->prepare('update users set is_active = false where id = :id')
             ->execute(['id' => $firstOwner->id]);
         $sessionA->commit();
 
-        // B corre ahora el mismo guard: ya no debe poder desactivar al que queda.
+        // B corre ahora el mismo guard contra el estado post-commit: ya no
+        // debe poder desactivar al que queda. Esto prueba que el guard
+        // re-evalúa bajo READ COMMITTED en vez de trabajar sobre una foto
+        // vieja tomada antes del commit de A.
         $applied = $this->deactivateOwnerOn($sessionB, $business->id, $secondOwner->id);
 
         $this->assertFalse($applied, 'La segunda desactivación no debería haberse aplicado.');
@@ -104,8 +157,6 @@ class UserStatusConcurrencyTest extends TestCase
         $secondOwner = User::factory()->create(['role' => Role::Owner, 'business_id' => $business->id]);
 
         $action = app(SetUserActiveStatus::class);
-
-        config()->set('session.driver', 'database');
 
         $action->handle($firstOwner, false);
 

@@ -6,17 +6,19 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Tests\Concerns\WithDatabaseSessions;
 use Tests\TestCase;
 
 class AccountTest extends TestCase
 {
     use RefreshDatabase;
+    use WithDatabaseSessions;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        config()->set('session.driver', 'database');
+        $this->setUpWithDatabaseSessions();
     }
 
     public function test_it_returns_the_authenticated_account(): void

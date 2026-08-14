@@ -85,6 +85,10 @@ que la API no confirma su existencia. Esto no aplica a `PUT
 es nullable, no toda fila pertenece a un negocio), así que un usuario de otro
 negocio sí se resuelve por route-model binding y la Policy lo rechaza con 403.
 
+En esta fase, `PUT /api/users/{user}/status` es la única forma de cambiar el
+`is_active` de un `admin` o un `owner`: el panel web solo expone el toggle de
+estado para empleados.
+
 ## Ejemplo completo
 
 ```bash

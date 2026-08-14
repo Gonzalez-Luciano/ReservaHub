@@ -683,4 +683,63 @@ class AvailabilityServiceTest extends TestCase
 
         $this->assertNotEmpty($slots);
     }
+
+    public function test_the_ends_on_day_of_a_multi_day_holiday_has_no_slots(): void
+    {
+        $business = Business::factory()->create(['timezone' => 'UTC']);
+        $employee = User::factory()->employee()->create(['business_id' => $business->id]);
+        $service = Service::factory()->for($business)->create(['duration_minutes' => 30, 'buffer_minutes' => 0]);
+
+        $monday = CarbonImmutable::parse('next monday', 'UTC')->startOfDay();
+        $wednesday = $monday->addDays(2);
+
+        Schedule::factory()->create([
+            'business_id' => $business->id,
+            'employee_id' => $employee->id,
+            'day_of_week' => DayOfWeek::Wednesday,
+            'start_time' => '09:00',
+            'end_time' => '12:00',
+            'is_active' => true,
+        ]);
+
+        BusinessHoliday::factory()->create([
+            'business_id' => $business->id,
+            'starts_on' => $monday->toDateString(),
+            'ends_on' => $wednesday->toDateString(),
+        ]);
+
+        $slots = app(AvailabilityService::class)->getAvailableSlots($business, $service, $employee, $wednesday);
+
+        $this->assertSame([], $slots);
+    }
+
+    public function test_the_day_after_ends_on_of_a_multi_day_holiday_has_slots(): void
+    {
+        $business = Business::factory()->create(['timezone' => 'UTC']);
+        $employee = User::factory()->employee()->create(['business_id' => $business->id]);
+        $service = Service::factory()->for($business)->create(['duration_minutes' => 30, 'buffer_minutes' => 0]);
+
+        $monday = CarbonImmutable::parse('next monday', 'UTC')->startOfDay();
+        $wednesday = $monday->addDays(2);
+        $thursday = $monday->addDays(3);
+
+        Schedule::factory()->create([
+            'business_id' => $business->id,
+            'employee_id' => $employee->id,
+            'day_of_week' => DayOfWeek::Thursday,
+            'start_time' => '09:00',
+            'end_time' => '12:00',
+            'is_active' => true,
+        ]);
+
+        BusinessHoliday::factory()->create([
+            'business_id' => $business->id,
+            'starts_on' => $monday->toDateString(),
+            'ends_on' => $wednesday->toDateString(),
+        ]);
+
+        $slots = app(AvailabilityService::class)->getAvailableSlots($business, $service, $employee, $thursday);
+
+        $this->assertNotEmpty($slots);
+    }
 }

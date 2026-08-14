@@ -8,17 +8,19 @@ use App\Models\Business;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Validation\ValidationException;
+use Tests\Concerns\WithDatabaseSessions;
 use Tests\TestCase;
 
 class UsersTest extends TestCase
 {
     use RefreshDatabase;
+    use WithDatabaseSessions;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        config()->set('session.driver', 'database');
+        $this->setUpWithDatabaseSessions();
     }
 
     private function tokenFor(User $user): string
@@ -68,7 +70,6 @@ class UsersTest extends TestCase
     {
         $business = Business::factory()->create();
         $owner = User::factory()->create(['role' => Role::Owner, 'business_id' => $business->id]);
-        $admin = User::factory()->create(['role' => Role::Admin, 'business_id' => $business->id]);
 
         try {
             app(SetUserActiveStatus::class)->handle($owner, false);
