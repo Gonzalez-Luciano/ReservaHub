@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\AvailabilityController;
 use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\Api\BusinessController;
 use App\Http\Controllers\Api\EmployeeController;
+use App\Http\Controllers\Api\HolidayController;
 use App\Http\Controllers\Api\ServiceController;
 use App\Http\Controllers\Api\UserStatusController;
 use App\Http\Middleware\BindPublicBusiness;
@@ -40,6 +41,11 @@ Route::name('api.')->group(function () {
         Route::put('users/{user}/status', [UserStatusController::class, 'update'])
             ->name('users.status.update')
             ->whereNumber('user');
+        Route::get('holidays', [HolidayController::class, 'index'])->name('holidays.index');
+        Route::post('holidays', [HolidayController::class, 'store'])->name('holidays.store');
+        Route::delete('holidays/{holiday}', [HolidayController::class, 'destroy'])
+            ->name('holidays.destroy')
+            ->whereNumber('holiday');
     });
 
     Route::middleware(['auth:sanctum', BindPublicBusiness::class])
