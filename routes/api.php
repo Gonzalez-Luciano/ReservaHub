@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\AccountController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\AvailabilityController;
 use App\Http\Controllers\Api\BookingController;
+use App\Http\Controllers\Api\BusinessController;
 use App\Http\Controllers\Api\EmployeeController;
 use App\Http\Controllers\Api\ServiceController;
 use App\Http\Middleware\BindPublicBusiness;
@@ -28,6 +29,8 @@ Route::name('api.')->group(function () {
     });
 
     Route::middleware(['auth:sanctum', 'business'])->group(function () {
+        Route::get('business', [BusinessController::class, 'show'])->name('business.show');
+        Route::put('business', [BusinessController::class, 'update'])->name('business.update');
         Route::get('services', [ServiceController::class, 'index'])->name('services.index');
         Route::get('employees', [EmployeeController::class, 'index'])->name('employees.index');
         Route::get('availability', [AvailabilityController::class, 'index'])->name('availability.index');
