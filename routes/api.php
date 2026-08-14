@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\AccountController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\AvailabilityController;
 use App\Http\Controllers\Api\BookingController;
@@ -15,6 +16,10 @@ Route::name('api.')->group(function () {
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('auth/logout', [AuthController::class, 'logout'])->name('auth.logout');
+
+        Route::get('account', [AccountController::class, 'show'])->name('account.show');
+        Route::patch('account/profile', [AccountController::class, 'updateProfile'])->name('account.profile.update');
+        Route::put('account/password', [AccountController::class, 'updatePassword'])->name('account.password.update');
 
         Route::get('bookings', [BookingController::class, 'index'])->name('bookings.index');
         Route::get('bookings/{booking}', [BookingController::class, 'show'])->name('bookings.show')->whereNumber('booking');
