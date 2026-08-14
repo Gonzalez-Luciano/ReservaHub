@@ -1,6 +1,8 @@
-import { Link, router, useForm } from '@inertiajs/react';
+import { Link, router, useForm, usePage } from '@inertiajs/react';
 import DashboardLayout from '../../../Components/DashboardLayout';
 import InputError from '../../../Components/InputError';
+
+const MANAGER_ROLES = ['owner', 'admin'];
 
 function EmployeeServices({ employee, services }) {
     const { data, setData, put, processing, errors } = useForm({ service_ids: employee.service_ids });
@@ -41,6 +43,8 @@ function EmployeeServices({ employee, services }) {
 
 export default function Index({ employees, invitations, services }) {
     const { data, setData, post, processing, errors, reset } = useForm({ email: '', name: '' });
+    const { auth, status, future_bookings_count: futureBookingsCount } = usePage().props;
+    const isManager = MANAGER_ROLES.includes(auth?.user?.role);
 
     function invite(e) {
         e.preventDefault();
@@ -57,10 +61,28 @@ export default function Index({ employees, invitations, services }) {
         }
     }
 
+    function toggleStatus(employee) {
+        const action = employee.is_active ? 'desactivar' : 'activar';
+
+        if (! confirm(`¿Querés ${action} a ${employee.name}?`)) {
+            return;
+        }
+
+        router.put(`/dashboard/users/${employee.id}/status`, { is_active: ! employee.is_active });
+    }
+
     return (
         <DashboardLayout>
             <div className="p-8">
                 <h1 className="mb-6 text-2xl font-bold">Empleados</h1>
+
+                {status && <p className="mb-4 text-sm text-green-700">{status}</p>}
+                {futureBookingsCount > 0 && (
+                    <p className="mb-4 text-sm text-amber-700">
+                        Ese usuario tiene {futureBookingsCount} reserva(s) futura(s) a su nombre. No se
+                        cancelaron: reasignalas o cancelalas desde Reservas.
+                    </p>
+                )}
 
                 <table className="mb-8 w-full text-left text-sm">
                     <thead>
@@ -68,6 +90,7 @@ export default function Index({ employees, invitations, services }) {
                             <th className="py-2">Nombre</th>
                             <th className="py-2">Email</th>
                             <th className="py-2">Estado</th>
+                            {isManager && <th className="py-2"></th>}
                         </tr>
                     </thead>
                     <tbody>
@@ -83,6 +106,13 @@ export default function Index({ employees, invitations, services }) {
                                     </Link>
                                     <EmployeeServices employee={employee} services={services} />
                                 </td>
+                                {isManager && (
+                                    <td className="py-2 text-right">
+                                        <button onClick={() => toggleStatus(employee)} className="underline">
+                                            {employee.is_active ? 'Desactivar' : 'Activar'}
+                                        </button>
+                                    </td>
+                                )}
                             </tr>
                         ))}
                     </tbody>

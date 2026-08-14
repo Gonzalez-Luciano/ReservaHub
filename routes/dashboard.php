@@ -8,6 +8,7 @@ use App\Http\Controllers\Dashboard\EmployeeServiceController;
 use App\Http\Controllers\Dashboard\ScheduleController;
 use App\Http\Controllers\Dashboard\ServiceController;
 use App\Http\Controllers\Dashboard\TimeOffController;
+use App\Http\Controllers\Dashboard\UserStatusController;
 use App\Http\Controllers\DashboardController;
 use Illuminate\Support\Facades\Route;
 
@@ -44,5 +45,7 @@ Route::middleware(['auth', 'business'])->group(function () {
         Route::delete('schedule-breaks/{scheduleBreak}', [ScheduleController::class, 'destroyBreak'])->name('schedule-breaks.destroy');
         Route::post('employees/{employee}/time-offs', [TimeOffController::class, 'store'])->name('employees.time-offs.store');
         Route::delete('time-offs/{timeOff}', [TimeOffController::class, 'destroy'])->name('time-offs.destroy');
+
+        Route::put('users/{user}/status', [UserStatusController::class, 'update'])->name('users.status.update');
     });
 });

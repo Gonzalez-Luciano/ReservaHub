@@ -37,6 +37,8 @@ class EmployeeController extends Controller
             'employees' => $employees,
             'invitations' => EmployeeInvitation::pending()->orderBy('created_at', 'desc')->get(['id', 'email', 'name', 'expires_at']),
             'services' => Service::where('is_active', true)->orderBy('name')->get(['id', 'name']),
+            'status' => session('status'),
+            'future_bookings_count' => session('future_bookings_count'),
         ]);
     }
 }
