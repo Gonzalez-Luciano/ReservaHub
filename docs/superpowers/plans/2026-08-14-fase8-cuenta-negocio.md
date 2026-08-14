@@ -478,6 +478,10 @@ class ProfileController extends Controller
                 'email' => $user->email,
                 'email_verified_at' => $user->email_verified_at,
             ],
+            // Sigue el patrón ya usado por PasswordResetLinkController y
+            // EmailVerificationPromptController: el flash `status` se pasa
+            // explícito como prop de la página, no vía share() global.
+            'status' => session('status'),
         ]);
     }
 
@@ -1502,6 +1506,9 @@ class BusinessSettingsController extends Controller
             ],
             'currencies' => Currency::values(),
             'timezones' => DateTimeZone::listIdentifiers(),
+            // Mismo patrón que PasswordResetLinkController: flash `status`
+            // pasado explícito, no vía share() global.
+            'status' => session('status'),
         ]);
     }
 
@@ -1904,6 +1911,7 @@ git commit -m "feat: expose business settings over the API"
 - Create: `app/Http/Requests/Dashboard/UpdateUserStatusRequest.php`
 - Create: `app/Http/Controllers/Dashboard/UserStatusController.php`
 - Modify: `routes/dashboard.php`
+- Modify: `app/Http/Controllers/Dashboard/EmployeeController.php` (pasar `status` y `future_bookings_count` a la página)
 - Modify: `resources/js/Pages/Dashboard/Employees/Index.jsx`
 - Test: `tests/Feature/Dashboard/UserStatusTest.php`
 
@@ -2316,7 +2324,18 @@ y el `use App\Http\Controllers\Dashboard\UserStatusController;` arriba.
 
 El modelo `User` no tiene global scope de negocio, así que el binding resuelve también a un usuario de otro negocio; la Policy lo corta con 403. Ese es el comportamiento que el test `test_a_manager_cannot_touch_a_user_from_another_business` fija.
 
-- [ ] **Step 6: Agregar el toggle a la página de empleados**
+- [ ] **Step 6: Pasar `status` y `future_bookings_count` a la página de empleados**
+
+`UserStatusController::update()` (Step 5) flashea `status` y `future_bookings_count` a la sesión con `->with(...)`, pero el redirect apunta a `dashboard.employees.index`, que sirve `App\Http\Controllers\Dashboard\EmployeeController::index()` — un controlador que ya existe y esta task no creó. Ese método no pasa esos valores como props de Inertia todavía, y sin eso el flash nunca llega a la página (el patrón del proyecto es pasarlo explícito por controlador, como hace `PasswordResetLinkController`, no vía `share()` global).
+
+Modificar `app/Http/Controllers/Dashboard/EmployeeController.php` — en el `return Inertia::render('Dashboard/Employees/Index', [...])` de `index()`, agregar dos claves al array de props ya existente:
+
+```php
+            'status' => session('status'),
+            'future_bookings_count' => session('future_bookings_count'),
+```
+
+- [ ] **Step 7: Agregar el toggle a la página de empleados**
 
 Modificar `resources/js/Pages/Dashboard/Employees/Index.jsx` — agregar la función y la columna. Importar `usePage` si no está importado ya:
 
@@ -2360,16 +2379,16 @@ Y en cada fila, una celda con el botón (solo para managers, siguiendo el `isMan
 
 Si la fila no tiene todavía una celda de acciones ni la cabecera correspondiente, agregar ambas. Reconstruir: `docker compose exec laravel.test bash -lc "rm -f public/hot && pnpm build"`.
 
-- [ ] **Step 7: Correr el test y verificar que pasa**
+- [ ] **Step 8: Correr el test y verificar que pasa**
 
 Run: `docker compose exec laravel.test php artisan test --filter=UserStatusTest`
 Expected: PASS (10 tests).
 
-- [ ] **Step 8: Formatear y commitear**
+- [ ] **Step 9: Formatear y commitear**
 
 ```bash
 docker compose exec laravel.test vendor/bin/pint app routes
-git add app/Policies/UserPolicy.php app/Actions/Users app/Http/Requests/Dashboard/UpdateUserStatusRequest.php app/Http/Controllers/Dashboard/UserStatusController.php routes/dashboard.php resources/js/Pages/Dashboard/Employees/Index.jsx tests/Feature/Dashboard/UserStatusTest.php
+git add app/Policies/UserPolicy.php app/Actions/Users app/Http/Requests/Dashboard/UpdateUserStatusRequest.php app/Http/Controllers/Dashboard/UserStatusController.php app/Http/Controllers/Dashboard/EmployeeController.php routes/dashboard.php resources/js/Pages/Dashboard/Employees/Index.jsx tests/Feature/Dashboard/UserStatusTest.php
 git commit -m "feat: add user activation and deactivation"
 ```
 
@@ -3430,6 +3449,9 @@ class HolidayController extends Controller
 
         return Inertia::render('Dashboard/Holidays/Index', [
             'holidays' => BusinessHoliday::orderBy('starts_on')->get(['id', 'name', 'starts_on', 'ends_on']),
+            // Mismo patrón que PasswordResetLinkController: flash `status`
+            // pasado explícito, no vía share() global.
+            'status' => session('status'),
         ]);
     }
 
