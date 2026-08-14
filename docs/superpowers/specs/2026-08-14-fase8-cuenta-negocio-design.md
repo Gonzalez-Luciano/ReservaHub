@@ -46,7 +46,8 @@ Pasos, en este orden:
 1. **Rotar la autenticación remember-me**: `$user->setRememberToken(Str::random(60))` + `save()`. Invalida toda cookie `remember_web` existente del usuario, incluida la del dispositivo actual. La sesión actual no depende de ella, así que sobrevive.
 2. **Revocar todos los tokens de Sanctum**: `$user->tokens()->delete()`.
 3. **Borrar las sesiones de base de datos** del usuario: `DB::table(config('session.table'))->where('user_id', $user->id)->when($keepSessionId, fn ($q, $id) => $q->where('id', '!=', $id))->delete()`.
-   - Se ejecuta solo si `config('session.driver') === 'database'`. Con otro driver el método deja registrado un `Log::warning` y no falla: es el único punto de la fase que depende del driver, y el contrato de entorno del repo fija `database`.
+
+**Falla cerrado.** Antes del paso 1, el revoker verifica `config('session.driver') === 'database'` y, si no lo es, lanza `App\Exceptions\UnsupportedSessionDriverException` sin haber tocado nada. No hay warning ni continuación degradada: con `file`, `redis` o `array` las sesiones web existentes seguirían siendo válidas mientras el llamador cree que revocó todo el acceso, y ese silencio es exactamente el fallo que esta pieza tiene que impedir. `SESSION_DRIVER=database` es un requisito de runtime (§11), no una preferencia.
 
 `$keepSessionId = null` significa "no preserves ninguna sesión".
 
@@ -237,7 +238,20 @@ Rango inclusivo de días completos: cubre un feriado suelto y un cierre de vario
 | POST | `/api/holidays` | `api.holidays.store` |
 | DELETE | `/api/holidays/{holiday}` | `api.holidays.destroy` |
 
-Sin `update`: borrar y recrear evita reabrir la validación de conflictos sobre un rango mutante. Autorización: `BusinessHolidayPolicy` (`viewAny`/`create`/`delete` = `Role::managers()` + mismo `business_id`).
+Sin `update`: borrar y recrear evita reabrir la validación de conflictos sobre un rango mutante.
+
+### Autorización y resolución cross-tenant
+
+`BusinessHolidayPolicy`, con dos semánticas distintas:
+
+- `viewAny(User $actor)` y `create(User $actor)` — no hay recurso todavía: autorizan contra el **negocio actual** del actor (`$actor->business_id !== null` y `in_array($actor->role, Role::managers(), true)`). El negocio ya viene fijado por el middleware `business`.
+- `delete(User $actor, BusinessHoliday $holiday)` — lo anterior **más** pertenencia del recurso: `$actor->business_id === $holiday->business_id`.
+
+Sobre el cross-tenant: `BelongsToBusiness` agrega el global scope `BusinessScope`, que filtra por `business_id` del negocio ligado en el contenedor. El binding implícito de `{holiday}` corre sobre ese query scopeado, así que un feriado de otro negocio **no se resuelve**: lanza `ModelNotFoundException` y la aplicación devuelve **404** (en API, el envelope `"Recurso no encontrado."` que ya mapea `bootstrap/app.php`). Se documenta y se testea como 404; el scope no se desactiva para forzar un 403 — filtrar antes de autorizar es la propiedad de tenancy que el resto del proyecto ya sostiene, y un 404 tampoco confirma la existencia del recurso ajeno.
+
+La comprobación de pertenencia en `delete` queda igual, como defensa en profundidad para cualquier llamador que resuelva el modelo sin el scope (consola, jobs, tests).
+
+El **403** se reserva para un recurso del mismo negocio que sí se resolvió y un actor sin permiso — típicamente un `employee`.
 
 ### 7.1 Detección de conflictos con reservas
 
@@ -271,7 +285,7 @@ El mensaje **no** enumera todas las reservas afectadas. Se devuelve una `Validat
 - El total afectado: `No podés crear el feriado: hay N reservas activas en ese rango. Cancelalas o reprogramalas primero.`
 - Una vista previa acotada a **las 5 primeras** por `starts_at`, en `errors` bajo la clave `bookings_preview`.
 
-`ValidationException::withMessages()` solo transporta arrays de strings, así que la vista previa es un array de líneas ya formateadas en la zona del negocio — `"12/09 10:00 — Corte de pelo — Ana Gómez"` — y no objetos. Sale de la consulta ya scopeada por `business_id`, así que no puede exponer datos de otro tenant, y no incluye nombre ni contacto del cliente. La UI muestra el total y la vista previa, con un enlace al listado de reservas filtrado por fecha para el resto.
+`ValidationException::withMessages()` solo transporta arrays de strings, así que la vista previa es un array de líneas ya formateadas en la zona del negocio — `"12/09 10:00 — Corte de pelo — Ana Gómez"` — y no objetos. Sale de la consulta ya scopeada por `business_id`, así que no puede exponer datos de otro tenant, y no incluye nombre ni contacto del cliente. La UI muestra el total y la vista previa, y nada más. **No hay enlace a un listado de reservas filtrado por fecha**: verificado que `Dashboard\BookingController@index` no acepta ningún filtro (`Booking::with(...)->orderByDesc('starts_at')->get()`) y que `from`/`to`/`employee_id` existen solo en `Api\BookingIndexRequest`. Ese enlace exigiría filtros nuevos en el listado del panel — una función de frontend que esta fase no tiene por qué arrastrar de contrabando. Queda para la fase de rediseño frontend, que es la dueña del listado de reservas.
 
 ### 7.3 Borrado
 
@@ -312,6 +326,7 @@ app/
 │   ├── Businesses/UpdateBusinessSettings.php
 │   └── Users/SetUserActiveStatus.php
 ├── Enums/Currency.php
+├── Exceptions/UnsupportedSessionDriverException.php
 ├── Http/
 │   ├── Controllers/
 │   │   ├── Account/{ProfileController,PasswordController}.php
@@ -342,20 +357,23 @@ Los controladores de API y de panel comparten Actions y Form Requests; solo difi
 - `tests/Unit/Services/AvailabilityServiceTest` — empleado inactivo devuelve `[]`; día dentro de un feriado devuelve `[]`; día contiguo al feriado sigue devolviendo slots; feriado de otro negocio no afecta.
 **Feature — web**
 
-- `tests/Feature/Account/UserAccessRevokerTest` — vive en Feature porque toca base de datos. Con `config()->set('session.driver','database')` (`phpunit.xml` fija `array`) y filas insertadas a mano en `sessions`: borra las del usuario, preserva la de `keepSessionId`, no toca las de otro usuario, rota `remember_token`, borra tokens. Con driver `array` no falla.
+- `tests/Feature/Account/UserAccessRevokerTest` — vive en Feature porque toca base de datos. Dos escenarios, sin zona gris:
+  - **driver `database`** (`config()->set('session.driver','database')`, porque `phpunit.xml` fija `array`) con filas insertadas a mano en `sessions`: revocación completa — borra las sesiones del usuario, preserva la de `keepSessionId`, no toca las de otro usuario, rota `remember_token`, borra todos los tokens.
+  - **driver no-`database`** (`array`): lanza `UnsupportedSessionDriverException` y **no** modifica `remember_token`, tokens ni filas de sesión. Ningún test afirma revocación completa bajo un driver no soportado.
 
 - `Account/ProfileTest` — actualiza nombre; cambiar email limpia `email_verified_at` y envía la notificación; email duplicado falla; un `customer` sin negocio accede a `/account`.
 - `Account/PasswordTest` — `current_password` incorrecta falla; al cambiarla la sesión actual sobrevive, las demás filas de `sessions` del usuario se borran, `remember_token` cambia y los tokens caen.
 - `Dashboard/BusinessSettingsTest` — `owner`/`admin` editan; `employee` recibe 403; cross-business 403; `slug` enviado se ignora; moneda fuera del enum falla; cambiar `timezone` no mueve el `starts_at` UTC de una reserva existente.
 - `Dashboard/UserStatusTest` — matriz de roles de §6; auto-desactivación denegada; último owner activo rechazado con mensaje; desactivar corta sesiones y tokens; reporta el conteo de reservas futuras sin cancelarlas; reactivar funciona.
-- `Dashboard/HolidaysTest` — alta/listado/borrado; solapamiento con otro feriado rechazado; reserva que **empieza antes** del feriado y termina dentro lo bloquea; reserva `cancelled` no bloquea; la vista previa se corta en 5 y trae el total; `employee` 403; cross-business 403.
+- `Dashboard/UserStatusConcurrencyTest` — invariante de §6.2 bajo concurrencia real. El proyecto ya tiene infraestructura para esto: `tests/Unit/Database/AdvisoryLockTest.php` abre dos sesiones PDO crudas contra Postgres, así que el requisito es ejecutable y no queda como aspiración. Escenario: un negocio con **dos** owners activos y dos desactivaciones concurrentes, una por cada owner. Invariante final, sin importar cuál gane: `owners activos >= 1`. Una de las dos operaciones tiene que fallar con la `ValidationException` del último owner. El plan de implementación elige el mecanismo concreto (dos conexiones PDO al estilo `AdvisoryLockTest`, o un proceso auxiliar); el requisito es de esta spec.
+- `Dashboard/HolidaysTest` — alta/listado/borrado; solapamiento con otro feriado rechazado; reserva que **empieza antes** del feriado y termina dentro lo bloquea; reserva `cancelled` no bloquea; la vista previa se corta en 5 y trae el total; `employee` recibe **403**; un feriado de otro negocio recibe **404** (el global scope impide resolverlo), no 403.
 
 **Feature — API**
 
 - `Api/AccountTest` — `GET /api/account`; cambio de contraseña revoca el token usado (la siguiente petición da 401) y devuelve el mensaje documentado.
 - `Api/BusinessTest` — show/update con envelope; `employee` 403.
 - `Api/UsersTest` — cambio de estado con envelope y `data.future_bookings_count`; jerarquía admin→owner denegada.
-- `Api/HolidaysTest` — index/store/destroy con envelope; conflicto devuelve 422 con `errors.starts_on` y `errors.bookings_preview`.
+- `Api/HolidaysTest` — index/store/destroy con envelope; conflicto devuelve 422 con `errors.starts_on` y `errors.bookings_preview`; borrar un feriado de otro negocio devuelve 404 con `"Recurso no encontrado."`.
 - `Api/AvailabilityTest` — un feriado quita el día de la disponibilidad pública.
 
 ## 11. Documentación a actualizar
@@ -363,11 +381,11 @@ Los controladores de API y de panel comparten Actions y Form Requests; solo difi
 - `docs/api.md` + anotaciones de Scramble: nuevos endpoints de cuenta, negocio, estado de usuario y feriados; nota explícita de que cambiar la contraseña por API invalida el token usado.
 - `01-reservahub.md` §7: fila de la Fase 8 pasa a "Hecha" con evidencia; §3 suma `business_holidays` al modelo de datos.
 - `CLAUDE.md`: sección corta sobre `UserAccessRevoker` como único mecanismo de revocación y sobre el enum `Currency`.
-- `docs/DEPLOYMENT_HANDOFF.md`: no cambia el contrato de runtime — sin servicios, variables ni rutas persistentes nuevas. Se deja constancia de que `SESSION_DRIVER=database` pasa de conveniencia a **requisito** para que la invalidación de sesiones funcione.
+- `docs/DEPLOYMENT_HANDOFF.md`: **el contrato de runtime se endurece**. No hay servicio, variable de entorno ni ruta persistente nueva, pero `SESSION_DRIVER=database` deja de ser una conveniencia y pasa a ser un **requisito operativo explícito**: con cualquier otro driver, `UserAccessRevoker` lanza `UnsupportedSessionDriverException` y el cambio de contraseña y la desactivación de usuarios fallan en producción con error 500. Se documenta como tal, junto con la tabla `sessions` que la aplicación necesita presente y migrada.
 
 ## 12. Riesgos y decisiones asumidas
 
-- **Driver de sesión**: la invalidación de sesiones ajenas depende de `SESSION_DRIVER=database`. Documentado como requisito; con otro driver el revoker registra un warning y los otros dos vectores (remember-me, tokens) igual se cortan.
+- **Driver de sesión**: la invalidación de sesiones ajenas depende de `SESSION_DRIVER=database`, y `UserAccessRevoker` falla cerrado con `UnsupportedSessionDriverException` si no lo es. Riesgo asumido: un despliegue mal configurado rompe el cambio de contraseña y la desactivación de usuarios con un 500 en vez de degradarse. Es la contrapartida buscada — un fallo ruidoso es preferible a creer que se revocó el acceso y no haberlo hecho.
 - **Sin `AuthenticateSession`**: no se agrega ese middleware en esta fase. Agregarlo cambiaría el comportamiento de cierre de sesión de toda la aplicación y merece su propia decisión.
 - **Feriados y reservas ya creadas**: el alta se bloquea en vez de cancelar. Puede resultar molesto en un negocio con agenda cargada; es la contrapartida aceptada de no cancelar nunca en silencio.
 - **Zona horaria**: no se desplazan los `schedules`. Un dueño que cambie de zona esperando conservar el instante absoluto de su jornada tendrá que reeditarlos.
