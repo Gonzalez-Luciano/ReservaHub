@@ -3,7 +3,9 @@
 namespace Tests\Feature\Api;
 
 use App\Enums\DayOfWeek;
+use App\Enums\Role;
 use App\Models\Business;
+use App\Models\BusinessHoliday;
 use App\Models\Schedule;
 use App\Models\Service;
 use App\Models\User;
@@ -291,5 +293,38 @@ class AvailabilityTest extends TestCase
             $slot['starts_at'],
             'Timestamp should match ISO-8601 format with timezone offset'
         );
+    }
+
+    public function test_a_business_holiday_empties_the_availability(): void
+    {
+        $business = Business::factory()->create(['timezone' => 'America/Argentina/Buenos_Aires']);
+        $service = Service::factory()->for($business)->create(['duration_minutes' => 60, 'buffer_minutes' => 0]);
+        $employee = User::factory()->employee()->create(['business_id' => $business->id]);
+
+        Schedule::factory()
+            ->for($business)
+            ->for($employee, 'employee')
+            ->create([
+                'day_of_week' => DayOfWeek::Wednesday,
+                'start_time' => '09:00:00',
+                'end_time' => '17:00:00',
+                'is_active' => true,
+            ]);
+
+        $owner = User::factory()->create(['role' => Role::Owner, 'business_id' => $business->id]);
+        Sanctum::actingAs($owner, [], 'sanctum');
+
+        $date = Carbon::now()->next(Carbon::WEDNESDAY)->format('Y-m-d');
+
+        BusinessHoliday::factory()->create([
+            'business_id' => $business->id,
+            'starts_on' => $date,
+            'ends_on' => $date,
+        ]);
+
+        $this->getJson("/api/availability?service_id={$service->id}&employee_id={$employee->id}&date={$date}")
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonCount(0, 'data');
     }
 }

@@ -6,7 +6,9 @@ use App\Enums\BookingStatus;
 use App\Enums\DayOfWeek;
 use App\Models\Booking;
 use App\Models\Business;
+use App\Models\BusinessHoliday;
 use App\Models\Schedule;
+use App\Models\Scopes\BusinessScope;
 use App\Models\Service;
 use App\Models\TimeOff;
 use App\Models\User;
@@ -26,6 +28,9 @@ class AvailabilityService
      * @return array<int, array{starts_at: CarbonImmutable, ends_at: CarbonImmutable}>
      *
      * @throws \InvalidArgumentException when `$service` or `$employee` belongs to another business.
+     *
+     * Devuelve `[]` sin más si el empleado está desactivado o si el día local
+     * consultado cae dentro de un feriado del negocio.
      */
     public function getAvailableSlots(Business $business, Service $service, User $employee, CarbonImmutable $date, ?int $excludeBookingId = null): array
     {
@@ -33,8 +38,28 @@ class AvailabilityService
             throw new \InvalidArgumentException('Service and employee must belong to the given business.');
         }
 
+        // Un empleado desactivado no genera turnos, aunque conserve horarios
+        // cargados y alguien pase su ID a mano.
+        if (! $employee->is_active) {
+            return [];
+        }
+
         $timezone = $business->timezone;
         $localDate = CarbonImmutable::create($date->year, $date->month, $date->day, 0, 0, 0, $timezone);
+
+        // Feriado del negocio: rango inclusivo de días completos en la zona
+        // local del negocio.
+        $isHoliday = BusinessHoliday::query()
+            ->withoutGlobalScope(BusinessScope::class)
+            ->where('business_id', $business->id)
+            ->where('starts_on', '<=', $localDate->toDateString())
+            ->where('ends_on', '>=', $localDate->toDateString())
+            ->exists();
+
+        if ($isHoliday) {
+            return [];
+        }
+
         $dayOfWeek = DayOfWeek::from($localDate->dayOfWeek);
 
         $schedule = Schedule::query()
