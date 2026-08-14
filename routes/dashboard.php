@@ -5,6 +5,7 @@ use App\Http\Controllers\Dashboard\BusinessSettingsController;
 use App\Http\Controllers\Dashboard\EmployeeController;
 use App\Http\Controllers\Dashboard\EmployeeInvitationController;
 use App\Http\Controllers\Dashboard\EmployeeServiceController;
+use App\Http\Controllers\Dashboard\HolidayController;
 use App\Http\Controllers\Dashboard\ScheduleController;
 use App\Http\Controllers\Dashboard\ServiceController;
 use App\Http\Controllers\Dashboard\TimeOffController;
@@ -47,5 +48,9 @@ Route::middleware(['auth', 'business'])->group(function () {
         Route::delete('time-offs/{timeOff}', [TimeOffController::class, 'destroy'])->name('time-offs.destroy');
 
         Route::put('users/{user}/status', [UserStatusController::class, 'update'])->name('users.status.update');
+
+        Route::get('holidays', [HolidayController::class, 'index'])->name('holidays.index');
+        Route::post('holidays', [HolidayController::class, 'store'])->name('holidays.store');
+        Route::delete('holidays/{holiday}', [HolidayController::class, 'destroy'])->name('holidays.destroy');
     });
 });
