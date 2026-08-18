@@ -3,6 +3,7 @@
 use App\Exceptions\MissingBusinessContextException;
 use App\Http\Middleware\EnsureBusinessContext;
 use App\Http\Middleware\HandleInertiaRequests;
+use App\Services\Payments\Exceptions\GatewayUnavailableException;
 use App\Support\ApiResponse;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
@@ -87,6 +88,14 @@ return Application::configure(basePath: dirname(__DIR__))
                 429 => 'Demasiadas peticiones. Probá de nuevo más tarde.',
                 default => 'Ocurrió un error inesperado.',
             }, null, $status);
+        });
+
+        $exceptions->render(function (GatewayUnavailableException $e, Request $request) {
+            report($e);
+
+            return $request->is('api/*')
+                ? ApiResponse::error('No se pudo iniciar el pago. Probá de nuevo en unos minutos.', null, 502)
+                : back()->withErrors(['payment' => 'No se pudo iniciar el pago. Probá de nuevo en unos minutos.']);
         });
 
         $exceptions->render(function (Throwable $e, Request $request) {

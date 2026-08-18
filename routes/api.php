@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\Api\BusinessController;
 use App\Http\Controllers\Api\EmployeeController;
 use App\Http\Controllers\Api\HolidayController;
+use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\ServiceController;
 use App\Http\Controllers\Api\UserStatusController;
 use App\Http\Middleware\BindPublicBusiness;
@@ -28,6 +29,13 @@ Route::name('api.')->group(function () {
         Route::get('bookings/{booking}', [BookingController::class, 'show'])->name('bookings.show')->whereNumber('booking');
         Route::patch('bookings/{booking}', [BookingController::class, 'update'])->name('bookings.update')->whereNumber('booking');
         Route::post('bookings/{booking}/cancel', [BookingController::class, 'cancel'])->name('bookings.cancel')->whereNumber('booking');
+
+        Route::get('bookings/{booking}/payments', [PaymentController::class, 'index'])
+            ->name('bookings.payments.index')->whereNumber('booking');
+        Route::post('bookings/{booking}/payments', [PaymentController::class, 'store'])
+            ->name('bookings.payments.store')->whereNumber('booking');
+        Route::get('bookings/{booking}/payments/{payment}', [PaymentController::class, 'show'])
+            ->name('bookings.payments.show')->whereNumber('booking')->whereNumber('payment');
     });
 
     Route::middleware(['auth:sanctum', 'business'])->group(function () {
