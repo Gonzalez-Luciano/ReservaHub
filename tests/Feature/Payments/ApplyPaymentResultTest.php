@@ -191,21 +191,21 @@ class ApplyPaymentResultTest extends TestCase
             app(ConfirmBooking::class)->handle($booking, null);
             $this->fail('Se esperaba InvalidArgumentException por confirmación manual sin actor.');
         } catch (InvalidArgumentException) {
-            // esperado
+            $this->assertTrue(true);
         }
 
         try {
             app(ConfirmBooking::class)->handle($booking, $owner, ConfirmationReason::PaymentApproved, $payment);
             $this->fail('Se esperaba InvalidArgumentException por confirmación de sistema con actor.');
         } catch (InvalidArgumentException) {
-            // esperado
+            $this->assertTrue(true);
         }
 
         try {
             app(ConfirmBooking::class)->handle($booking, null, ConfirmationReason::PaymentApproved, null);
             $this->fail('Se esperaba InvalidArgumentException por confirmación de pago sin pago.');
         } catch (InvalidArgumentException) {
-            // esperado
+            $this->assertTrue(true);
         }
     }
 }
