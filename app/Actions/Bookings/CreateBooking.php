@@ -63,7 +63,20 @@ class CreateBooking
                 throw ValidationException::withMessages(['starts_at' => 'Ese horario ya no está disponible.']);
             }
 
-            $status = $service->deposit_amount > 0 ? BookingStatus::Pending : BookingStatus::Confirmed;
+            $requiresDeposit = $service->deposit_amount > 0;
+            $status = $requiresDeposit ? BookingStatus::Pending : BookingStatus::Confirmed;
+
+            // La ventana de pago pertenece a la reserva, no al pago: es lo que
+            // libera el turno si nadie paga. El clamp evita una ventana que
+            // termine después del propio turno.
+            $paymentWindowEnd = CarbonImmutable::now()->addMinutes((int) config('payments.window_minutes', 30));
+            $paymentExpiresAt = null;
+
+            if ($requiresDeposit) {
+                $paymentExpiresAt = $paymentWindowEnd->lessThan($startsAt->utc())
+                    ? $paymentWindowEnd
+                    : $startsAt->utc();
+            }
 
             $booking = Booking::create([
                 'customer_id' => $customer->id,
@@ -78,6 +91,7 @@ class CreateBooking
                 'status' => $status,
                 'price' => $service->price,
                 'deposit_amount' => $service->deposit_amount,
+                'payment_expires_at' => $paymentExpiresAt,
                 'notes' => $data['notes'] ?? null,
                 'source' => $data['source'],
             ]);

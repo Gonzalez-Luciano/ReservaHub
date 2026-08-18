@@ -3,6 +3,7 @@
 namespace App\Actions\Bookings;
 
 use App\Enums\BookingStatus;
+use App\Enums\PaymentStatus;
 use App\Events\BookingRescheduled;
 use App\Models\Booking;
 use App\Models\BookingStatusHistory;
@@ -49,11 +50,36 @@ class RescheduleBooking
                 throw ValidationException::withMessages(['starts_at' => 'Ese horario ya no está disponible.']);
             }
 
+            // La ventana nunca se extiende. Con un intento vivo, adelantarla por
+            // debajo de la expiración del pago dejaría reserva, pago y proveedor
+            // con ventanas contradictorias: `expire-unpaid` no cancelaría (hay un
+            // `pending`) y el proveedor seguiría vivo pasada la fecha límite.
+            $paymentExpiresAt = $booking->payment_expires_at?->toImmutable();
+            $newDeadline = null;
+
+            if ($paymentExpiresAt !== null) {
+                $newDeadline = $newStart->utc()->lessThan($paymentExpiresAt)
+                    ? $newStart->utc()
+                    : $paymentExpiresAt;
+
+                $livePayment = $booking->payments()->where('status', PaymentStatus::Pending)->first();
+
+                if ($livePayment !== null && $newDeadline->lessThan($livePayment->expires_at->toImmutable())) {
+                    throw ValidationException::withMessages([
+                        'starts_at' => 'Hay un pago de seña en curso; esperá a que venza o cancelalo antes de reprogramar a un horario anterior.',
+                    ]);
+                }
+            }
+
             // Persistido en UTC: el cast `datetime` escribe los dígitos de reloj
             // *actuales* del Carbon tal cual y los relee asumiendo UTC, así que
             // guardar acá un Carbon con display en horario de negocio volvería
             // con el instante equivocado en la próxima lectura.
-            $booking->update(['starts_at' => $newStart->utc(), 'ends_at' => $newEnd->utc()]);
+            $booking->update([
+                'starts_at' => $newStart->utc(),
+                'ends_at' => $newEnd->utc(),
+                'payment_expires_at' => $paymentExpiresAt === null ? null : $newDeadline,
+            ]);
 
             // Los recordatorios ya reclamados apuntaban al horario anterior; sin esto,
             // el comando nunca volvería a evaluar la reserva para el horario nuevo.
