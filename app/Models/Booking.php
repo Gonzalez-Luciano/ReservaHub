@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['customer_id', 'employee_id', 'service_id', 'starts_at', 'ends_at', 'status', 'price', 'deposit_amount', 'notes', 'source', 'cancelled_at'])]
+#[Fillable(['customer_id', 'employee_id', 'service_id', 'starts_at', 'ends_at', 'status', 'price', 'deposit_amount', 'payment_expires_at', 'notes', 'source', 'cancelled_at'])]
 class Booking extends Model
 {
     /** @use HasFactory<BookingFactory> */
@@ -26,6 +26,7 @@ class Booking extends Model
             'price' => 'decimal:2',
             'deposit_amount' => 'decimal:2',
             'cancelled_at' => 'datetime',
+            'payment_expires_at' => 'datetime',
         ];
     }
 
@@ -57,5 +58,10 @@ class Booking extends Model
     public function reminders(): HasMany
     {
         return $this->hasMany(BookingReminder::class);
+    }
+
+    public function payments(): HasMany
+    {
+        return $this->hasMany(Payment::class);
     }
 }
