@@ -2,6 +2,7 @@
 
 namespace App\Notifications\Bookings;
 
+use App\Enums\CancellationReason;
 use App\Enums\NotificationAudience;
 use App\Models\Booking;
 use App\Models\User;
@@ -11,8 +12,9 @@ class BookingCancelledNotification extends BookingNotification
 {
     public function __construct(
         Booking $booking,
-        public readonly User $cancelledBy,
+        public readonly ?User $cancelledBy,
         public readonly NotificationAudience $audience,
+        public readonly CancellationReason $reason = CancellationReason::Requested,
     ) {
         parent::__construct($booking);
     }
@@ -22,11 +24,14 @@ class BookingCancelledNotification extends BookingNotification
         $when = $this->formatDateTime();
         $service = $this->service()->name;
         $business = $this->booking->business->name;
+        $expired = $this->reason === CancellationReason::PaymentWindowExpired;
 
         if ($this->audience === NotificationAudience::Customer) {
-            $line = $this->cancelledByCustomer()
-                ? "Cancelaste tu reserva de {$service} del {$when}."
-                : "{$business} canceló tu reserva de {$service} del {$when}.";
+            $line = match (true) {
+                $expired => "Se canceló tu reserva de {$service} del {$when} porque no se registró el pago de la seña dentro del plazo.",
+                $this->cancelledByCustomer() => "Cancelaste tu reserva de {$service} del {$when}.",
+                default => "{$business} canceló tu reserva de {$service} del {$when}.",
+            };
 
             return (new MailMessage)
                 ->subject("Se canceló tu reserva en {$business}")
@@ -35,9 +40,11 @@ class BookingCancelledNotification extends BookingNotification
                 ->action('Ver mis reservas', $this->actionUrl(NotificationAudience::Customer));
         }
 
-        $line = $this->cancelledByCustomer()
-            ? "{$this->booking->customer->name} canceló su reserva de {$service} del {$when}."
-            : "Se canceló la reserva de {$this->booking->customer->name} para {$service} del {$when}.";
+        $line = match (true) {
+            $expired => "Se canceló automáticamente la reserva de {$this->booking->customer->name} para {$service} del {$when}: la seña no se pagó dentro del plazo.",
+            $this->cancelledByCustomer() => "{$this->booking->customer->name} canceló su reserva de {$service} del {$when}.",
+            default => "Se canceló la reserva de {$this->booking->customer->name} para {$service} del {$when}.",
+        };
 
         return (new MailMessage)
             ->subject('Se canceló una de tus reservas')
@@ -53,13 +60,14 @@ class BookingCancelledNotification extends BookingNotification
     {
         return $this->basePayload() + [
             'type' => 'booking.cancelled',
-            'cancelled_by' => $this->cancelledBy->id,
+            'cancelled_by' => $this->cancelledBy?->id,
             'cancelled_by_customer' => $this->cancelledByCustomer(),
+            'reason' => $this->reason->value,
         ];
     }
 
     private function cancelledByCustomer(): bool
     {
-        return $this->cancelledBy->id === $this->booking->customer_id;
+        return $this->cancelledBy?->id === $this->booking->customer_id;
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Events;
 
+use App\Enums\CancellationReason;
 use App\Models\Booking;
 use App\Models\User;
 use Illuminate\Foundation\Events\Dispatchable;
@@ -12,6 +13,7 @@ class BookingCancelled
 
     public function __construct(
         public readonly Booking $booking,
-        public readonly User $cancelledBy,
+        public readonly ?User $cancelledBy,
+        public readonly CancellationReason $reason = CancellationReason::Requested,
     ) {}
 }

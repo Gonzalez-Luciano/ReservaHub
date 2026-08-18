@@ -11,3 +11,7 @@ Artisan::command('inspire', function () {
 Schedule::command('bookings:send-reminders')
     ->everyFiveMinutes()
     ->withoutOverlapping(10);
+
+Schedule::command('bookings:expire-unpaid')
+    ->everyFiveMinutes()
+    ->withoutOverlapping(10);
