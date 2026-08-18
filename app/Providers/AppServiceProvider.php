@@ -41,5 +41,9 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('api-login', function (Request $request) {
             return Limit::perMinute(5)->by(Str::lower((string) $request->input('email')).'|'.$request->ip());
         });
+
+        RateLimiter::for('payment-webhooks', function (Request $request) {
+            return Limit::perMinute(120)->by($request->ip());
+        });
     }
 }

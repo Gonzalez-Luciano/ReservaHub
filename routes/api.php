@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\BusinessController;
 use App\Http\Controllers\Api\EmployeeController;
 use App\Http\Controllers\Api\HolidayController;
 use App\Http\Controllers\Api\PaymentController;
+use App\Http\Controllers\Api\PaymentWebhookController;
 use App\Http\Controllers\Api\ServiceController;
 use App\Http\Controllers\Api\UserStatusController;
 use App\Http\Middleware\BindPublicBusiness;
@@ -17,6 +18,10 @@ Route::name('api.')->group(function () {
     Route::post('auth/login', [AuthController::class, 'login'])
         ->middleware('throttle:api-login')
         ->name('auth.login');
+
+    Route::post('webhooks/payments/{provider}', PaymentWebhookController::class)
+        ->middleware('throttle:payment-webhooks')
+        ->name('webhooks.payments');
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('auth/logout', [AuthController::class, 'logout'])->name('auth.logout');
