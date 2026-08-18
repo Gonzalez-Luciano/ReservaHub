@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Payments;
 
+use App\Actions\Payments\ApplyPaymentResult;
 use App\Enums\BookingStatus;
 use App\Enums\PaymentStatus;
 use App\Enums\Role;
@@ -16,10 +17,14 @@ use App\Models\WebhookEvent;
 use App\Notifications\Bookings\BookingConfirmedNotification;
 use App\Services\Payments\Contracts\PaymentGateway;
 use App\Services\Payments\Data\WebhookEnvelope;
+use App\Services\Payments\Data\WebhookNotification;
 use App\Services\Payments\ProcessPaymentWebhook;
 use App\Services\Payments\Simulated\SimulatedPaymentGateway;
+use DateTimeImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
+use ReflectionMethod;
+use RuntimeException;
 use Tests\TestCase;
 
 class WebhookIdempotencyTest extends TestCase
@@ -241,5 +246,69 @@ class WebhookIdempotencyTest extends TestCase
 
         $this->assertArrayNotHasKey('card_number', $event->payload);
         $this->assertSame('approved', $event->payload['status']);
+    }
+
+    public function test_a_genuine_processing_failure_is_recorded_and_the_exception_propagates(): void
+    {
+        [, $payment] = $this->scenario();
+
+        $this->mock(ApplyPaymentResult::class, function ($mock) {
+            $mock->shouldReceive('handle')->once()->andThrow(new RuntimeException('conexión perdida con la base de datos'));
+        });
+
+        $envelope = $this->envelope($payment, PaymentStatus::Approved, 'evt_real_crash');
+
+        try {
+            app(ProcessPaymentWebhook::class)->handle($envelope);
+            $this->fail('Se esperaba que handle() relanzara la excepción.');
+        } catch (RuntimeException $e) {
+            $this->assertSame('conexión perdida con la base de datos', $e->getMessage());
+        }
+
+        $event = WebhookEvent::where('external_event_id', 'evt_real_crash')->firstOrFail();
+        $this->assertSame(WebhookEventStatus::Failed, $event->status);
+        $this->assertSame(1, $event->attempts);
+        $this->assertSame('conexión perdida con la base de datos', $event->last_error);
+    }
+
+    public function test_recording_a_failure_never_clobbers_an_already_terminal_event(): void
+    {
+        [, $payment] = $this->scenario();
+
+        $event = WebhookEvent::factory()->create([
+            'provider' => 'simulated',
+            'external_event_id' => 'evt_already_processed',
+            'payment_external_id' => $payment->external_id,
+            'status' => WebhookEventStatus::Processed,
+            'outcome_reason' => 'booking_confirmed',
+            'attempts' => 0,
+            'last_error' => null,
+            'processed_at' => now(),
+        ]);
+
+        $notification = new WebhookNotification(
+            eventId: 'evt_already_processed',
+            externalPaymentId: $payment->external_id,
+            status: PaymentStatus::Approved,
+            amount: $payment->amount,
+            currency: $payment->currency,
+            occurredAt: new DateTimeImmutable,
+            failureReason: null,
+            payload: ['status' => 'approved'],
+        );
+
+        // Simula lo que haría recordFailure() si una entrega concurrente ya
+        // hubiera llevado el evento a un resultado terminal: la escritura
+        // debe ser un no-op, nunca pisar el resultado real ya confirmado.
+        $service = app(ProcessPaymentWebhook::class);
+        $method = new ReflectionMethod($service, 'recordFailure');
+        $method->setAccessible(true);
+        $method->invoke($service, $notification, new RuntimeException('nunca debería ganar'));
+
+        $event->refresh();
+        $this->assertSame(WebhookEventStatus::Processed, $event->status);
+        $this->assertSame('booking_confirmed', $event->outcome_reason);
+        $this->assertSame(0, $event->attempts);
+        $this->assertNull($event->last_error);
     }
 }

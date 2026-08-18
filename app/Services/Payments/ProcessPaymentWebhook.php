@@ -156,6 +156,10 @@ class ProcessPaymentWebhook
         try {
             WebhookEvent::where('provider', $this->gateway->name())
                 ->where('external_event_id', $notification->eventId)
+                // Nunca pisar una fila que otra entrega concurrente ya llevó a
+                // un resultado terminal: un fallo obsoleto jamás debe ganarle
+                // a un éxito real ya confirmado.
+                ->whereNotIn('status', [WebhookEventStatus::Processed->value, WebhookEventStatus::Ignored->value])
                 ->update([
                     'status' => WebhookEventStatus::Failed,
                     'outcome_reason' => 'internal_error',
