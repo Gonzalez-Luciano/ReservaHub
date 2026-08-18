@@ -98,7 +98,8 @@ antes de escribir este documento:
 | `pending` | `approved` | sí | `ConfirmBooking` **si** la reserva sigue `pending`; si no, ninguna | `paid_at`, `applied_at`, `application_outcome`, `last_snapshot` |
 | `pending` | `rejected` | sí | ninguna | `failure_reason`, `last_snapshot` |
 | `pending` | `expired` | sí | ninguna (la ventana de la reserva libera el slot aparte) | `last_snapshot` |
-| terminal | cualquiera | — | ninguna | ninguna: no-op registrado en el evento (`payment_already_terminal` / `illegal_transition`) + log warning |
+| `pending` | `pending` | no | ninguna | **observación válida**, no transición ilegal: refresca `last_snapshot`; resultado *aceptado* con outcome `no_action` y motivo `provider_still_pending` |
+| terminal | cualquiera | — | ninguna | ninguna: no-op **no aceptado** (`payment_already_terminal` / `illegal_transition`) + log warning |
 
 **Estados monótonos.** No existe `expired → approved`: el proveedor simulado tiene su propio ciclo
 monótono y **rechaza aprobar después de su expiración**, de modo que una aprobación tardía siempre es
@@ -170,12 +171,13 @@ controller contra `app(PaymentGateway::class)->name()`; si no coincide, el contr
 
 | DTO | Campos |
 |---|---|
-| `CheckoutRequest` | `int $paymentId`, `string $amount`, `string $currency`, `string $description`, `string $returnUrl`, `DateTimeImmutable $expiresAt` |
+| `CheckoutRequest` | `string $reference` (ULID opaco generado por la aplicación), `string $amount`, `string $currency`, `string $description`, `string $returnUrl`, `DateTimeImmutable $expiresAt` |
 | `CheckoutResult` | `string $externalId`, `PaymentStatus $status`, `DateTimeImmutable $expiresAt`, `array $snapshot` (redactado) |
 | `WebhookEnvelope` | `string $rawBody`, `array $headers` (claves en minúscula) |
 | `WebhookNotification` | `string $eventId`, `string $externalPaymentId`, `PaymentStatus $status`, `string $amount`, `string $currency`, `DateTimeImmutable $occurredAt`, `?string $failureReason`, `array $payload` (redactado) |
 | `ProviderSnapshot` | `string $externalId`, `PaymentStatus $status`, `string $amount`, `string $currency`, `?DateTimeImmutable $occurredAt`, `?string $failureReason`, `array $payload` (redactado) |
 | `PaymentResult` | `PaymentStatus $status`, `string $amount`, `string $currency`, `?DateTimeImmutable $occurredAt`, `array $snapshot`, `?string $failureReason` |
+| `PaymentApplicationResult` | `bool $accepted`, `PaymentApplicationOutcome $outcome`, `string $reasonCode` |
 
 `PaymentResult` es la **entrada única** de `ApplyPaymentResult`: se construye desde una
 `WebhookNotification` (camino webhook) o desde un `ProviderSnapshot` (camino reconciliación). Ninguna
@@ -197,8 +199,10 @@ construir la respuesta. No se persiste ninguna URL atada al entorno.
 `payments`: si lo hiciera, la reconciliación compararía una fila consigo misma y no probaría nada.
 
 - `createCheckout()`: genera `external_id` (`sim_pay_<ulid>`), inserta la fila del proveedor en
-  `pending` con `expires_at` y monto/moneda recibidos, y devuelve `CheckoutResult`.
-- `checkoutUrl()`: `URL::temporarySignedRoute('demo.payments.checkout', $expiresAt, ['payment' => …])`
+  `pending` con `expires_at`, monto/moneda y la `reference` recibida (guardada en su `payload` para
+  correlación y diagnóstico), y devuelve `CheckoutResult`. Corre dentro de la transacción de
+  iniciación, así que un fallo posterior la deshace junto con todo lo demás.
+- `checkoutUrl()`: `URL::temporarySignedRoute('demo.payments.checkout', $expiresAt, ['externalId' => $externalId])`
   — fresca en cada llamada, con expiración **no posterior** a `payment_expires_at`.
 - `parseWebhook()`: verifica firma y tolerancia contra el `rawBody` exacto, decodifica y **redacta**.
 - `fetchPayment()`: lee `simulated_provider_payments`; si la fila venció y sigue `pending`, la marca
@@ -280,9 +284,14 @@ index  (status, received_at)
 | `ignored` | resultado inusable/obsoleto/inválido que a propósito no muta el pago | no |
 | `failed` | error transitorio o interno; `attempts++`, `last_error` | **sí** |
 
-`outcome_reason` posible: `booking_confirmed`, `booking_not_pending`, `duplicate`, `amount_mismatch`,
-`currency_mismatch`, `payment_already_terminal`, `illegal_transition`, `unknown_payment`,
-`internal_error`.
+`outcome_reason` posible: `booking_confirmed`, `booking_not_pending`, `rejected`, `expired`,
+`provider_still_pending`, `amount_mismatch`, `currency_mismatch`, `payment_already_terminal`,
+`illegal_transition`, `unknown_payment`, `internal_error`. Los seis primeros son `reasonCode` que
+devuelve `ApplyPaymentResult` (§11); los demás los produce el propio borde de procesamiento.
+
+**`duplicate` no se persiste.** Una entrega repetida devuelve `WebhookProcessingStatus::Duplicate` y
+**deja intacta** la fila original con su `outcome_reason` real; sobrescribirla borraría el resultado
+verdadero solo para anotar que el proveedor reintentó.
 
 **`booking_not_pending` es `processed`**, no `ignored`: el resultado del proveedor se aplicó
 correctamente al pago; lo que no correspondía era mutar la reserva. `ignored` queda reservado a
@@ -311,16 +320,27 @@ después del turno. Sin seña queda `null` y el flujo actual no cambia en nada.
 **Semántica de `null`:** significa "esta reserva no tiene obligación de pago". Una reserva `pending`
 con `deposit_amount > 0` y `payment_expires_at = null` **no puede iniciar pago** (422) y **nunca es
 cancelada automáticamente**; es un estado que solo puede existir por datos anteriores a esta fase.
-Para que no queden reservas atrapadas, la migración **rellena** `payment_expires_at = min(now() +
-window_minutes, starts_at)` en las reservas `pending` existentes con `deposit_amount > 0`, dándoles
-una ventana fresca desde el despliegue en vez de una ya vencida (rellenar con `created_at + window`
-provocaría una cancelación masiva en el primer barrido).
+**Backfill de la migración**, acotado a lo que puede recibir una ventana honesta: solo reservas
+`pending` con `deposit_amount > 0` **y `starts_at > now()`** reciben
+`payment_expires_at = min(now() + window_minutes, starts_at)` — una ventana fresca desde el despliegue.
+Las reservas heredadas cuyo turno **ya empezó o ya pasó** conservan `null` y quedan bajo la semántica
+legacy descrita arriba: no se pueden pagar y **no se cancelan solas**. Rellenarlas produciría un valor
+ya vencido y una cancelación masiva como efecto colateral del despliegue de la Fase 9; limpiarlas es
+trabajo manual del staff, no de una migración.
 
-**Reprogramación:** `RescheduleBooking` **nunca extiende** la ventana; solo la ajusta hacia abajo si el
-turno nuevo empieza antes: `payment_expires_at = min(payment_expires_at, nuevo starts_at)`. Reprogramar
-no es una vía para renovar indefinidamente una obligación de pago vencida. La ventana de la reserva es
-la autoridad para `expire-unpaid`; el `expires_at` del pago solo gobierna la expiración del lado del
-proveedor.
+**Reprogramación.** La ventana **nunca se extiende**; solo puede ajustarse hacia abajo. Con un intento
+`pending` vivo, mover la fecha límite por debajo de la expiración activa del pago dejaría a reserva,
+pago y proveedor con ventanas contradictorias (`expire-unpaid` no cancelaría porque hay un `pending`,
+y el proveedor seguiría vivo más allá del límite de la reserva). Regla:
+
+| Situación | `RescheduleBooking` |
+|---|---|
+| Sin pago `pending` | ajusta `payment_expires_at = min(payment_expires_at, nuevo starts_at)` |
+| Con pago `pending` y `nuevo starts_at >= payment.expires_at` | permitido; la ventana resultante sigue cubriendo al intento |
+| Con pago `pending` y `nuevo starts_at < payment.expires_at` | **rechazo controlado** (`ValidationException`, 422): *"Hay un pago de seña en curso; esperá a que venza o cancelalo antes de reprogramar a un horario anterior."* |
+
+La ventana de la reserva es la autoridad para `expire-unpaid`; el `expires_at` del pago solo gobierna
+la expiración del lado del proveedor. Ninguna maquinaria nueva muta la expiración del proveedor.
 
 ## 8. Ventana de pago y cancelación automática
 
@@ -389,14 +409,20 @@ BEGIN
   re-chequeos:
     status === pending                          si no → ValidationException (422)
     deposit_amount > 0                          si no → ValidationException (422)
-    payment_expires_at > now()                  si no → ValidationException (422)
+    payment_expires_at no nulo y > now()        si no → ValidationException (422)
   ¿existe pago pending para esta reserva?       sí → devolverlo (idempotente)
-  INSERT payments (..., status=pending, amount=booking.deposit_amount,
-                   currency=business.currency, expires_at=booking.payment_expires_at)
+  $reference = (string) Str::ulid()             identidad opaca de la aplicación
   gateway->createCheckout(CheckoutRequest)      → external_id, snapshot
-  UPDATE payments SET external_id, last_snapshot
+  INSERT payments (..., external_id, last_snapshot, status=pending,
+                   amount=booking.deposit_amount, currency=business.currency,
+                   expires_at=booking.payment_expires_at)
 COMMIT
 ```
+
+**El `INSERT` va después del checkout**, de modo que la fila local nace ya con su `external_id` y la
+columna puede ser `NOT NULL` sin contradicción. La identidad que la aplicación aporta al proveedor es
+`reference` (ULID opaco), no el `id` local — que todavía no existe en ese punto; sirve para correlacionar
+la fila del proveedor con el intento en logs y diagnóstico, y viaja en el payload redactado.
 
 El índice único parcial `(booking_id) where status='pending'` es la defensa en profundidad: dos
 iniciaciones concurrentes se serializan por el lock de la reserva y, si algo se colara, la base
@@ -442,7 +468,10 @@ Pasos:
      `status='failed'`, `outcome_reason='unknown_payment'`, `attempts++` → `Failed`.
    - Validar monto y moneda contra la fila local (§17). Discrepancia → `status='ignored'` con
      `amount_mismatch` / `currency_mismatch` → `Ignored`.
-   - `ApplyPaymentResult` (§11) y el flip del evento a `processed`/`ignored` **commitean juntos**.
+   - `ApplyPaymentResult` (§11) devuelve `PaymentApplicationResult`. El flip del evento sale de ahí
+     de forma determinista: `accepted === true` → `status='processed'`; `accepted === false` →
+     `status='ignored'`; en ambos casos `outcome_reason = reasonCode` y `processed_at = now()`. El
+     efecto y el flip **commitean juntos**.
 4. **Fallo**: rollback de todo (ni efecto ni marca de hecho) y, en una transacción separada
    best-effort, `status='failed'`, `attempts++`, `last_error` (mensaje truncado, sin payload ni firma).
 
@@ -459,34 +488,68 @@ consultando el estado independiente del proveedor.
 
 ## 11. Aplicación del resultado
 
-`App\Actions\Payments\ApplyPaymentResult::handle(Payment $payment, PaymentResult $result): PaymentApplicationOutcome`
+`App\Actions\Payments\ApplyPaymentResult::handle(Payment $payment, PaymentResult $result): PaymentApplicationResult`
 
 Camino **único** para webhook y reconciliación. Dentro de una transacción, con el **orden de bloqueo
 global `webhook_events → bookings → payments`**: lee `payment.booking_id` sin lock, bloquea la reserva,
 bloquea el pago, y recién ahí re-lee estados.
 
+Devuelve `PaymentApplicationResult{accepted, outcome, reasonCode}` — **no** solo el outcome. Sin
+`accepted`, quien llama no puede distinguir un `no_action` legítimo (un rechazo o una expiración
+aplicados con éxito) de un no-op por transición ilegal, y no podría elegir `processed` vs `ignored`.
+`ApplyPaymentResult` **no conoce códigos HTTP** ni vocabulario de webhook.
+
 ```
-si la transición status→result.status no es legal (§4):
-    → no-op; outcome_reason = payment_already_terminal | illegal_transition; log warning
+transición ilegal (§4: pago ya terminal):
+    → no-op
+    → accepted=false, outcome=no_action,
+      reasonCode = payment_already_terminal | illegal_transition; log warning
+
+pending → pending (el proveedor sigue pendiente):
+    payments: refresca last_snapshot
+    → accepted=true, outcome=no_action, reasonCode=provider_still_pending
 
 approved:
     payments: status=approved, paid_at=result.occurredAt, last_snapshot
-    si booking.status === pending → ConfirmBooking(booking, actingUser: null)
-        applied_at=now(), application_outcome=booking_confirmed
-    si no → applied_at=null, application_outcome=booking_not_pending, log warning
+    si booking.status === pending → ConfirmBooking(booking, null,
+                                        ConfirmationReason::PaymentApproved, $payment)
+        applied_at=now(), outcome=booking_confirmed, accepted=true
+    si no → applied_at=null, outcome=booking_not_pending, accepted=true, log warning
 
 rejected:
     payments: status=rejected, failure_reason, last_snapshot
-    application_outcome=no_action; reserva intacta
+    → accepted=true, outcome=no_action, reasonCode=rejected; reserva intacta
 
 expired:
     payments: status=expired, last_snapshot
-    application_outcome=no_action; reserva intacta
+    → accepted=true, outcome=no_action, reasonCode=expired; reserva intacta
 ```
 
-`ConfirmBooking` recibe actor `null` (requiere ampliar su firma a `?User` y escribir
-`changed_by = null` con `notes = 'Confirmada por pago aprobado #<payment_id>.'`). Sigue siendo el
-**único** camino de confirmación: ni el controller ni el job de reconciliación mutan `Booking`.
+Mapeo determinista en `ProcessPaymentWebhook`: `accepted === true` → evento `processed`;
+`accepted === false` → evento `ignored`. En ambos casos `outcome_reason = reasonCode`.
+
+**Confirmación explícita, sin actor nulo mágico.** Espejo de lo hecho para la cancelación:
+
+```php
+enum ConfirmationReason: string
+{
+    case Requested = 'requested';               // humano: staff
+    case PaymentApproved = 'payment_approved';  // sistema, tras un pago aprobado
+}
+```
+
+`ConfirmBooking::handle(Booking $booking, ?User $actingUser, ConfirmationReason $reason = ConfirmationReason::Requested, ?Payment $payment = null)`:
+
+- `Requested`: exige `$actingUser` no-nulo y `$payment === null` (si no, `InvalidArgumentException`);
+  comportamiento actual intacto.
+- `PaymentApproved`: exige `$actingUser === null` y `$payment` no-nulo (si no,
+  `InvalidArgumentException`); escribe `changed_by = null` y
+  `notes = 'Confirmada por pago aprobado #<payment_id>.'`.
+
+Ambos caminos exigen reserva `pending` y disparan el mismo `BookingConfirmed` con las mismas
+consecuencias: el evento no cambia de forma y el email de confirmación sigue siendo el existente.
+`ConfirmBooking` sigue siendo el **único** camino de confirmación: ni el controller de webhook ni el
+comando de reconciliación mutan `Booking`.
 
 `SendBookingConfirmedNotifications` gana `public bool $afterCommit = true;` para que un rollback no
 deje encolado un email de confirmación. (Con driver `sync` en tests corre inline, como el resto.)
@@ -534,7 +597,7 @@ y libera el slot.
 
 | Pieza | ¿Encolada? | Configuración |
 |---|---|---|
-| `App\Jobs\DeliverSimulatedProviderWebhook` | sí | `tries=3`, `backoff=[10,30]`, `timeout=15`, `public bool $afterCommit = true` |
+| `App\Jobs\DeliverSimulatedProviderWebhook` | sí | `tries=3`, `backoff=[10,30]`, `timeout=15`, `public bool $afterCommit = true`; si `ProcessPaymentWebhook` devuelve `failed` (reintentable), el job **lanza** para que `tries`/`backoff` reintenten de verdad — devolver en silencio dejaría la entrega perdida |
 | `SendBookingConfirmedNotifications`, `SendBookingCancelledNotifications` | ya lo estaban | se les añade `$afterCommit = true` |
 | `payments:reconcile`, `bookings:expire-unpaid` | **no** | corren en el proceso del scheduler; lote acotado |
 | Procesamiento HTTP del webhook | **no** | síncrono: encolarlo devolvería 200 antes de saber si se pudo procesar y desperdiciaría el reintento del proveedor |
@@ -558,20 +621,28 @@ filtrando por `customer_id`).
 |---|---|---|
 | `POST /api/bookings/{booking}/payments` | `auth:sanctum` | 201 con el intento nuevo; **200** con el intento vivo si ya existe uno `pending` |
 | `GET /api/bookings/{booking}/payments` | `auth:sanctum` | listado de intentos (histórico) |
-| `GET /api/payments/{payment}` | `auth:sanctum` | detalle |
+| `GET /api/bookings/{booking}/payments/{payment}` | `auth:sanctum` | detalle |
 | `POST /api/webhooks/payments/{provider}` | ninguna | `throttle:payment-webhooks` (120/min por IP) |
 
 Desvío consciente del roadmap §5 (`POST /api/payments`): la reserva es contexto obligatorio y anidar
 reutiliza la resolución de scope existente. Se documenta el motivo en `01-reservahub.md`.
 
-Errores de iniciación (422 con envelope): reserva sin seña, reserva no `pending`, ventana vencida.
-Autorización fallida: 403; recurso de otro negocio/cliente: 404 o 403 según el patrón actual de
-reservas.
+**Ninguna ruta usa binding implícito de `Payment`.** `Payment` lleva `BelongsToBusiness`, y estas rutas
+no tienen middleware `business`: un binding implícito dispararía `MissingBusinessContextException` para
+un cliente. Todas las rutas son booking-scoped: la reserva se resuelve con el mecanismo existente
+(`ResolvesBookingScope`), y el pago se busca **dentro** de esa reserva (`$booking->payments()->findOrFail($id)`),
+que además garantiza la pertenencia sin depender del scope global.
+
+Errores de iniciación (422 con envelope): reserva sin seña, reserva no `pending`, ventana nula o
+vencida. Autorización fallida: 403; recurso de otro negocio/cliente: 404 o 403 según el patrón actual
+de reservas.
 
 `App\Http\Resources\PaymentResource`: `id`, `status`, `amount`, `currency`, `expires_at`, `paid_at`,
-`application_outcome`, `failure_reason`, `created_at`, y `checkout_url` **solo** cuando el pago está
-`pending` y el actor puede iniciarlo (generada al vuelo con `gateway->checkoutUrl()`). **Nunca**
-`last_snapshot`, nunca payloads crudos, nunca `webhook_events`.
+`application_outcome`, `failure_reason`, `created_at`, y `checkout_url` **solo** cuando se cumplen las
+tres condiciones: el pago está `pending`, el actor está autorizado a iniciarlo, y la ventana de pago
+(`payment.expires_at` y `booking.payment_expires_at`) **no venció** — una URL de checkout hacia un
+intento ya muerto es ruido que induce a error. Se genera al vuelo con `gateway->checkoutUrl()`.
+**Nunca** `last_snapshot`, nunca payloads crudos, nunca `webhook_events`.
 
 ## 15. Web y checkout simulado
 
@@ -580,10 +651,22 @@ reservas.
 - Panel: estado del pago en el detalle de reserva y botón de generación del intento →
   `POST /dashboard/bookings/{booking}/pagos` (`dashboard.bookings.payments.store`).
 - Checkout simulado (`routes/demo.php`, incluido desde `routes/web.php` **solo** si
-  `config('payments.provider') === 'simulated'`):
-  - `GET /demo/pagos/{payment}/checkout` (`demo.payments.checkout`, middleware `signed`).
-  - `POST /demo/pagos/{payment}/resultado` (`demo.payments.outcome`, middleware `signed`), con
+  `app(PaymentGateway::class)->name() === 'simulated'` — la condición sale del binding real, no de una
+  variable de entorno que prometa proveedores inexistentes):
+  - `GET /demo/pagos/{externalId}/checkout` (`demo.payments.checkout`, middleware `signed`).
+  - `POST /demo/pagos/{externalId}/resultado` (`demo.payments.outcome`, middleware `signed`), con
     `outcome ∈ {approved, rejected, abandoned}`.
+
+**Las rutas se llavean por `external_id`, no por `{payment}`**: es la identidad opaca que el proveedor
+ya expone, evita bindear implícitamente un modelo con scope de negocio en una ruta sin contexto de
+negocio, y coincide con la firma `checkoutUrl(string $externalId, …)`. Validada la firma de la URL, el
+controller resuelve el pago **explícitamente** por `(provider, external_id)` con `BusinessScope`
+levantado a propósito, y re-verifica estado del pago, estado del proveedor y ventana antes de mostrar
+o aplicar nada.
+
+**La URL firmada del POST se genera después de validar el GET**: la firma de la URL de checkout no
+autoriza otra URL. La vista recibe una `temporarySignedRoute('demo.payments.outcome', …)` recién
+emitida, con expiración no posterior a la ventana de pago.
 
 Comportamiento de los botones:
 
@@ -661,7 +744,7 @@ Ningún mecanismo de concurrencia se agrega sin un test del invariante que dice 
 
 | Situación | Clasificación | HTTP | Persistencia |
 |---|---|---|---|
-| Procesado (incluye `booking_not_pending`) | éxito | 200 | evento `processed` |
+| Procesado (incluye `booking_not_pending`, `rejected`, `expired` y `provider_still_pending`) | éxito | 200 | evento `processed` |
 | Entrega duplicada | éxito | 200 | ninguna nueva |
 | Monto/moneda distintos, estado terminal previo, transición ilegal | terminal, no reintentable | 200 | evento `ignored` + `outcome_reason` |
 | Pago externo desconocido | **anómalo, reintentable** | **500** | evento `failed`, `attempts++` |
@@ -684,7 +767,6 @@ en web, redirect `back()` con error de sesión. El mensaje del proveedor nunca s
 
 ```php
 return [
-    'provider' => env('PAYMENTS_PROVIDER', 'simulated'),
     'window_minutes' => (int) env('PAYMENTS_WINDOW_MINUTES', 30),
     'webhook_tolerance_seconds' => (int) env('PAYMENTS_WEBHOOK_TOLERANCE_SECONDS', 300),
     'reconcile' => [
@@ -700,7 +782,6 @@ return [
 `.env.example` (placeholders de desarrollo, nunca valores reales):
 
 ```
-PAYMENTS_PROVIDER=simulated
 PAYMENTS_SIMULATED_WEBHOOK_SECRET=local-development-secret-change-me
 PAYMENTS_WINDOW_MINUTES=30
 PAYMENTS_WEBHOOK_TOLERANCE_SECONDS=300
@@ -721,7 +802,9 @@ Contrato de runtime para `docs/DEPLOYMENT_HANDOFF.md`:
 - Aun así, **si ReservaHub está expuesto públicamente, la ruta de webhook es alcanzable por el
   hostname normal de la aplicación**: verificación de firma, tolerancia temporal, validación de
   payload y rate limiting son obligatorios en producción.
-- `/demo/*` solo se registra con proveedor `simulated`.
+- `/demo/*` solo se registra mientras el gateway ligado sea el simulado; **no hay variable de
+  selección de proveedor** en la Fase 9: el binding es explícito y un adapter real cambiará ese
+  binding cuando exista.
 - Sin datos persistentes nuevos en disco: todo vive en PostgreSQL, ya respaldado.
 - El reloj del host ahora también afecta a la tolerancia de firma, no solo al scheduler.
 
@@ -731,13 +814,13 @@ Contrato de runtime para `docs/DEPLOYMENT_HANDOFF.md`:
 app/
 ├── Actions/
 │   ├── Bookings/CancelBooking.php            (modificado: ?User + CancellationReason)
-│   ├── Bookings/ConfirmBooking.php           (modificado: ?User)
+│   ├── Bookings/ConfirmBooking.php           (modificado: ?User + ConfirmationReason + ?Payment)
 │   ├── Bookings/CreateBooking.php            (modificado: payment_expires_at)
 │   ├── Bookings/RescheduleBooking.php        (modificado: ajusta la ventana solo hacia abajo)
 │   └── Payments/{InitiatePayment,ApplyPaymentResult}.php
 ├── Console/Commands/{ReconcilePayments,ExpireUnpaidBookings}.php
 ├── Enums/{PaymentStatus,PaymentApplicationOutcome,WebhookEventStatus,
-│          WebhookProcessingStatus,CancellationReason}.php
+│          WebhookProcessingStatus,CancellationReason,ConfirmationReason}.php
 ├── Events/BookingCancelled.php               (modificado: ?User + reason)
 ├── Http/
 │   ├── Controllers/Api/{PaymentController,PaymentWebhookController}.php
@@ -755,7 +838,8 @@ app/
 └── Services/Payments/
     ├── Contracts/PaymentGateway.php
     ├── Data/{CheckoutRequest,CheckoutResult,WebhookEnvelope,WebhookNotification,
-    │          ProviderSnapshot,PaymentResult,WebhookProcessingResult}.php
+    │          ProviderSnapshot,PaymentResult,PaymentApplicationResult,
+    │          WebhookProcessingResult}.php
     ├── Exceptions/{InvalidWebhookSignature,MalformedWebhookPayload,
     │                GatewayUnavailable,UnknownProviderPayment}Exception.php
     ├── ProcessPaymentWebhook.php
@@ -776,19 +860,20 @@ reales + `DatabaseMigrations`, siguiendo `AdvisoryLockTest` y `UserStatusConcurr
 
 | Archivo | Cubre |
 |---|---|
-| `tests/Unit/Enums/PaymentStatusTest.php` | matriz de transiciones legales; monotonía terminal; ausencia de `expired → approved` |
-| `tests/Unit/Services/Payments/SimulatedPaymentGatewayTest.php` | `createCheckout`; HMAC válido/inválido/fuera de tolerancia; payload ilegible; `fetchPayment` para pending/approved/rejected/expired, desconocido y caída; ciclo monótono del proveedor (aprobar tras expiry se rechaza); `checkoutUrl` fresca y acotada a `expiresAt` |
+| `tests/Unit/Enums/PaymentStatusTest.php` | matriz de transiciones legales; monotonía terminal; ausencia de `expired → approved`; `pending → pending` es observación válida, no transición ilegal |
+| `tests/Feature/Payments/ApplyPaymentResultTest.php` | `PaymentApplicationResult`: `accepted=true` con outcome `no_action` para `rejected`/`expired`/`provider_still_pending`; `accepted=false` para pago ya terminal y transición ilegal; `booking_confirmed` vs `booking_not_pending`; `ConfirmBooking` con `ConfirmationReason::PaymentApproved` escribe `changed_by=null` y la referencia al pago en el historial; `Requested` sin actor, `PaymentApproved` con actor, y `PaymentApproved` sin pago → `InvalidArgumentException` |
+| `tests/Feature/Payments/SimulatedPaymentGatewayTest.php` (Feature: el adapter persiste y lee estado del proveedor en PostgreSQL) | `createCheckout`; HMAC válido/inválido/fuera de tolerancia; payload ilegible; `fetchPayment` para pending/approved/rejected/expired, desconocido y caída; ciclo monótono del proveedor (aprobar tras expiry se rechaza); `checkoutUrl` fresca y acotada a `expiresAt` |
 | `tests/Unit/Services/Payments/WebhookPayloadRedactorTest.php` | lista blanca; headers, firma y secreto nunca persistidos |
 | `tests/Feature/Payments/InitiatePaymentTest.php` | reserva sin seña → 422; con seña → 201; monto/moneda desde datos de la app; reserva no `pending` → 422; ventana vencida → 422 (aunque el comando no haya corrido); repetición devuelve el intento vivo (200); autorización cliente dueño / staff; cross-tenant; fallo de `createCheckout` → rollback total |
 | `tests/Feature/Payments/WebhookEndpointTest.php` | firma válida → 200 `processed`; inválida → 401 sin persistencia; fuera de tolerancia → 401; proveedor desconocido → 404; payload ilegible → 422 sin persistencia; `approved` confirma exactamente una vez; `pending` no cambia nada; `rejected` no confirma; pago desconocido → 500 + evento `failed`; monto/moneda distintos → 200 `ignored`; estado terminal previo → `ignored`; reserva cancelada → `processed` + `booking_not_pending` sin resurrección; `Notification::fake()` → un solo email |
-| `tests/Feature/Payments/WebhookIdempotencyTest.php` | entrega duplicada secuencial: un `processed`, un efecto; evento `failed` **sí** se reprocesa en el reintento; evento `processed` nunca re-ejecuta; `attempts` se incrementa |
+| `tests/Feature/Payments/WebhookIdempotencyTest.php` | entrega duplicada secuencial: un `processed`, un efecto; evento `failed` **sí** se reprocesa en el reintento; evento `processed` nunca re-ejecuta; `attempts` se incrementa solo en fallos; una entrega duplicada **no sobrescribe** `outcome_reason` ni `processed_at` del evento original |
 | `tests/Feature/Payments/WebhookConcurrencyTest.php` | 2 sesiones PDO: duplicado concurrente → un efecto; webhook vs reconciliación → una sola confirmación; dos iniciaciones concurrentes → un `pending`; `expire-unpaid` vs `approved` en el límite → `confirmed` XOR `cancelled` |
 | `tests/Feature/Payments/ReconciliationTest.php` | pendiente elegible consultado; `approved`/`rejected`/`expired` aplicados vía `ApplyPaymentResult`; proveedor caído → `last_reconcile_attempt_at` estampado, `last_reconciled_at` intacto, warning, reintento en la corrida siguiente; terminal salteado; rerun idempotente; lote acotado y orden `NULLS FIRST`; pago antiguo aún pendiente sigue elegible; **anti-inanición: con más pendientes elegibles que el tamaño de lote y los primeros fallando, los posteriores se inspeccionan en corridas siguientes** |
 | `tests/Feature/Payments/ExpireUnpaidBookingsTest.php` | sin intentos → cancela; todos terminales no aprobados → cancela; intento `pending` → **no** cancela; `approved` tardío vía reconciliación → confirma y no cancela; reserva cancelada o confirmada a mano → intacta; historial con `changed_by = null` y motivo; un solo email; **cancela aunque la reserva ya esté dentro del corte de `cancellation_hours` del cliente**; un cliente en esa misma situación sigue sin poder cancelar por su cuenta (comportamiento actual intacto); `Requested` sin actor y `PaymentWindowExpired` con actor → `InvalidArgumentException` |
-| `tests/Feature/Payments/PaymentsApiTest.php` | envelope; listado y detalle; `checkout_url` solo con intento vivo y actor autorizado; aislamiento cross-tenant; `last_snapshot` jamás expuesto; paginación/orden si aplica |
-| `tests/Feature/Payments/SimulatedCheckoutTest.php` | URL sin firma → rechazada; Aprobar/Rechazar mutan al proveedor y encolan la entrega; **Abandonar no muta ni encola**; la página no tiene campos de tarjeta y muestra el cartel; rutas ausentes con otro proveedor |
-| `tests/Feature/Payments/DeliverSimulatedProviderWebhookTest.php` | `t` y HMAC generados en `handle()` (un retraso de cola mayor que la tolerancia sigue siendo válido); reintento conserva `external_event_id`; `tries`/`backoff`/`afterCommit` |
-| `tests/Feature/Payments/PaymentWindowTest.php` | `CreateBooking` fija la ventana solo con seña y con el clamp a `starts_at`; sin seña queda `null`; `RescheduleBooking` la ajusta hacia abajo con un turno anterior y **no la extiende** con uno posterior; una reserva `pending` con seña y ventana `null` no puede iniciar pago y no es cancelada automáticamente; la migración rellena las reservas `pending` con seña preexistentes con una ventana fresca (no vencida) |
+| `tests/Feature/Payments/PaymentsApiTest.php` | envelope; listado y detalle **booking-scoped** (`GET /api/bookings/{booking}/payments/{payment}`); un pago de otra reserva del mismo negocio → 404; un cliente sin negocio no dispara `MissingBusinessContextException` en ninguna ruta de pagos; `checkout_url` solo con intento `pending`, actor autorizado **y ventana vigente** (ausente si venció); aislamiento cross-tenant; `last_snapshot` jamás expuesto; paginación/orden si aplica |
+| `tests/Feature/Payments/SimulatedCheckoutTest.php` | URL sin firma o vencida → rechazada; las rutas se llavean por `external_id` y resuelven el pago con `BusinessScope` levantado (un cliente sin negocio no rompe); la firma del GET **no** autoriza el POST: el POST exige su propia URL firmada, emitida tras validar el GET; Aprobar/Rechazar mutan al proveedor y encolan la entrega; **Abandonar no muta ni encola**; la página no tiene campos de tarjeta y muestra el cartel |
+| `tests/Feature/Payments/DeliverSimulatedProviderWebhookTest.php` | `t` y HMAC generados en `handle()` (un retraso de cola mayor que la tolerancia sigue siendo válido); reintento conserva `external_event_id` (mismo evento lógico, `t` y HMAC frescos); un resultado `failed` reintentable hace **lanzar** al job para que `tries`/`backoff` actúen; `afterCommit` |
+| `tests/Feature/Payments/PaymentWindowTest.php` | `CreateBooking` fija la ventana solo con seña y con el clamp a `starts_at`; sin seña queda `null`; `RescheduleBooking` sin pago vivo la ajusta hacia abajo y **no la extiende**; con pago `pending` y turno nuevo posterior a `payment.expires_at` permite; con pago `pending` y turno nuevo anterior **rechaza con 422** y no deja ventanas contradictorias; una reserva `pending` con seña y ventana `null` no puede iniciar pago y no se cancela sola; backfill de la migración: reserva legacy **futura** recibe ventana fresca no vencida, reserva legacy **ya empezada/pasada** conserva `null` y no es cancelada por el primer barrido |
 | `tests/Feature/Tenancy/PaymentsSchemaTest.php` | columnas; `unique(provider, external_id)`; `unique(booking_id) where status='pending'`; `unique(provider, external_event_id)`; FKs; scope por negocio en `Payment`; `WebhookEvent` sin scope |
 | Suite existente | los 358 tests actuales siguen verdes; una reserva sin seña conserva su comportamiento exacto |
 
@@ -799,8 +884,8 @@ reales + `DatabaseMigrations`, siguiendo `AdvisoryLockTest` y `UserStatusConcurr
 | `01-reservahub.md` | tabla de estado (Fase 9, con evidencia); §2 pagos; §5 endpoints (anidados + webhook, con el motivo del desvío); reglas de negocio (+ventana de pago); detalle de la Fase 9; terminología `simulated` (no `fake`) en todo el roadmap |
 | `docs/api.md` | endpoints de pagos, códigos de error, ejemplo completo; el webhook documentado como ruta de proveedor |
 | OpenAPI (Scramble) | se infiere de Resources/Requests como el resto; anotaciones a mano solo donde el tipo no se infiera |
-| `.env.example` | seis variables nuevas con placeholders |
-| `docs/DEPLOYMENT_HANDOFF.md` | §4 entorno (secreto del operador); §7 smoke (`schedule:list` muestra los dos comandos nuevos); §9 `/demo/*` solo con proveedor simulado; §10 reloj y tolerancia de firma; aclaración de exposición del webhook (§20) |
+| `.env.example` | cinco variables nuevas con placeholders (sin `PAYMENTS_PROVIDER`) |
+| `docs/DEPLOYMENT_HANDOFF.md` | §4 entorno (secreto del operador); §7 smoke (`schedule:list` muestra los dos comandos nuevos); §9 `/demo/*` existe mientras el proveedor sea el simulado; §10 reloj y tolerancia de firma; aclaración de exposición del webhook (§20) |
 | `CLAUDE.md` | sección durable "Pagos (Fase 9)": `ApplyPaymentResult` único camino de aplicación, `ProcessPaymentWebhook` único borde, orden de locks `webhook_events → bookings → payments`, expiración propiedad de la reserva, proveedor simulado con estado independiente, `CancellationReason` |
 
 ## 24. Riesgos y decisiones asumidas
