@@ -101,6 +101,13 @@ class WebPaymentFlowTest extends TestCase
 
         $this->assertSame('rejected', $props['payments'][0]['status']);
         $this->assertNull($props['payments'][0]['checkout_url']);
+
+        // El botón "Pagar seña" del panel se muestra cuando la reserva está
+        // pendiente, requiere seña y no hay un intento vivo en `payments` —
+        // estas tres condiciones son las que expone esta misma respuesta.
+        $this->assertSame('pending', $props['booking']['status']);
+        $this->assertSame('10.00', $props['booking']['deposit_amount']);
+        $this->assertFalse(collect($props['payments'])->contains('status', 'pending'));
     }
 
     public function test_a_booking_without_deposit_shows_no_payment(): void

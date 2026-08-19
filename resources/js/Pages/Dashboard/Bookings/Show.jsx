@@ -1,3 +1,4 @@
+import { router } from '@inertiajs/react';
 import DashboardLayout from '../../../Components/DashboardLayout';
 
 const STATUS_LABELS = {
@@ -43,6 +44,15 @@ export default function Show({ booking, payments }) {
                                 </li>
                             ))}
                         </ul>
+                    )}
+                    {booking.status === 'pending' && booking.deposit_amount > 0 && !payments.some((p) => p.status === 'pending') && (
+                        <button
+                            type="button"
+                            className="mt-2 rounded bg-blue-600 px-3 py-1 text-sm font-semibold text-white"
+                            onClick={() => router.post(`/dashboard/bookings/${booking.id}/pagos`)}
+                        >
+                            Pagar seña
+                        </button>
                     )}
                 </section>
             </div>
