@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Dashboard\BookingController;
+use App\Http\Controllers\Dashboard\BookingPaymentController;
 use App\Http\Controllers\Dashboard\BusinessSettingsController;
 use App\Http\Controllers\Dashboard\EmployeeController;
 use App\Http\Controllers\Dashboard\EmployeeInvitationController;
@@ -32,6 +33,7 @@ Route::middleware(['auth', 'business'])->group(function () {
         Route::post('bookings/{booking}/no-show', [BookingController::class, 'noShow'])->name('bookings.noShow');
         Route::put('bookings/{booking}/reschedule', [BookingController::class, 'reschedule'])->name('bookings.reschedule');
         Route::get('bookings/{booking}/reschedule-slots', [BookingController::class, 'rescheduleSlots'])->name('bookings.reschedule-slots');
+        Route::post('bookings/{booking}/pagos', [BookingPaymentController::class, 'store'])->name('bookings.payments.store');
 
         Route::get('employees', [EmployeeController::class, 'index'])->name('employees.index');
         Route::post('employees/invitations', [EmployeeInvitationController::class, 'store'])->name('employees.invitations.store');

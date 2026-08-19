@@ -6,6 +6,7 @@ use App\Actions\Bookings\CancelBooking;
 use App\Actions\Bookings\RescheduleBooking;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Public\RescheduleBookingRequest;
+use App\Http\Resources\PaymentResource;
 use App\Models\Booking;
 use App\Models\Business;
 use App\Models\Scopes\BusinessScope;
@@ -21,16 +22,30 @@ class MyBookingsController extends Controller
 {
     public function index(): Response
     {
+        $bookings = Booking::withoutGlobalScope(BusinessScope::class)
+            ->where('customer_id', request()->user()->id)
+            ->with([
+                'business:id,name,cancellation_hours',
+                'employee:id,name',
+                'service' => fn ($query) => $query->withoutGlobalScope(BusinessScope::class)->select('id', 'name'),
+                'payments' => fn ($query) => $query->withoutGlobalScope(BusinessScope::class)->orderByDesc('id'),
+            ])
+            ->orderByDesc('starts_at')
+            ->get();
+
         return Inertia::render('Public/MyBookings/Index', [
-            'bookings' => Booking::withoutGlobalScope(BusinessScope::class)
-                ->where('customer_id', request()->user()->id)
-                ->with([
-                    'business:id,name,cancellation_hours',
-                    'employee:id,name',
-                    'service' => fn ($query) => $query->withoutGlobalScope(BusinessScope::class)->select('id', 'name'),
-                ])
-                ->orderByDesc('starts_at')
-                ->get(),
+            'bookings' => $bookings->map(function (Booking $booking) {
+                $payment = $booking->payments->first();
+
+                return array_merge($booking->withoutRelations()->toArray(), [
+                    'business' => $booking->business,
+                    'employee' => $booking->employee,
+                    'service' => $booking->service,
+                    'payment' => $payment === null
+                        ? null
+                        : PaymentResource::make($payment->setRelation('booking', $booking))->resolve(),
+                ]);
+            }),
         ]);
     }
 

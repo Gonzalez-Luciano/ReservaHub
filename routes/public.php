@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Public\BookingController;
+use App\Http\Controllers\Public\BookingPaymentController;
 use App\Http\Controllers\Public\BusinessController;
 use App\Http\Controllers\Public\MyBookingsController;
 use App\Http\Middleware\BindPublicBusiness;
@@ -17,4 +18,5 @@ Route::middleware('auth')->prefix('mis-reservas')->name('public.bookings.mine.')
     Route::post('/{booking}/cancel', [MyBookingsController::class, 'cancel'])->name('cancel')->whereNumber('booking');
     Route::put('/{booking}/reschedule', [MyBookingsController::class, 'reschedule'])->name('reschedule')->whereNumber('booking');
     Route::get('/{booking}/reschedule-slots', [MyBookingsController::class, 'rescheduleSlots'])->name('reschedule-slots')->whereNumber('booking');
+    Route::post('/{booking}/pagos', [BookingPaymentController::class, 'store'])->name('payments.store')->whereNumber('booking');
 });

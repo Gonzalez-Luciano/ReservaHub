@@ -11,6 +11,13 @@ const STATUS_LABELS = {
     no_show: 'Ausencia',
 };
 
+const PAYMENT_LABELS = {
+    pending: 'pendiente de pago',
+    approved: 'pagada',
+    rejected: 'rechazada',
+    expired: 'vencida',
+};
+
 export default function Index({ bookings }) {
     const { errors } = usePage().props;
     const [reschedulingId, setReschedulingId] = useState(null);
@@ -75,6 +82,25 @@ export default function Index({ bookings }) {
                                 <p className="font-semibold">{booking.business?.name} — {booking.service?.name}</p>
                                 <p className="text-sm text-gray-500">{booking.employee?.name} · {new Date(booking.starts_at).toLocaleString()}</p>
                                 <p className="text-sm text-gray-500">{STATUS_LABELS[booking.status] ?? booking.status}</p>
+                                {booking.payment && (
+                                    <p className="mt-2 text-sm text-gray-700">
+                                        Seña: {PAYMENT_LABELS[booking.payment.status] ?? booking.payment.status}
+                                        {booking.payment.checkout_url && (
+                                            <a className="ml-2 text-blue-600 underline" href={booking.payment.checkout_url}>
+                                                Continuar el pago
+                                            </a>
+                                        )}
+                                    </p>
+                                )}
+                                {booking.status === 'pending' && booking.deposit_amount > 0 && !booking.payment && (
+                                    <button
+                                        type="button"
+                                        className="mt-2 rounded bg-blue-600 px-3 py-1 text-sm font-semibold text-white"
+                                        onClick={() => router.post(`/mis-reservas/${booking.id}/pagos`)}
+                                    >
+                                        Pagar seña
+                                    </button>
+                                )}
                                 {canAct && (
                                     <div className="mt-2 flex gap-4">
                                         <button onClick={() => startReschedule(booking)} className="text-sm underline">

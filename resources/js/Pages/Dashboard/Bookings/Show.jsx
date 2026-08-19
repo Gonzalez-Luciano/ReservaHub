@@ -8,7 +8,7 @@ const STATUS_LABELS = {
     no_show: 'Ausencia',
 };
 
-export default function Show({ booking }) {
+export default function Show({ booking, payments }) {
     return (
         <DashboardLayout>
             <div className="mx-auto max-w-2xl p-8">
@@ -30,6 +30,21 @@ export default function Show({ booking }) {
                         </li>
                     ))}
                 </ul>
+                <section className="mt-6">
+                    <h2 className="mb-2 text-lg font-semibold">Pagos de seña</h2>
+                    {payments.length === 0 ? (
+                        <p className="text-gray-600">Sin intentos de pago.</p>
+                    ) : (
+                        <ul className="space-y-1">
+                            {payments.map((payment) => (
+                                <li key={payment.id} className="text-sm">
+                                    {payment.amount} {payment.currency} — {payment.status}
+                                    {payment.application_outcome === 'booking_not_pending' && ' (cobrada sin aplicar)'}
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </section>
             </div>
         </DashboardLayout>
     );

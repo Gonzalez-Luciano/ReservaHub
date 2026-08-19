@@ -12,6 +12,7 @@ use App\Enums\Role;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Dashboard\BookingRequest;
 use App\Http\Requests\Dashboard\RescheduleBookingRequest;
+use App\Http\Resources\PaymentResource;
 use App\Models\Booking;
 use App\Models\Business;
 use App\Models\Service;
@@ -70,8 +71,12 @@ class BookingController extends Controller
     {
         $this->authorize('view', $booking);
 
+        $payments = $booking->payments()->orderByDesc('id')->get()
+            ->each(fn ($payment) => $payment->setRelation('booking', $booking));
+
         return Inertia::render('Dashboard/Bookings/Show', [
             'booking' => $booking->load(['customer:id,name,email', 'employee:id,name', 'service:id,name', 'statusHistories.changedBy:id,name']),
+            'payments' => PaymentResource::collection($payments)->resolve(),
         ]);
     }
 
