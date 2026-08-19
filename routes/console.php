@@ -15,3 +15,7 @@ Schedule::command('bookings:send-reminders')
 Schedule::command('bookings:expire-unpaid')
     ->everyFiveMinutes()
     ->withoutOverlapping(10);
+
+Schedule::command('payments:reconcile')
+    ->everyFiveMinutes()
+    ->withoutOverlapping(10);
