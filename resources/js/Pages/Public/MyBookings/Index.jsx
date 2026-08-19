@@ -92,7 +92,7 @@ export default function Index({ bookings }) {
                                         )}
                                     </p>
                                 )}
-                                {booking.status === 'pending' && booking.deposit_amount > 0 && !booking.payment && (
+                                {booking.status === 'pending' && booking.deposit_amount > 0 && (!booking.payment || booking.payment.status !== 'pending') && (
                                     <button
                                         type="button"
                                         className="mt-2 rounded bg-blue-600 px-3 py-1 text-sm font-semibold text-white"

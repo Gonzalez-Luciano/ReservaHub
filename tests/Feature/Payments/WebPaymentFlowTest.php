@@ -61,6 +61,32 @@ class WebPaymentFlowTest extends TestCase
         $this->assertSame(0, Payment::withoutGlobalScopes()->count());
     }
 
+    public function test_a_customer_can_retry_after_a_rejected_payment(): void
+    {
+        [$booking, $customer] = $this->scenario();
+        Payment::factory()->for($booking)->rejected()->create(['business_id' => $booking->business_id]);
+
+        $response = $this->actingAs($customer)->post("/mis-reservas/{$booking->id}/pagos");
+
+        $response->assertRedirectContains('/demo/pagos/');
+        $this->assertSame(2, Payment::withoutGlobalScopes()->where('booking_id', $booking->id)->count());
+        $this->assertSame(
+            PaymentStatus::Pending,
+            Payment::withoutGlobalScopes()->where('booking_id', $booking->id)->latest('id')->first()->status,
+        );
+    }
+
+    public function test_a_customer_with_a_live_pending_payment_does_not_get_a_redundant_new_one(): void
+    {
+        [$booking, $customer] = $this->scenario();
+        Payment::factory()->for($booking)->create(['business_id' => $booking->business_id, 'status' => PaymentStatus::Pending]);
+
+        $response = $this->actingAs($customer)->post("/mis-reservas/{$booking->id}/pagos");
+
+        $response->assertRedirectContains('/demo/pagos/');
+        $this->assertSame(1, Payment::withoutGlobalScopes()->where('booking_id', $booking->id)->count());
+    }
+
     public function test_staff_starts_it_from_the_dashboard(): void
     {
         [$booking, , $owner] = $this->scenario();
