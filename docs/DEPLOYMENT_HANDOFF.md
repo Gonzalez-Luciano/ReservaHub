@@ -80,6 +80,11 @@ Nombres de variables, no valores. **Este repositorio no contiene ni debe contene
 | `MAIL_USERNAME` / `MAIL_PASSWORD` | operador | **sí** | |
 | `LOG_CHANNEL` / `LOG_STACK` / `LOG_LEVEL` | operador | no | Ver §7 |
 | `TRUSTED_PROXIES` | operador | no | Necesario detrás de proxy/tunnel — ver §10 |
+| `PAYMENTS_SIMULATED_WEBHOOK_SECRET` | operador | **sí** | Firma HMAC del proveedor simulado; sin ella, el webhook rechaza toda entrega |
+| `PAYMENTS_WINDOW_MINUTES` | app | no | Minutos de ventana de pago por reserva con seña; 30 por defecto |
+| `PAYMENTS_WEBHOOK_TOLERANCE_SECONDS` | app | no | Antigüedad máxima aceptada para la marca temporal de una firma entrante; 300 por defecto |
+| `PAYMENTS_RECONCILE_BATCH` | app | no | Tamaño de lote de `payments:reconcile`; 100 por defecto |
+| `PAYMENTS_RECONCILE_CADENCE_MINUTES` | app | no | Cadencia de `payments:reconcile`; 5 por defecto |
 
 ### `SESSION_DRIVER=database` — requisito operativo
 
@@ -134,7 +139,7 @@ curl -fsS  -X POST https://HOST/api/auth/login \
   -d 'email=...&password=...&device_name=smoke'  # 200 con {success:true,...,data.token}
 ```
 
-Un token válido permite además `GET /api/services` y `GET /api/availability` (ver `docs/api.md`). Señales de que el deploy salió bien: `/up` en 200, una página Inertia que renderiza (assets presentes), login de API devolviendo token, worker consumiendo la cola y `php artisan schedule:list` mostrando `bookings:send-reminders`.
+Un token válido permite además `GET /api/services` y `GET /api/availability` (ver `docs/api.md`). Señales de que el deploy salió bien: `/up` en 200, una página Inertia que renderiza (assets presentes), login de API devolviendo token, worker consumiendo la cola y `php artisan schedule:list` mostrando `bookings:send-reminders`, `bookings:expire-unpaid` y `payments:reconcile`.
 
 **Logs:** canal `stack`/`single` → `storage/logs/laravel.log` dentro del contenedor de la app. El worker y el scheduler escriben además a stdout del proceso. Nivel por `LOG_LEVEL`. Los logs no requieren backup; conviene rotarlos.
 
@@ -161,11 +166,18 @@ Información relevante para rollback: volver a un commit anterior es seguro mien
 - `APP_DEBUG=true` en un entorno accesible: filtra entorno y stack traces.
 - `.env`, `APP_KEY`, credenciales de base de datos, de Redis y de SMTP, y tokens de Sanctum.
 - El `compose.yaml` del repo publica puertos al host (`80`, `5432`, `6379`, `1025`, `8025`, `5173`) porque es de desarrollo: **no reutilizarlo tal cual en producción**.
+- `/demo/*` (checkout simulado) existe mientras el proveedor sea el simulado; es superficie de demostración, nunca un cobro real.
 
 ## 10. Asunciones de la aplicación que el operador debe cubrir
 
 - **Proxy inverso / tunnel:** la app todavía no configura proxies de confianza. Detrás de un proxy que termina TLS hay que fijar `TRUSTED_PROXIES` (o equivalente) y `APP_URL` con `https://`, o los links generados en emails y redirecciones saldrán con esquema o host incorrectos.
 - **Zona horaria:** la app opera en la zona horaria de cada negocio (`businesses.timezone`) y persiste las reservas en UTC. El host puede quedar en UTC.
 - **HTTPS:** se asume terminación TLS delante de la app.
-- **Reloj:** el scheduler y los recordatorios dependen de un reloj correcto en el host.
+- **Webhook de pagos:** la entrega del proveedor simulado es **en proceso** y no depende de HTTP, DNS,
+  Cloudflare ni del hostname público: no hace falta contenedor, puerto, dominio, túnel ni servicio
+  nuevo. Aun así, si ReservaHub está expuesto públicamente, `POST /api/webhooks/payments/{provider}`
+  es alcanzable por el hostname normal de la aplicación, así que la verificación de firma, la
+  tolerancia temporal, la validación del payload y el rate limiting son obligatorios en producción.
+- **Reloj:** el scheduler y los recordatorios dependen de un reloj correcto en el host; además del
+  scheduler, ahora el reloj del host afecta la tolerancia temporal de las firmas de webhook.
 - **Un solo worker es suficiente** para la carga de demo; escalar horizontalmente es seguro (los recordatorios se deduplican en la tabla `booking_reminders` y la creación de reservas usa advisory locks de PostgreSQL).

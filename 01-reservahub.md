@@ -349,9 +349,14 @@ GET    /api/bookings/{booking}
 PATCH  /api/bookings/{booking}
 POST   /api/bookings/{booking}/cancel
 POST   /api/bookings/{booking}/confirm
-POST   /api/payments
+POST   /api/bookings/{booking}/payments
+GET    /api/bookings/{booking}/payments
+GET    /api/bookings/{booking}/payments/{payment}
 POST   /api/webhooks/payments/{provider}
 ```
+
+El pago cuelga de la reserva en vez de vivir en `/api/payments`: la reserva es
+contexto obligatorio y anidar reutiliza la resolución de scope de reservas.
 
 ### Respuesta estándar
 
@@ -373,6 +378,7 @@ POST   /api/webhooks/payments/{provider}
 - Un cliente no puede cancelar fuera del plazo permitido.
 - Un webhook repetido no puede duplicar un pago.
 - Una reserva con seña queda pendiente hasta confirmar el pago.
+- Una reserva con seña tiene una ventana de pago; vencida y sin pago resuelto, se cancela automáticamente y libera el turno.
 - Toda consulta debe filtrar por empresa.
 
 ## 7. Implementación por fases
@@ -390,7 +396,7 @@ POST   /api/webhooks/payments/{provider}
 | 6 — Notificaciones y scheduler | Hecha | `app/Notifications/Bookings/*`, `SendBookingReminders`, contenedores `queue` y `scheduler` |
 | 7 — API y Sanctum | Hecha | `routes/api.php`, `tests/Feature/Api/*`, `docs/api.md` + OpenAPI |
 | 8 — Gestión de cuenta y negocio | Hecha | `tests/Feature/Account/*`, `tests/Feature/Dashboard/{BusinessSettingsTest,UserStatusTest,UserStatusConcurrencyTest,HolidaysTest}`, `tests/Feature/Api/{AccountTest,BusinessTest,UsersTest,HolidaysTest}`, `business_holidays` en `AvailabilityService` |
-| 9 — Pagos | Pendiente | No existen `payments`/`webhook_events` ni `Services/Payments` |
+| 9 — Pagos | Hecha | `app/Services/Payments/*`, `app/Actions/Payments/*`, `payments`/`webhook_events`, `tests/Feature/Payments/*` (incluye concurrencia), `payments:reconcile` y `bookings:expire-unpaid` en el scheduler |
 | 10 — Tiempo real | Pendiente | Sin Reverb; `BROADCAST_CONNECTION=log` |
 | 11 — Rediseño y experiencia frontend | Pendiente | Frontend actual mínimo: 17 páginas Inertia y 4 componentes, `Pages/Home.jsx` es un `<h1>`, `Pages/Dashboard/Index.jsx` es un placeholder |
 | 12 — Release readiness y handoff | En curso | `docs/DEPLOYMENT_HANDOFF.md` escrito. Pendientes: workflow de CI, README propio, seeder de demo con clientes y reservas, proxies de confianza para operar detrás de un proxy/tunnel |
@@ -493,14 +499,19 @@ Cerró las funciones que §2 prometía y que hasta la Fase 7 no existían en el 
 
 ### Fase 9 — Pagos
 
-1. Crear contrato `PaymentGateway`.
-2. Crear implementación fake.
-3. Crear implementación real opcional.
-4. Guardar eventos webhook.
-5. Validar firma.
-6. Implementar idempotencia.
-7. Crear job de reconciliación.
-8. Tests con payloads simulados.
+Cerró el punto 9 del roadmap con un único proveedor **simulado**
+(`App\Services\Payments\Simulated\SimulatedPaymentGateway`), ligado al
+contrato `PaymentGateway` en `AppServiceProvider`. No hay variable de entorno
+para elegir proveedor: un adapter real reemplazaría ese binding sin tocar el
+resto del dominio.
+
+1. **Contrato `PaymentGateway`.** `app/Services/Payments/Contracts/PaymentGateway.php` es provider-neutral: ningún tipo de Laravel ni de SDK externo cruza la interfaz. El proveedor simulado guarda su propio estado en `simulated_provider_payments`, deliberadamente **independiente** de `payments`, para que la reconciliación compare dos almacenes de verdad distintos en vez de leerse a sí misma.
+2. **Ventana de pago.** La expiración pertenece a la reserva (`bookings.payment_expires_at`), no al pago, con duración `config('payments.window_minutes')` (`PAYMENTS_WINDOW_MINUTES`, 30 minutos por defecto). `bookings:expire-unpaid` cancela vía `CancelBooking` con `CancellationReason::PaymentWindowExpired` (actor nulo, sin el corte de `cancellation_hours`) y nunca cancela mientras haya un intento `pending` sin resolver.
+3. **Webhook e idempotencia.** `webhook_events` identifica cada evento por `unique (provider, external_event_id)`; el procesamiento reclama el evento con estado (`received`/`processed`/`ignored`/`failed`) bajo `for update` y aplica el efecto junto con la marca de completado en la misma transacción. `received` y `failed` son reprocesables a propósito, porque un fallo transitorio no puede dejar un evento imposible de procesar. `App\Services\Payments\ProcessPaymentWebhook` es el único borde de procesamiento, usado tanto por el endpoint HTTP como por la entrega en proceso del proveedor simulado.
+4. **Aplicación del resultado.** `App\Actions\Payments\ApplyPaymentResult` es el único camino que aplica un resultado del proveedor sobre un pago, y `ConfirmBooking` el único que confirma una reserva (`ConfirmationReason::PaymentApproved`); ni el webhook ni `payments:reconcile` mutan `Booking` por su cuenta.
+5. **Reconciliación.** El comando `payments:reconcile` (`PAYMENTS_RECONCILE_BATCH`, `PAYMENTS_RECONCILE_CADENCE_MINUTES`) consulta al proveedor los pagos `pending` que no se reconciliaron dentro de la cadencia configurada y aplica el resultado por el mismo camino que el webhook (`ApplyPaymentResult`), sin tocar `webhook_events`: repara divergencias cuando la entrega del evento se perdió, no reemplaza al webhook.
+6. **Checkout simulado.** Las rutas firmadas `demo/pagos/{externalId}/checkout` y `demo/pagos/{externalId}/resultado` (`App\Http\Controllers\Demo\SimulatedCheckoutController`) simulan la pantalla de pago de un proveedor real; la entrega del resultado al dominio ocurre en proceso, vía `App\Jobs\DeliverSimulatedProviderWebhook`, sin HTTP ni DNS de por medio.
+7. **Tests.** `tests/Feature/Payments/*` cubre iniciación, webhook, idempotencia, expiración, reconciliación y concurrencia (dos webhooks simultáneos para el mismo evento, una expiración concurrente con un webhook en vuelo).
 
 ### Fase 10 — Tiempo real
 

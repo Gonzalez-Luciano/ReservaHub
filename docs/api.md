@@ -60,6 +60,26 @@ devuelve 401. Después de cambiarla hay que volver a `POST /api/auth/login`.
 
 Staff ve las reservas de su negocio; un cliente ve solo las propias, de cualquier negocio.
 
+### Pagos
+
+| Método | Ruta | Descripción |
+|---|---|---|
+| `POST` | `/api/bookings/{booking}/payments` | Inicia el pago de la seña. `201` con el intento nuevo; `200` si ya había uno en curso (devuelve el mismo). |
+| `GET` | `/api/bookings/{booking}/payments` | Lista los intentos de pago de la reserva. |
+| `GET` | `/api/bookings/{booking}/payments/{payment}` | Detalle de un intento. |
+| `POST` | `/api/webhooks/payments/{provider}` | Endpoint del proveedor. Sin autenticación de usuario: se valida por firma HMAC. |
+
+Campos de un pago: `id`, `status` (`pending`/`approved`/`rejected`/`expired`), `amount`, `currency`,
+`expires_at`, `paid_at`, `application_outcome`, `failure_reason`, `created_at` y `checkout_url`
+(presente solo mientras el intento está `pending` y la ventana de pago sigue vigente).
+
+Errores de iniciación (`422`): la reserva no requiere seña, no está pendiente, o su ventana de pago
+venció. `403`/`404` por autorización y aislamiento entre negocios, igual que en reservas.
+
+El webhook responde `200` cuando procesa, registra o descarta el evento; `401` con firma inválida o
+fuera de tolerancia; `404` con un proveedor desconocido; `422` con un cuerpo ilegible; y `500` cuando
+el fallo es reintentable (por ejemplo, un pago externo desconocido), para que el proveedor reintente.
+
 ## Paginación
 
 `GET /api/bookings` devuelve `data.items` y `data.meta` (`current_page`, `per_page`, `total`, `last_page`). `per_page` por defecto 15, máximo 100.

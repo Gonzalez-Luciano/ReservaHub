@@ -105,6 +105,39 @@ Las monedas válidas son el enum `App\Enums\Currency` (set acotado de códigos
 ISO-4217, sin dependencia externa). La columna `businesses.currency` sigue siendo
 string: el enum se usa para validar y para poblar el formulario.
 
+## Pagos (Fase 9)
+
+Proveedor único **simulado** (`App\Services\Payments\Simulated\SimulatedPaymentGateway`), ligado a
+`PaymentGateway` en `AppServiceProvider`. No hay variable de selección de proveedor: un adapter real
+futuro reemplaza ese binding. El estado del proveedor vive en `simulated_provider_payments` y es
+**independiente** de `payments`: la reconciliación compara dos almacenes de verdad distintos.
+
+Dos reglas que no se pueden romper:
+
+1. **`App\Actions\Payments\ApplyPaymentResult` es el único camino** que aplica un resultado del
+   proveedor, y **`ConfirmBooking` el único** que confirma una reserva. El webhook y
+   `payments:reconcile` convergen ahí; ningún controller ni comando muta `Booking` por su cuenta.
+2. **`App\Services\Payments\ProcessPaymentWebhook` es el único borde** de procesamiento: lo usan el
+   endpoint HTTP y `DeliverSimulatedProviderWebhook` (que entrega **en proceso**, sin HTTP ni DNS).
+
+Idempotencia: identidad del evento por `unique (provider, external_event_id)`, claim con estado
+(`received|processed|ignored|failed`) bajo `for update`, y efecto + marca de completado en la misma
+transacción. `received` y `failed` son reprocesables a propósito: un fallo transitorio no puede volver
+un evento imposible de procesar.
+
+Orden de bloqueo global: **`webhook_events` → `bookings` → `payments`**.
+
+La expiración pertenece a la reserva (`bookings.payment_expires_at`), no al pago:
+`bookings:expire-unpaid` cancela vía `CancelBooking` con `CancellationReason::PaymentWindowExpired`
+(actor nulo, sin el corte de `cancellation_hours`), y **nunca** cancela mientras haya un intento
+`pending` sin resolver. Confirmación por pago: `ConfirmationReason::PaymentApproved` + el pago; el
+actor nulo por sí solo no significa nada.
+
+Los montos y la moneda son autoridad **local** (`payments.amount`/`currency`, snapshot de la reserva y
+del negocio); un webhook con otro importe se registra como `ignored/amount_mismatch` y no cambia nada.
+Los payloads se persisten con lista blanca (`WebhookPayloadRedactor`) y los headers y firmas nunca se
+guardan ni se loguean.
+
 ## Localization: `APP_LOCALE=es`
 
 The app's default locale is Spanish (`config/app.php` → `env('APP_LOCALE', 'es')`, `.env.example` sets `APP_LOCALE=es`, `APP_FALLBACK_LOCALE=en`). Laravel's built-in validation/auth/passwords/pagination strings are translated via `lang/es/` (published with `laravel-lang/lang`, `php artisan lang:add es`) — added in Fase 3 after mixed English/Spanish validation errors surfaced (custom messages were already hardcoded in Spanish; Laravel's default rule messages weren't). Custom validation messages (`ValidationException::withMessages([...])`, Form Request `messages()`) must be written in Spanish directly, same as before — only Laravel's own built-in strings needed the `lang/` files. If a new Laravel version adds rules/strings not yet in `lang/es/validation.php`, re-run `php artisan lang:add es` to refresh it.
