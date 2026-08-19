@@ -72,6 +72,10 @@ class ReconcilePayments extends Command
 
             $result = $applyPaymentResult->handle($payment, PaymentResult::fromSnapshot($snapshot));
 
+            // `$payment` puede estar obsoleto frente a lo que ApplyPaymentResult
+            // escribió en su propia instancia relockeada internamente; es
+            // inofensivo porque `save()` solo persiste atributos sucios y aquí
+            // el único atributo tocado es `last_reconciled_at`.
             $payment->forceFill(['last_reconciled_at' => now()])->save();
 
             if ($result->accepted && $result->reasonCode !== 'provider_still_pending') {

@@ -2,12 +2,20 @@
 
 namespace Tests\Feature\Payments;
 
+use App\Actions\Payments\InitiatePayment;
+use App\Enums\BookingStatus;
 use App\Enums\PaymentStatus;
+use App\Enums\Role;
+use App\Models\Booking;
+use App\Models\Business;
+use App\Models\Service;
+use App\Models\User;
 use App\Services\Payments\Contracts\PaymentGateway;
 use App\Services\Payments\Data\CheckoutRequest;
 use App\Services\Payments\Data\WebhookEnvelope;
 use App\Services\Payments\Exceptions\InvalidWebhookSignatureException;
 use App\Services\Payments\Exceptions\MalformedWebhookPayloadException;
+use App\Services\Payments\Exceptions\MissingWebhookSecretException;
 use App\Services\Payments\Exceptions\UnknownProviderPaymentException;
 use App\Services\Payments\Simulated\SimulatedPaymentGateway;
 use App\Services\Payments\Simulated\SimulatedProviderPayment;
@@ -43,6 +51,31 @@ class SimulatedPaymentGatewayTest extends TestCase
         $this->assertSame('simulated', app(PaymentGateway::class)->name());
     }
 
+    public function test_the_container_fails_closed_when_the_webhook_secret_is_missing(): void
+    {
+        // Sin secreto, firmar y verificar usarían la misma clave HMAC vacía:
+        // el binding debe fallar cerrado en vez de arrancar un gateway que
+        // aceptaría cualquier firma. Se limpia el singleton previamente
+        // resuelto por el boot normal de la app para forzar una resolución
+        // fresca contra el config alterado.
+        config(['payments.simulated.webhook_secret' => null]);
+        app()->forgetInstance(SimulatedPaymentGateway::class);
+
+        $this->expectException(MissingWebhookSecretException::class);
+
+        app(PaymentGateway::class);
+    }
+
+    public function test_the_container_fails_closed_when_the_webhook_secret_is_an_empty_string(): void
+    {
+        config(['payments.simulated.webhook_secret' => '']);
+        app()->forgetInstance(SimulatedPaymentGateway::class);
+
+        $this->expectException(MissingWebhookSecretException::class);
+
+        app(PaymentGateway::class);
+    }
+
     public function test_create_checkout_persists_independent_provider_state(): void
     {
         $request = $this->checkoutRequest();
@@ -61,12 +94,30 @@ class SimulatedPaymentGatewayTest extends TestCase
 
     public function test_checkout_url_is_signed_and_fresh(): void
     {
-        $result = $this->gateway()->createCheckout($this->checkoutRequest());
+        // El checkout controller ahora exige un `Payment` local (finding #5
+        // del review final: re-verifica estado local antes de mostrar nada),
+        // así que este `externalId` tiene que nacer de un pago real, no de un
+        // `createCheckout` suelto contra el proveedor.
+        $business = Business::factory()->create(['timezone' => 'UTC', 'currency' => 'ARS']);
+        $employee = User::factory()->create(['role' => Role::Employee, 'business_id' => $business->id]);
+        $customer = User::factory()->customer()->create();
+        $service = Service::factory()->for($business)->create(['deposit_amount' => '10.00']);
+        $booking = Booking::factory()->create([
+            'business_id' => $business->id,
+            'customer_id' => $customer->id,
+            'employee_id' => $employee->id,
+            'service_id' => $service->id,
+            'status' => BookingStatus::Pending,
+            'deposit_amount' => '10.00',
+            'payment_expires_at' => now()->addMinutes(30),
+        ]);
+        $payment = app(InitiatePayment::class)->handle($booking, $customer);
+
         $expiresAt = new DateTimeImmutable('+30 minutes');
 
-        $url = $this->gateway()->checkoutUrl($result->externalId, $expiresAt);
+        $url = $this->gateway()->checkoutUrl($payment->external_id, $expiresAt);
 
-        $this->assertStringContainsString("/demo/pagos/{$result->externalId}/checkout", $url);
+        $this->assertStringContainsString("/demo/pagos/{$payment->external_id}/checkout", $url);
         $this->assertStringContainsString('signature=', $url);
 
         $this->get($url)->assertOk();

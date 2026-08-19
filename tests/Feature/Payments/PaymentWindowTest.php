@@ -191,6 +191,37 @@ class PaymentWindowTest extends TestCase
         $this->assertSame($later->getTimestamp(), $booking->starts_at->getTimestamp());
     }
 
+    public function test_rescheduling_locks_the_booking_row_before_deciding_about_a_live_payment(): void
+    {
+        // InitiatePayment serializes on `Booking::withoutGlobalScopes()->
+        // lockForUpdate()->findOrFail(...)` before creating a payment.
+        // RescheduleBooking's contradictory-window guard only holds if it
+        // serializes against the *same* row lock — otherwise a reschedule
+        // reading "no live payment" and a concurrent InitiatePayment can both
+        // proceed. A genuine two-session interleaving belongs in
+        // WebhookConcurrencyTest; here it's enough to prove the lock
+        // statement is actually issued, by listening for a `for update`
+        // query against `bookings` during the transaction.
+        [$business, $employee, $customer, $service] = $this->scenario();
+        $startsAt = CarbonImmutable::now('UTC')->addDays(2)->setTime(10, 0);
+        $booking = $this->create($business, $employee, $customer, $service, $startsAt);
+        $later = CarbonImmutable::now('UTC')->addDays(3)->setTime(9, 0);
+
+        $lockingQueries = [];
+        DB::listen(function ($query) use (&$lockingQueries) {
+            if (str_contains($query->sql, 'bookings') && str_contains(strtolower($query->sql), 'for update')) {
+                $lockingQueries[] = $query->sql;
+            }
+        });
+
+        app(RescheduleBooking::class)->handle($booking, ['starts_at' => $later->toIso8601String()], $customer);
+
+        $this->assertNotEmpty(
+            $lockingQueries,
+            'RescheduleBooking debe adquirir un lock de fila sobre bookings, con el mismo límite que InitiatePayment, antes de decidir sobre el pago vivo.',
+        );
+    }
+
     public function test_the_backfill_only_covers_future_legacy_bookings(): void
     {
         [$business, $employee, $customer, $service] = $this->scenario();

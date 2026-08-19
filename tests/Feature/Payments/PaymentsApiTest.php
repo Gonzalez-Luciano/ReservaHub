@@ -11,6 +11,7 @@ use App\Models\Payment;
 use App\Models\Service;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use ReflectionProperty;
 use Tests\TestCase;
 
 class PaymentsApiTest extends TestCase
@@ -20,6 +21,21 @@ class PaymentsApiTest extends TestCase
     private function tokenFor(User $user): string
     {
         return $user->createToken('cli')->plainTextToken;
+    }
+
+    /**
+     * `BusinessScope::apply()` only short-circuits an unbound business
+     * context while `app()->runningInConsole()` is true — which PHPUnit
+     * always is, masking the fact that these customer-payment routes carry
+     * no `business` middleware and never bind `Business::current()`. This
+     * forces the same "as it would run under php-fpm in production" state
+     * used in `BelongsToBusinessTest`.
+     */
+    private function setRunningInConsole(bool $value): void
+    {
+        $property = new ReflectionProperty(app(), 'isRunningInConsole');
+        $property->setAccessible(true);
+        $property->setValue(app(), $value);
     }
 
     /**
@@ -172,6 +188,37 @@ class PaymentsApiTest extends TestCase
             ->json('data');
 
         $this->assertNull($data['checkout_url']);
+    }
+
+    public function test_customer_payment_routes_work_outside_the_console_business_short_circuit(): void
+    {
+        [$booking, $customer] = $this->scenario();
+        $token = $this->tokenFor($customer);
+
+        // These routes carry no `business` middleware, and a customer token
+        // never binds `Business::current()` — so `Payment`'s BusinessScope
+        // must be explicitly lifted in the controller, not merely rely on
+        // PHPUnit's always-true `runningInConsole()` short-circuit to pass.
+        $this->setRunningInConsole(false);
+
+        $created = $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson("/api/bookings/{$booking->id}/payments")
+            ->assertCreated()
+            ->json('data');
+
+        $this->setRunningInConsole(false);
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/bookings/{$booking->id}/payments")
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonCount(1, 'data');
+
+        $this->setRunningInConsole(false);
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/bookings/{$booking->id}/payments/{$created['id']}")
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.id', $created['id']);
     }
 
     public function test_initiating_on_a_booking_without_deposit_returns_422(): void

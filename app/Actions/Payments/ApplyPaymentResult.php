@@ -57,6 +57,28 @@ class ApplyPaymentResult
                 );
             }
 
+            // La fila local es la autoridad sobre el dinero (spec §17): un
+            // resultado terminal (approved/rejected/expired) que no coincide
+            // en monto o moneda con lo que se registró al iniciar el pago se
+            // ignora sin mutar nada. Vive aquí, no en el borde de webhook,
+            // porque `payments:reconcile` llega al mismo `handle()` con un
+            // snapshot del proveedor y necesita la misma garantía.
+            if ($mismatch = $this->mismatchReason($locked, $result)) {
+                Log::warning('payments.result_mismatch', [
+                    'payment_id' => $locked->id,
+                    'expected_amount' => $locked->amount,
+                    'expected_currency' => $locked->currency,
+                    'incoming_amount' => $result->amount,
+                    'incoming_currency' => $result->currency,
+                ]);
+
+                return new PaymentApplicationResult(
+                    accepted: false,
+                    outcome: PaymentApplicationOutcome::NoAction,
+                    reasonCode: $mismatch,
+                );
+            }
+
             if ($result->status !== PaymentStatus::Approved) {
                 $locked->update([
                     'status' => $result->status,
@@ -100,6 +122,12 @@ class ApplyPaymentResult
                 );
             }
 
+            // Se pasa `$locked` (la instancia releída bajo el lock de fila),
+            // nunca el `$payment` recibido como parámetro: `$payment` puede
+            // estar obsoleto frente a lo que otra transacción escribió justo
+            // antes de que este `lockForUpdate()` se resolviera. No
+            // "simplificar" esto a `$payment` — reintroduciría una lectura
+            // obsoleta bajo el propio lock que existe para evitarla.
             $this->confirmBooking->handle($booking, null, ConfirmationReason::PaymentApproved, $locked);
 
             return new PaymentApplicationResult(
@@ -108,5 +136,18 @@ class ApplyPaymentResult
                 reasonCode: 'booking_confirmed',
             );
         });
+    }
+
+    private function mismatchReason(Payment $payment, PaymentResult $result): ?string
+    {
+        if (bccomp((string) $payment->amount, $result->amount, 2) !== 0) {
+            return 'amount_mismatch';
+        }
+
+        if (strtoupper($payment->currency) !== strtoupper($result->currency)) {
+            return 'currency_mismatch';
+        }
+
+        return null;
     }
 }

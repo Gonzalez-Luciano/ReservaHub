@@ -77,20 +77,9 @@ class ProcessPaymentWebhook
                     return new WebhookProcessingResult(WebhookProcessingStatus::Failed, 'unknown_payment');
                 }
 
-                if ($mismatch = $this->mismatchReason($payment, $notification)) {
-                    $this->finish($event, WebhookEventStatus::Ignored, $mismatch);
-
-                    Log::warning('payments.webhook_amount_mismatch', [
-                        'payment_id' => $payment->id,
-                        'expected_amount' => $payment->amount,
-                        'expected_currency' => $payment->currency,
-                        'incoming_amount' => $notification->amount,
-                        'incoming_currency' => $notification->currency,
-                    ]);
-
-                    return new WebhookProcessingResult(WebhookProcessingStatus::Ignored, $mismatch);
-                }
-
+                // El chequeo de monto/moneda (autoridad local, spec §17) vive
+                // en ApplyPaymentResult::handle() — lo comparten este borde y
+                // `payments:reconcile`, así que no se duplica aquí.
                 $applied = $this->applyPaymentResult->handle($payment, PaymentResult::fromWebhook($notification));
 
                 $this->finish(
@@ -126,19 +115,6 @@ class ProcessPaymentWebhook
             'created_at' => now(),
             'updated_at' => now(),
         ]);
-    }
-
-    private function mismatchReason(Payment $payment, WebhookNotification $notification): ?string
-    {
-        if (bccomp((string) $payment->amount, $notification->amount, 2) !== 0) {
-            return 'amount_mismatch';
-        }
-
-        if (strtoupper($payment->currency) !== strtoupper($notification->currency)) {
-            return 'currency_mismatch';
-        }
-
-        return null;
     }
 
     private function finish(WebhookEvent $event, WebhookEventStatus $status, string $reason, bool $incrementAttempts = false): void

@@ -23,9 +23,33 @@ use PDO;
 use Tests\TestCase;
 
 /**
- * Concurrencia real: dos sesiones de PostgreSQL distintas, no dos llamadas en
- * el mismo proceso. Cada test prueba el invariante que sostiene una primitiva
- * concreta (índice único, lock de fila), no una suposición de timing.
+ * No todos los tests de este archivo son concurrencia genuina en el sentido
+ * literal de "dos sesiones peleando por la misma fila al mismo tiempo" — cada
+ * uno prueba el invariante correcto para lo que realmente ejercita, y el
+ * nombre de cada test describe con precisión cuál es:
+ *
+ * - `test_a_second_session_cannot_process_the_event_while_the_first_holds_it`
+ *   es la única prueba de concurrencia genuina: dos sesiones reales de
+ *   PostgreSQL con el lock de la primera todavía sostenido cuando la segunda
+ *   intenta tomarlo.
+ * - `test_two_sessions_cannot_both_claim_the_same_event_identity` usa dos
+ *   sesiones PDO reales, pero la sesión A confirma antes de que la sesión B
+ *   inserte — prueba que el índice único rechaza un duplicado contra una fila
+ *   ya confirmada, no dos sesiones compitiendo mientras ambas están sin
+ *   confirmar (ese angostamiento fue una corrección deliberada para evitar un
+ *   deadlock real; no es un descuido).
+ * - `test_two_pending_payments_for_one_booking_are_impossible` usa una única
+ *   sesión PDO cruda insertando contra una fila ya confirmada desde la
+ *   conexión principal — no dos sesiones entrelazadas.
+ * - `test_webhook_and_reconciliation_converge_on_a_single_confirmation` y
+ *   `test_expiry_and_approval_at_the_boundary_never_both_apply` no usan
+ *   ninguna sesión PDO cruda: son secuenciales, en una sola conexión, y
+ *   prueban convergencia idempotente entre el webhook y la reconciliación (o
+ *   entre el webhook y `expire-unpaid`), no contención real de locks.
+ * - `test_expiry_wins_when_the_provider_never_resolves` también es
+ *   secuencial: aplica la expiración del lado del proveedor directamente
+ *   sobre el pago para simular lo que la reconciliación observaría más
+ *   adelante, sin invocar `payments:reconcile`.
  */
 class WebhookConcurrencyTest extends TestCase
 {
@@ -218,7 +242,9 @@ class WebhookConcurrencyTest extends TestCase
         $gateway = app(PaymentGateway::class);
         $gateway->applyOutcome($payment->external_id, PaymentStatus::Approved);
 
-        // La ventana vence justo cuando llega la aprobación.
+        // Secuencial, no una carrera real: la ventana ya está vencida cuando
+        // se aplica la aprobación, para comprobar que `expire-unpaid` (que
+        // corre después, también secuencial) ya no encuentra nada que cancelar.
         $booking->forceFill(['payment_expires_at' => now()->subSecond()])->save();
 
         app(ProcessPaymentWebhook::class)->handle($this->envelope($payment, PaymentStatus::Approved, 'evt_boundary'));
@@ -240,7 +266,10 @@ class WebhookConcurrencyTest extends TestCase
         $this->artisan('bookings:expire-unpaid')->assertExitCode(0);
         $this->assertSame(BookingStatus::Pending, $booking->refresh()->status);
 
-        // El proveedor expira y la reconciliación lo aplica; recién ahí se libera.
+        // El estado se fuerza directamente en vez de invocar
+        // `payments:reconcile`: simula lo que el proveedor reportaría (y lo
+        // que la reconciliación eventualmente observaría), sin ejercer el
+        // comando en sí — recién con esto puesto se libera la cancelación.
         $payment->forceFill(['status' => PaymentStatus::Expired])->save();
         $this->artisan('bookings:expire-unpaid')->assertExitCode(0);
 

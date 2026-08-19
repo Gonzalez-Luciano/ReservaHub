@@ -15,6 +15,7 @@ use App\Services\Payments\Contracts\PaymentGateway;
 use App\Services\Payments\Data\CheckoutRequest;
 use App\Services\Payments\Exceptions\GatewayUnavailableException;
 use App\Services\Payments\Simulated\SimulatedPaymentGateway;
+use App\Services\Payments\Simulated\SimulatedProviderPayment;
 use DateTimeImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
@@ -102,6 +103,38 @@ class ReconciliationTest extends TestCase
         $this->artisan('payments:reconcile')->assertExitCode(0);
 
         $this->assertSame(PaymentStatus::Expired, $payment->refresh()->status);
+        $this->assertSame(BookingStatus::Pending, $booking->refresh()->status);
+    }
+
+    public function test_a_provider_amount_mismatch_is_rejected_without_confirming(): void
+    {
+        [$booking, $payment] = $this->scenario();
+        app(PaymentGateway::class)->applyOutcome($payment->external_id, PaymentStatus::Approved);
+
+        // El proveedor reporta un monto distinto al registrado localmente al
+        // iniciar el pago (autoridad local, spec §17). ApplyPaymentResult debe
+        // rechazar esto igual que lo haría el borde de webhook, en vez de
+        // confirmar una reserva contra un importe no verificado.
+        SimulatedProviderPayment::where('external_id', $payment->external_id)
+            ->update(['amount' => '999.00']);
+
+        $this->artisan('payments:reconcile')->assertExitCode(0);
+
+        $this->assertSame(PaymentStatus::Pending, $payment->refresh()->status);
+        $this->assertSame(BookingStatus::Pending, $booking->refresh()->status);
+    }
+
+    public function test_a_provider_currency_mismatch_is_rejected_without_confirming(): void
+    {
+        [$booking, $payment] = $this->scenario();
+        app(PaymentGateway::class)->applyOutcome($payment->external_id, PaymentStatus::Approved);
+
+        SimulatedProviderPayment::where('external_id', $payment->external_id)
+            ->update(['currency' => 'USD']);
+
+        $this->artisan('payments:reconcile')->assertExitCode(0);
+
+        $this->assertSame(PaymentStatus::Pending, $payment->refresh()->status);
         $this->assertSame(BookingStatus::Pending, $booking->refresh()->status);
     }
 

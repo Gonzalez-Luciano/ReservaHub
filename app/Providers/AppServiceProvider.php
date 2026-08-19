@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Services\Payments\Contracts\PaymentGateway;
+use App\Services\Payments\Exceptions\MissingWebhookSecretException;
 use App\Services\Payments\Simulated\SimulatedPaymentGateway;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -21,10 +22,24 @@ class AppServiceProvider extends ServiceProvider
         // dinámica en runtime: un adapter real futuro reemplaza este binding.
         // La clase concreta también se liga porque sus dependencias son escalares
         // y el contenedor no puede autoresolverlas (los tests la piden por tipo).
-        $this->app->singleton(SimulatedPaymentGateway::class, fn () => new SimulatedPaymentGateway(
-            secret: (string) config('payments.simulated.webhook_secret'),
-            toleranceSeconds: (int) config('payments.webhook_tolerance_seconds'),
-        ));
+        $this->app->singleton(SimulatedPaymentGateway::class, function () {
+            $secret = config('payments.simulated.webhook_secret');
+
+            // Falla cerrado (mismo patrón que UserAccessRevoker): un secreto
+            // ausente firmaría y verificaría con una clave HMAC vacía, así
+            // que el endpoint aceptaría cualquier firma forjada por quien
+            // sepa que la clave está vacía. No hay binding degradado.
+            if (! is_string($secret) || $secret === '') {
+                throw new MissingWebhookSecretException(
+                    'PAYMENTS_SIMULATED_WEBHOOK_SECRET no está configurado.'
+                );
+            }
+
+            return new SimulatedPaymentGateway(
+                secret: $secret,
+                toleranceSeconds: (int) config('payments.webhook_tolerance_seconds'),
+            );
+        });
 
         $this->app->bind(PaymentGateway::class, fn ($app) => $app->make(SimulatedPaymentGateway::class));
     }

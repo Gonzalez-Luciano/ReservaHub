@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project status
 
-Fases 0–8 are implemented (auth, tenancy, services/employees, availability, bookings, notifications/scheduler, REST API + Sanctum, account/business management — see `docs/superpowers/plans/` and the status table in `01-reservahub.md` §7). Fase 9 (payments), Fase 10 (Reverb), Fase 11 (frontend redesign) and Fase 12 (release readiness + handoff) are not started. `01-reservahub.md` is still the authoritative spec for anything not yet implemented.
+Fases 0–9 are implemented (auth, tenancy, services/employees, availability, bookings, notifications/scheduler, REST API + Sanctum, account/business management, payments — see `docs/superpowers/plans/` and the status table in `01-reservahub.md` §7). Fase 10 (Reverb), Fase 11 (frontend redesign) and Fase 12 (release readiness + handoff) are not started. `01-reservahub.md` is still the authoritative spec for anything not yet implemented.
 
 The frontend is deliberately minimal for now (17 Inertia pages, 4 shared components, Tailwind 4 with no component library, a placeholder dashboard). **Fase 11 owns the redesign** and must start from `superpowers:brainstorming` plus the installed frontend-design skill — not from UI code.
 
@@ -160,7 +160,7 @@ ReservaHub is a SaaS booking/appointment system (in Spanish) for businesses that
 
 **Concurrency / overlap safety**: booking creation must re-validate availability *inside* a DB transaction (not just at the form-request layer) to prevent two simultaneous requests from double-booking the same employee/slot. This is explicitly called out as a required test scenario.
 
-**Payments**: abstracted behind a `PaymentGateway` contract with a fake/test implementation and an optional real one. Webhook handling must be idempotent — `webhook_events.external_event_id` is unique per provider, and duplicate webhook deliveries must not duplicate a payment or double-confirm a booking. A booking with a required deposit (`deposit_amount`) stays `pending` until the payment is confirmed via webhook.
+**Payments**: abstracted behind a `PaymentGateway` contract with a simulated implementation and an optional real one. Webhook handling must be idempotent — `webhook_events.external_event_id` is unique per provider, and duplicate webhook deliveries must not duplicate a payment or double-confirm a booking. A booking with a required deposit (`deposit_amount`) stays `pending` until the payment is confirmed via webhook.
 
 **Notifications**: booking confirmation, reschedule, cancellation, 24h/2h reminders, and employee alerts, over email + database channels (WhatsApp optional/simulated). Reminders must not be sent twice — dedupe when building the scheduled command that queues them.
 

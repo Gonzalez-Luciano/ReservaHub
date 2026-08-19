@@ -39,11 +39,21 @@ class RescheduleBooking
         $booking = DB::transaction(function () use ($business, $service, $employee, $booking, $newStart, $newEnd, $previousStartsAt, $actingUser) {
             DB::statement('select pg_advisory_xact_lock(hashtext(?))', ['booking-employee-'.$employee->id]);
 
+            // Mismo límite de bloqueo de fila que InitiatePayment sobre la
+            // misma reserva: sin esto, una reprogramación puede leer "sin pago
+            // vivo" mientras InitiatePayment crea uno en paralelo, y ambas
+            // proceden — dejando un pago vivo cuyo `expires_at` sobrevive a la
+            // ventana recién acortada, justo el estado contradictorio que el
+            // guard de más abajo existe para impedir. El resto del método lee
+            // de esta instancia relockeada, no del parámetro `$booking`
+            // anterior al lock.
+            $locked = Booking::withoutGlobalScopes()->lockForUpdate()->findOrFail($booking->id);
+
             if ($newStart->lt(CarbonImmutable::now($business->timezone))) {
                 throw ValidationException::withMessages(['starts_at' => 'No se puede reprogramar a un horario que ya pasó.']);
             }
 
-            $available = collect($this->availabilityService->getAvailableSlots($business, $service, $employee, $newStart, excludeBookingId: $booking->id))
+            $available = collect($this->availabilityService->getAvailableSlots($business, $service, $employee, $newStart, excludeBookingId: $locked->id))
                 ->contains(fn (array $slot) => $slot['starts_at']->equalTo($newStart));
 
             if (! $available) {
@@ -54,7 +64,7 @@ class RescheduleBooking
             // debajo de la expiración del pago dejaría reserva, pago y proveedor
             // con ventanas contradictorias: `expire-unpaid` no cancelaría (hay un
             // `pending`) y el proveedor seguiría vivo pasada la fecha límite.
-            $paymentExpiresAt = $booking->payment_expires_at?->toImmutable();
+            $paymentExpiresAt = $locked->payment_expires_at?->toImmutable();
             $newDeadline = null;
 
             if ($paymentExpiresAt !== null) {
@@ -62,7 +72,7 @@ class RescheduleBooking
                     ? $newStart->utc()
                     : $paymentExpiresAt;
 
-                $livePayment = $booking->payments()->where('status', PaymentStatus::Pending)->first();
+                $livePayment = $locked->payments()->where('status', PaymentStatus::Pending)->first();
 
                 if ($livePayment !== null && $newDeadline->lessThan($livePayment->expires_at->toImmutable())) {
                     throw ValidationException::withMessages([
@@ -75,7 +85,7 @@ class RescheduleBooking
             // *actuales* del Carbon tal cual y los relee asumiendo UTC, así que
             // guardar acá un Carbon con display en horario de negocio volvería
             // con el instante equivocado en la próxima lectura.
-            $booking->update([
+            $locked->update([
                 'starts_at' => $newStart->utc(),
                 'ends_at' => $newEnd->utc(),
                 'payment_expires_at' => $paymentExpiresAt === null ? null : $newDeadline,
@@ -83,17 +93,17 @@ class RescheduleBooking
 
             // Los recordatorios ya reclamados apuntaban al horario anterior; sin esto,
             // el comando nunca volvería a evaluar la reserva para el horario nuevo.
-            $booking->reminders()->delete();
+            $locked->reminders()->delete();
 
             BookingStatusHistory::create([
-                'booking_id' => $booking->id,
-                'from_status' => $booking->status,
-                'to_status' => $booking->status,
+                'booking_id' => $locked->id,
+                'from_status' => $locked->status,
+                'to_status' => $locked->status,
                 'changed_by' => $actingUser->id,
                 'notes' => "Reprogramado de {$previousStartsAt->format('Y-m-d H:i')} a {$newStart->format('Y-m-d H:i')}.",
             ]);
 
-            return $booking->fresh();
+            return $locked->fresh();
         });
 
         event(new BookingRescheduled($booking, $previousStartsAt));

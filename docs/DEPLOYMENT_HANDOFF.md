@@ -80,7 +80,7 @@ Nombres de variables, no valores. **Este repositorio no contiene ni debe contene
 | `MAIL_USERNAME` / `MAIL_PASSWORD` | operador | **sí** | |
 | `LOG_CHANNEL` / `LOG_STACK` / `LOG_LEVEL` | operador | no | Ver §7 |
 | `TRUSTED_PROXIES` | operador | no | Necesario detrás de proxy/tunnel — ver §10 |
-| `PAYMENTS_SIMULATED_WEBHOOK_SECRET` | operador | **sí** | Firma HMAC del proveedor simulado; sin ella, el webhook rechaza toda entrega |
+| `PAYMENTS_SIMULATED_WEBHOOK_SECRET` | operador | **sí** | Firma HMAC del proveedor simulado; sin ella la aplicación falla al arrancar el binding del `PaymentGateway` (falla cerrado, `MissingWebhookSecretException`) en vez de servir un webhook que firma y verifica con clave vacía |
 | `PAYMENTS_WINDOW_MINUTES` | app | no | Minutos de ventana de pago por reserva con seña; 30 por defecto |
 | `PAYMENTS_WEBHOOK_TOLERANCE_SECONDS` | app | no | Antigüedad máxima aceptada para la marca temporal de una firma entrante; 300 por defecto |
 | `PAYMENTS_RECONCILE_BATCH` | app | no | Tamaño de lote de `payments:reconcile`; 100 por defecto |

@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\Concerns\ResolvesBookingScope;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\PaymentResource;
 use App\Models\Payment;
+use App\Models\Scopes\BusinessScope;
 use App\Support\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -22,7 +23,7 @@ class PaymentController extends Controller
 
         $this->authorize('viewAny', [Payment::class, $model]);
 
-        $payments = $model->payments()->orderByDesc('id')->get()
+        $payments = $model->payments()->withoutGlobalScope(BusinessScope::class)->orderByDesc('id')->get()
             ->each(fn (Payment $payment) => $payment->setRelation('booking', $model));
 
         return ApiResponse::success(PaymentResource::collection($payments));
@@ -34,7 +35,7 @@ class PaymentController extends Controller
 
         $this->authorize('create', [Payment::class, $model]);
 
-        $alreadyLive = $model->payments()->where('status', PaymentStatus::Pending)->exists();
+        $alreadyLive = $model->payments()->withoutGlobalScope(BusinessScope::class)->where('status', PaymentStatus::Pending)->exists();
 
         $payment = $action->handle($model, $request->user());
         $payment->setRelation('booking', $model->refresh());
@@ -52,8 +53,11 @@ class PaymentController extends Controller
 
         // El pago se busca DENTRO de la reserva: nunca por binding implícito,
         // porque `Payment` lleva scope de negocio y estas rutas no tienen
-        // contexto de negocio cuando el actor es un cliente.
-        $paymentModel = $model->payments()->findOrFail($payment);
+        // contexto de negocio cuando el actor es un cliente. El scope se
+        // levanta explícitamente (no hay negocio ligado para un cliente) —
+        // la seguridad tenant la da `findBookingFor()` más arriba, no este
+        // scope: el pago ya está acotado por `booking_id`.
+        $paymentModel = $model->payments()->withoutGlobalScope(BusinessScope::class)->findOrFail($payment);
         $paymentModel->setRelation('booking', $model);
 
         $this->authorize('view', $paymentModel);
