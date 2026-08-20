@@ -25,6 +25,19 @@ class PaymentWindowTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function tearDown(): void
+    {
+        // Laravel's own test harness (travelTo()/InteractsWithTime) only ever
+        // freezes Illuminate\Support\Carbon — it never touches
+        // Carbon\CarbonImmutable, which has its own independent test-now
+        // state and is what the application actually uses throughout. Any
+        // test below that freezes CarbonImmutable must be unfrozen here, or
+        // the override leaks into every later test in the same process.
+        CarbonImmutable::setTestNow();
+
+        parent::tearDown();
+    }
+
     /**
      * @return array{0: Business, 1: User, 2: User, 3: Service}
      */
@@ -102,6 +115,20 @@ class PaymentWindowTest extends TestCase
     public function test_the_window_never_outlives_the_appointment(): void
     {
         [$business, $employee, $customer, $service] = $this->scenario();
+        // Freeze CarbonImmutable's clock to a safe mid-day instant. Without
+        // this, `nextSlot()`'s grid math has one genuinely invalid mark each
+        // day: the schedule (see scenario()) closes at 23:30, and a 30-minute
+        // service starting exactly at 23:30 would end at 24:00 — past
+        // closing — so AvailabilityService::generateCandidates() never
+        // produces it. Whenever real "now" falls between 23:00 and 23:30,
+        // `nextSlot(now, 30)` lands exactly on that one bad mark and
+        // CreateBooking deterministically rejects it as unavailable — not a
+        // timing race, a real once-a-day 30-minute dead zone. Freezing to a fixed off-grid instant
+        // (10:07) the same day sidesteps it entirely, and also removes any
+        // residual clock drift between this computation and CreateBooking's
+        // own internal re-check.
+        CarbonImmutable::setTestNow(CarbonImmutable::now('UTC')->startOfDay()->addHours(10)->addMinutes(7));
+
         // The next bookable grid slot is always <= 30 minutes out, so the
         // deposit window (30 min, per the config default) would otherwise
         // outlive it — this is exactly the clamp scenario under test.
@@ -130,6 +157,12 @@ class PaymentWindowTest extends TestCase
         // slots inside the 30-minute deposit window — one for the original
         // booking and a strictly earlier one to reschedule into.
         [$business, $employee, $customer, $service] = $this->scenario(durationMinutes: 10);
+        // Freeze the clock — see test_the_window_never_outlives_the_appointment's
+        // comment for why: the schedule's 23:30 close creates one genuine
+        // dead grid mark per day, and this test does even more real DB work
+        // (a full booking creation plus two reschedules) than that one
+        // between computing $earlier and the last point it gets re-checked.
+        CarbonImmutable::setTestNow(CarbonImmutable::now('UTC')->startOfDay()->addHours(10)->addMinutes(7));
         $now = CarbonImmutable::now('UTC');
         $earlier = $this->nextSlot($now, 10);
         $startsAt = $earlier->addMinutes(10);
@@ -148,6 +181,10 @@ class PaymentWindowTest extends TestCase
     public function test_rescheduling_before_a_live_attempt_expiry_is_rejected(): void
     {
         [$business, $employee, $customer, $service] = $this->scenario();
+        // Freeze the clock — see test_the_window_never_outlives_the_appointment's
+        // comment: the schedule's 23:30 close creates one genuine dead grid
+        // mark per day that nextSlot() can land on deterministically.
+        CarbonImmutable::setTestNow(CarbonImmutable::now('UTC')->startOfDay()->addHours(10)->addMinutes(7));
         $now = CarbonImmutable::now('UTC');
         $startsAt = $now->addDays(2)->setTime(10, 0);
         $booking = $this->create($business, $employee, $customer, $service, $startsAt);
