@@ -3,6 +3,7 @@
 namespace App\Actions\Bookings;
 
 use App\Enums\BookingStatus;
+use App\Events\BookingNoShow;
 use App\Models\Booking;
 use App\Models\BookingStatusHistory;
 use App\Models\User;
@@ -25,6 +26,10 @@ class MarkNoShow
             'changed_by' => $actingUser->id,
         ]);
 
-        return $booking->fresh();
+        $booking = $booking->fresh();
+
+        event(new BookingNoShow($booking));
+
+        return $booking;
     }
 }

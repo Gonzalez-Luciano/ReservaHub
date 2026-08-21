@@ -6,10 +6,13 @@ use App\Actions\Bookings\CompleteBooking;
 use App\Actions\Bookings\ConfirmBooking;
 use App\Actions\Bookings\MarkNoShow;
 use App\Enums\BookingStatus;
+use App\Events\BookingCompleted;
+use App\Events\BookingNoShow;
 use App\Models\Booking;
 use App\Models\Business;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
 
@@ -91,5 +94,41 @@ class BookingStatusTransitionsTest extends TestCase
         $this->expectException(ValidationException::class);
 
         app(MarkNoShow::class)->handle($booking, $staff);
+    }
+
+    public function test_complete_dispatches_the_booking_completed_event(): void
+    {
+        // Se falsea solo este evento: un Event::fake() sin argumentos también
+        // reemplaza los eventos de modelo de Eloquent y rompe el guardado.
+        Event::fake([BookingCompleted::class]);
+
+        $business = Business::factory()->create();
+        $staff = $this->staffFor($business);
+        $booking = Booking::factory()->confirmed()->create(['business_id' => $business->id]);
+
+        app(CompleteBooking::class)->handle($booking, $staff);
+
+        Event::assertDispatched(
+            BookingCompleted::class,
+            fn (BookingCompleted $event) => $event->booking->is($booking)
+                && $event->booking->status === BookingStatus::Completed
+        );
+    }
+
+    public function test_mark_no_show_dispatches_the_booking_no_show_event(): void
+    {
+        Event::fake([BookingNoShow::class]);
+
+        $business = Business::factory()->create();
+        $staff = $this->staffFor($business);
+        $booking = Booking::factory()->confirmed()->create(['business_id' => $business->id]);
+
+        app(MarkNoShow::class)->handle($booking, $staff);
+
+        Event::assertDispatched(
+            BookingNoShow::class,
+            fn (BookingNoShow $event) => $event->booking->is($booking)
+                && $event->booking->status === BookingStatus::NoShow
+        );
     }
 }

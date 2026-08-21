@@ -3,6 +3,7 @@
 namespace App\Actions\Bookings;
 
 use App\Enums\BookingStatus;
+use App\Events\BookingCompleted;
 use App\Models\Booking;
 use App\Models\BookingStatusHistory;
 use App\Models\User;
@@ -25,6 +26,10 @@ class CompleteBooking
             'changed_by' => $actingUser->id,
         ]);
 
-        return $booking->fresh();
+        $booking = $booking->fresh();
+
+        event(new BookingCompleted($booking));
+
+        return $booking;
     }
 }
