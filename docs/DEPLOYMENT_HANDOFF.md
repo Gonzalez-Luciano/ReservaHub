@@ -36,7 +36,7 @@ Reverb, igual que el worker, mantiene el código en memoria: hay que reiniciarlo
 en cada deploy. `php artisan reverb:restart` corta las conexiones con gracia y
 deja que el gestor de procesos lo vuelva a levantar.
 
-Referencia de desarrollo: `compose.yaml` del repo (Sail) ya define `laravel.test`, `queue`, `scheduler`, `pgsql`, `redis` y `mailpit`. Sirve como descripción de la topología; **no es un compose de producción** (publica puertos al host, monta el código como volumen e incluye Mailpit).
+Referencia de desarrollo: `compose.yaml` del repo (Sail) ya define `laravel.test`, `queue`, `scheduler`, `reverb`, `pgsql`, `redis` y `mailpit`. Sirve como descripción de la topología; **no es un compose de producción** (publica puertos al host, monta el código como volumen e incluye Mailpit).
 
 ## 3. Servicios de datos
 
