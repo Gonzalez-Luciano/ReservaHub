@@ -240,4 +240,17 @@ class BookingsTest extends TestCase
             ->assertOk()
             ->assertExactJson(['slots' => []]);
     }
+
+    public function test_the_bookings_index_exposes_the_business_id_for_the_realtime_channel(): void
+    {
+        $business = Business::factory()->create();
+        $staff = User::factory()->employee()->create(['business_id' => $business->id]);
+
+        $this->actingAs($staff)
+            ->get('/dashboard/bookings')
+            ->assertInertia(fn ($page) => $page
+                ->component('Dashboard/Bookings/Index')
+                ->where('businessId', $business->id)
+            );
+    }
 }

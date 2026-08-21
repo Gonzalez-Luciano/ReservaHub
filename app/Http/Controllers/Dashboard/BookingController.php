@@ -35,6 +35,7 @@ class BookingController extends Controller
             'bookings' => Booking::with(['customer:id,name,email', 'employee:id,name', 'service:id,name'])
                 ->orderByDesc('starts_at')
                 ->get(),
+            'businessId' => Business::current()->id,
         ]);
     }
 
