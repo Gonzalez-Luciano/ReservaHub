@@ -16,7 +16,7 @@ PostgreSQL 18   (datos, sesiones, cache, locks del scheduler)
         |
 Redis           (cola de trabajos)
         |
-worker de cola + scheduler (procesos aparte, mismo código)
+worker de cola + scheduler + Reverb (procesos aparte, mismo código)
 ```
 
 Es **un proyecto Docker aislado**: red, volúmenes, base de datos, Redis y credenciales propios. Lo único que comparte con otros proyectos del host es el Docker Engine, el `cloudflared` del host y el sistema operativo.
@@ -28,8 +28,13 @@ Es **un proyecto Docker aislado**: red, volúmenes, base de datos, Redis y crede
 | Web/app | servidor PHP-FPM/HTTP sirviendo `public/` | Sí | Único entrypoint HTTP. Document root: `public/` |
 | Worker de cola | `php artisan queue:work --tries=3 --max-time=3600` | Sí | Sin él no sale ningún email (notificaciones de reserva, recordatorios, verificación, reset de contraseña, invitaciones) |
 | Scheduler | `php artisan schedule:work` (o `schedule:run` por cron cada minuto) | Sí | Ejecuta `bookings:send-reminders` cada 5 minutos |
+| Reverb | `php artisan reverb:start` | Sí, para tiempo real | Proceso de larga vida. Sin él la aplicación funciona entera; solo deja de refrescarse sola la pantalla de reservas |
 
 El worker mantiene el código en memoria: hay que reiniciarlo en cada deploy (`queue:restart` o reinicio del contenedor).
+
+Reverb, igual que el worker, mantiene el código en memoria: hay que reiniciarlo
+en cada deploy. `php artisan reverb:restart` corta las conexiones con gracia y
+deja que el gestor de procesos lo vuelva a levantar.
 
 Referencia de desarrollo: `compose.yaml` del repo (Sail) ya define `laravel.test`, `queue`, `scheduler`, `pgsql`, `redis` y `mailpit`. Sirve como descripción de la topología; **no es un compose de producción** (publica puertos al host, monta el código como volumen e incluye Mailpit).
 
@@ -74,7 +79,14 @@ Nombres de variables, no valores. **Este repositorio no contiene ni debe contene
 | `CACHE_STORE` | app | no | `database` |
 | `SESSION_DRIVER` | app | no | `database` |
 | `SESSION_SECURE_COOKIE` | operador | no | `true` detrás de HTTPS |
-| `BROADCAST_CONNECTION` | app | no | `log` hasta que exista la Fase 10 (Reverb) |
+| `BROADCAST_CONNECTION` | app | no | `reverb` |
+| `REVERB_APP_ID` | operador | no | Identificador de la aplicación Reverb |
+| `REVERB_APP_KEY` | operador | no | Público por diseño: viaja al navegador en el bundle |
+| `REVERB_APP_SECRET` | operador | **sí** | Firma las peticiones servidor→Reverb. **Nunca** en una variable `VITE_*` |
+| `REVERB_HOST` / `REVERB_PORT` / `REVERB_SCHEME` | operador | no | Dónde encuentra el **servidor** a Reverb: servicio de la red interna del stack |
+| `REVERB_SERVER_HOST` / `REVERB_SERVER_PORT` | operador | no | Dónde **escucha** Reverb: `0.0.0.0` y el puerto interno |
+| `REVERB_ALLOWED_ORIGINS` | operador | no | Hosts separados por coma. Solo host, sin esquema ni puerto; admite comodines `*` de `Str::is()`. Sin valor, acepta solo `localhost`: falla cerrado |
+| `VITE_REVERB_APP_KEY` / `VITE_REVERB_HOST` / `VITE_REVERB_PORT` / `VITE_REVERB_SCHEME` | operador | no | Dónde encuentra el **navegador** a Reverb. **Se compilan dentro del bundle**: cambiarlos exige `pnpm build` y volver a desplegar `public/build`, no alcanza con reiniciar procesos |
 | `FILESYSTEM_DISK` | app | no | `local` |
 | `MAIL_MAILER` / `MAIL_HOST` / `MAIL_PORT` / `MAIL_FROM_ADDRESS` / `MAIL_FROM_NAME` | operador | no | SMTP real |
 | `MAIL_USERNAME` / `MAIL_PASSWORD` | operador | **sí** | |
@@ -93,6 +105,14 @@ borrando filas de la tabla `sessions`, y con cualquier otro driver
 `UserAccessRevoker` lanza una excepción: el cambio de contraseña y la
 desactivación de usuarios fallarían con 500 en producción. La tabla `sessions`
 tiene que estar presente y migrada (ya viene en las migraciones base).
+
+### Dos pares de direcciones que no hay que confundir
+
+`REVERB_HOST`/`REVERB_PORT` es dónde el **servidor** (el worker de cola)
+encuentra a Reverb, típicamente un nombre de servicio de la red interna.
+`VITE_REVERB_HOST`/`VITE_REVERB_PORT` es dónde lo encuentra el **navegador**,
+o sea el host público. `REVERB_SERVER_HOST`/`REVERB_SERVER_PORT` es dónde el
+propio proceso escucha. Los tres pares son distintos y ninguno reemplaza a otro.
 
 ## 5. Build
 
@@ -141,6 +161,13 @@ curl -fsS  -X POST https://HOST/api/auth/login \
 
 Un token válido permite además `GET /api/services` y `GET /api/availability` (ver `docs/api.md`). Señales de que el deploy salió bien: `/up` en 200, una página Inertia que renderiza (assets presentes), login de API devolviendo token, worker consumiendo la cola y `php artisan schedule:list` mostrando `bookings:send-reminders`, `bookings:expire-unpaid` y `payments:reconcile`.
 
+**Reverb:** el proceso `reverb:start` corriendo y el puerto interno aceptando
+conexiones. Un fallo de autorización de canal se ve como un `POST
+/broadcasting/auth` con 403; un broadcast encolado que no pudo entregarse queda
+en `failed_jobs` y lo lista `php artisan queue:failed`. Reverb escribe sus logs
+a stdout del proceso; `reverb:start --debug` imprime el flujo de mensajes y es
+solo para diagnóstico.
+
 **Logs:** canal `stack`/`single` → `storage/logs/laravel.log` dentro del contenedor de la app. El worker y el scheduler escriben además a stdout del proceso. Nivel por `LOG_LEVEL`. Los logs no requieren backup; conviene rotarlos.
 
 ## 8. Datos persistentes y backup
@@ -167,6 +194,8 @@ Información relevante para rollback: volver a un commit anterior es seguro mien
 - `.env`, `APP_KEY`, credenciales de base de datos, de Redis y de SMTP, y tokens de Sanctum.
 - El `compose.yaml` del repo publica puertos al host (`80`, `5432`, `6379`, `1025`, `8025`, `5173`) porque es de desarrollo: **no reutilizarlo tal cual en producción**.
 - `/demo/*` (checkout simulado) existe mientras el proveedor sea el simulado; es superficie de demostración, nunca un cobro real.
+- `REVERB_APP_SECRET` y cualquier credencial de Reverb que no sea la *key*: la
+  key es pública por el protocolo, el secreto no.
 
 ## 10. Asunciones de la aplicación que el operador debe cubrir
 
@@ -181,3 +210,24 @@ Información relevante para rollback: volver a un commit anterior es seguro mien
 - **Reloj:** el scheduler y los recordatorios dependen de un reloj correcto en el host; además del
   scheduler, ahora el reloj del host afecta la tolerancia temporal de las firmas de webhook.
 - **Un solo worker es suficiente** para la carga de demo; escalar horizontalmente es seguro (los recordatorios se deduplican en la tabla `booking_reminders` y la creación de reservas usa advisory locks de PostgreSQL).
+- **Proxy con soporte de WebSocket:** el entrypoint público tiene que distinguir
+  tres rutas y dos destinos:
+
+  | Ruta | Destino | Protocolo |
+  |---|---|---|
+  | `/app/*` | Reverb | WebSocket: requiere `Upgrade` / `Connection: Upgrade` y HTTP/1.1 |
+  | `/apps/*` | Reverb | HTTP normal (API de publicación del protocolo Pusher) |
+  | `/broadcasting/auth` | aplicación Laravel | HTTP normal, autenticado por sesión |
+  | todo lo demás | aplicación Laravel | HTTP normal |
+
+  La distinción importa: el proxy necesita upgrade de WebSocket **para Reverb**,
+  pero la autorización de canal privado sigue siendo una petición HTTP de la
+  aplicación, con cookie de sesión y middleware `web`. No es tráfico de Reverb.
+
+  Preferencia arquitectónica: **una sola frontera pública** de ReservaHub capaz
+  de servir HTTP y de hacer upgrade a WebSocket. Reverb es un proceso interno de
+  la aplicación, no una segunda aplicación pública, y este repositorio no decide
+  hostname, puerto, túnel ni topología de producción.
+
+- **Escala de Reverb:** una sola instancia. `REVERB_SCALING_ENABLED` queda en
+  `false`; Redis sigue siendo únicamente el transporte de la cola.

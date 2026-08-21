@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project status
 
-Fases 0–9 are implemented (auth, tenancy, services/employees, availability, bookings, notifications/scheduler, REST API + Sanctum, account/business management, payments — see `docs/superpowers/plans/` and the status table in `01-reservahub.md` §7). Fase 10 (Reverb), Fase 11 (frontend redesign) and Fase 12 (release readiness + handoff) are not started. `01-reservahub.md` is still the authoritative spec for anything not yet implemented.
+Fases 0–10 are implemented (auth, tenancy, services/employees, availability, bookings, notifications/scheduler, REST API + Sanctum, account/business management, payments, realtime/Reverb — see `docs/superpowers/plans/` and the status table in `01-reservahub.md` §7). Fase 11 (frontend redesign) and Fase 12 (release readiness + handoff) are not started. `01-reservahub.md` is still the authoritative spec for anything not yet implemented.
 
 The frontend is deliberately minimal for now (17 Inertia pages, 4 shared components, Tailwind 4 with no component library, a placeholder dashboard). **Fase 11 owns the redesign** and must start from `superpowers:brainstorming` plus the installed frontend-design skill — not from UI code.
 
@@ -20,12 +20,20 @@ In scope here: the application, its development Docker boundaries, tests, CI tha
 
 ## Development environment: Docker (Laravel Sail)
 
-The project runs under Docker via Laravel Sail — `compose.yaml` at the repo root defines `laravel.test` (app), `pgsql`, `redis`, `mailpit`, `queue` (`php artisan queue:work`), and `scheduler` (`php artisan schedule:work`). There is no working native (non-Docker) path: `.env`'s `DB_HOST`/`REDIS_HOST`/`MAIL_HOST` point at Docker service names (`pgsql`, `redis`, `mailpit`), which only resolve inside the `laravel.test` container's network. Always develop and test against the containers, not `php artisan serve` on the host.
+The project runs under Docker via Laravel Sail — `compose.yaml` at the repo root defines `laravel.test` (app), `pgsql`, `redis`, `mailpit`, `queue` (`php artisan queue:work`), `scheduler` (`php artisan schedule:work`), and `reverb` (`php artisan reverb:start`). There is no working native (non-Docker) path: `.env`'s `DB_HOST`/`REDIS_HOST`/`MAIL_HOST` point at Docker service names (`pgsql`, `redis`, `mailpit`), which only resolve inside the `laravel.test` container's network. Always develop and test against the containers, not `php artisan serve` on the host.
 
 Queued jobs run on Redis (`QUEUE_CONNECTION=redis`), not the `database` driver — the `queue` container is the only consumer. Outgoing mail (booking notifications, reminders, employee invitations) is caught by Mailpit rather than actually sent; inspect it at the dashboard port from **Testing a feature branch or worktree** below (`http://localhost:8025` on the main checkout). `queue:work` boots once and keeps application code in memory, so after editing a listener or a notification class, restart the worker to pick up the change:
 
 ```bash
 docker compose restart queue
+```
+
+`reverb` corre `php artisan reverb:start` y, igual que `queue:work`, mantiene el
+código en memoria: después de editar un evento, un listener o el archivo de
+canales hay que reiniciarlo.
+
+```bash
+docker compose restart reverb
 ```
 
 **`vendor/bin/sail` does not work in Git Bash on Windows** — it hard-refuses with `Unsupported operating system [MINGW64_NT-...]`. Use `docker compose` directly instead, and pass dummy `WWWUSER`/`WWWGROUP` values (Sail's wrapper normally injects these; without it you'll get harmless "variable not set" warnings but the containers still run fine):
@@ -47,7 +55,11 @@ FORWARD_REDIS_PORT=63790
 FORWARD_MAILPIT_PORT=10250
 FORWARD_MAILPIT_DASHBOARD_PORT=8026
 VITE_PORT=5273
+FORWARD_REVERB_PORT=8081
+VITE_REVERB_PORT=8081
 ```
+`VITE_REVERB_PORT` has to match `FORWARD_REVERB_PORT` — it gets compiled into the frontend bundle, so changing it requires re-running `pnpm build`.
+
 Also set `DB_HOST=pgsql` in that `.env` (not `127.0.0.1` — that only works for a *native* host process talking to a container's forwarded port, and there is no working native path here per above). Mailpit's dashboard (to inspect sent verification/reset emails) is then at `http://localhost:<FORWARD_MAILPIT_DASHBOARD_PORT>`.
 
 **Bootstrapping a fresh worktree:** a new worktree starts with no `.env`, `vendor/`, `node_modules/` or `public/build` — all four are gitignored, so `git worktree add` does not bring them over. Two of those absences bite in non-obvious ways:
@@ -137,6 +149,91 @@ Los montos y la moneda son autoridad **local** (`payments.amount`/`currency`, sn
 del negocio); un webhook con otro importe se registra como `ignored/amount_mismatch` y no cambia nada.
 Los payloads se persisten con lista blanca (`WebhookPayloadRedactor`) y los headers y firmas nunca se
 guardan ni se loguean.
+
+## Tiempo real (Fase 10)
+
+Seis transiciones de reserva (`created`, `confirmed`, `cancelled`,
+`rescheduled`, `completed`, `no_show`) disparan eventos de dominio planos.
+`App\Listeners\BroadcastBookingChange` — un tipo unión, registrado por
+autodescubrimiento — los traduce al **único** evento de broadcast,
+`App\Events\Broadcasting\BookingChanged`.
+
+Tres reglas que no se pueden romper:
+
+1. **`BookingChanged` es el único evento de broadcast.** No hay eventos de
+   WebSocket de pagos: un pago aprobado llega a la pantalla por
+   `ApplyPaymentResult` → `ConfirmBooking` → `BookingConfirmed`, como cualquier
+   confirmación. Un test falla si aparece otra clase bajo
+   `app/Events/Broadcasting/`.
+2. **`ShouldDispatchAfterCommit` no es decorativo.** `ConfirmBooking` dispara
+   dentro de la transacción de `ApplyPaymentResult` y `CancelBooking` dentro de
+   la de `ExpireUnpaidBookings`. Sin eso, un rollback dejaría al navegador con
+   un cambio que nunca ocurrió.
+3. **El payload es una pista, no datos:** `{booking_id, change, updated_at}`. El
+   cliente recarga el estado canónico con `router.reload({ only: ['bookings'] })`,
+   así que las Policies siguen siendo la autoridad. `businessId` enruta el canal
+   y no viaja en el payload — por eso `broadcastWith()` es explícito.
+
+Canal único: `private-business.{businessId}`, autorizado en `routes/channels.php`
+con la unión exacta de lo que ya exigen `EnsureBusinessContext` y
+`BookingPolicy::viewAny` (rol de staff, usuario activo, negocio propio, negocio
+activo). El identificador se compara como string para que `'05'` o `'5abc'` no
+entren a un canal ajeno. El cliente no se suscribe a nada.
+
+`phpunit.xml` deja `BROADCAST_CONNECTION=null` a propósito: con
+`QUEUE_CONNECTION=sync`, un driver real haría que cada test que toca una reserva
+llamara a un Reverb inexistente. `ChannelAuthorizationTest` activa el driver real
+solo en su `setUp()`, porque `NullBroadcaster::auth()` autoriza a cualquiera sin
+mirar `routes/channels.php`.
+
+### Smoke de dos navegadores
+
+```bash
+WWWUSER=1000 WWWGROUP=1000 docker compose up -d
+docker compose exec laravel.test php artisan migrate --force
+docker compose exec laravel.test php artisan db:seed --class=DemoSeeder
+docker compose exec laravel.test bash -lc "pnpm install --frozen-lockfile && rm -f public/hot && pnpm build"
+docker compose ps reverb        # Up
+```
+
+1. **Navegador A** — iniciar sesión como `owner@reservahub.test` y abrir
+   `/dashboard/bookings`. En DevTools → Network → WS tiene que haber **una**
+   conexión a `localhost:<FORWARD_REVERB_PORT>` en estado `101 Switching
+   Protocols`, y entre sus mensajes un `pusher:subscription_succeeded` para
+   `private-business.<id del negocio A>`.
+2. **Navegador B** (ventana privada) — iniciar sesión como cliente y reservar
+   desde la página pública del negocio.
+3. **En A:** la fila nueva aparece sola, sin refresh manual.
+4. **En B:** pagar la seña por el checkout simulado y aprobarla.
+5. **En A:** la fila pasa de `Pendiente` a `Confirmada` sola.
+6. Con dos pestañas de staff abiertas, pulsar `Completar` en una: la otra se
+   actualiza sola.
+7. **Aislamiento entre negocios.** Un tercer navegador con sesión de staff de
+   **otro** negocio, abierto en `/dashboard/bookings`. En su DevTools → Network
+   → WS, la conexión tiene que mostrar `pusher:subscription_succeeded` **solo**
+   para `private-business.<id del negocio B>`, sin ninguna suscripción al canal
+   de A y sin ningún frame `booking.changed` durante los pasos 2 a 6. La
+   ausencia de cambios en la tabla es la consecuencia; la prueba es que el canal
+   de A no aparece en la conexión.
+
+### Smoke de fallo de Reverb
+
+Demuestra que la corrección del dominio no depende del tiempo real.
+
+1. `docker compose stop reverb`
+2. En el navegador A, ejecutar una transición (por ejemplo `Confirmar`).
+3. La acción HTTP tiene éxito con normalidad: sin error, sin timeout, sin 500.
+4. Verificar el estado comprometido en PostgreSQL:
+   ```bash
+   docker compose exec laravel.test php artisan tinker --execute="echo \App\Models\Booking::withoutGlobalScopes()->find(<id>)->status->value;"
+   ```
+5. Un refresh manual muestra el estado canónico.
+6. `docker compose start reverb` — las transiciones siguientes vuelven a
+   actualizar la pantalla sola.
+
+Puede quedar una fila en `failed_jobs` con `BroadcastEvent`: el worker corre con
+`--tries=3`, así que tras tres intentos fallidos el job se registra ahí. Es el
+resultado esperado y no afecta al dominio.
 
 ## Localization: `APP_LOCALE=es`
 
