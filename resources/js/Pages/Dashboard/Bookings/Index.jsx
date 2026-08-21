@@ -1,5 +1,6 @@
 import { Link, router, usePage } from '@inertiajs/react';
 import { useState } from 'react';
+import BookingsRealtime from '../../../Components/BookingsRealtime';
 import DashboardLayout from '../../../Components/DashboardLayout';
 import InputError from '../../../Components/InputError';
 
@@ -18,7 +19,23 @@ const CONFIRM_MESSAGES = {
     cancel: '¿Cancelar esta reserva?',
 };
 
-export default function Index({ bookings }) {
+// Constante de módulo: el callback de useEcho queda memoizado en el primer
+// render, así que conviene que capture siempre el mismo array.
+const RELOAD_ONLY = ['bookings'];
+
+// El guard vive en el borde del componente, no dentro del hook: las reglas de
+// los hooks prohíben llamar useEcho condicionalmente, y si el bundle se
+// compiló sin VITE_REVERB_APP_KEY, pusher-js lanza al construirse y rompería
+// el render de la página entera. Montar el suscriptor solo cuando hay
+// configuración deja la página utilizable siempre.
+//
+// Esto cubre el caso de "tiempo real deliberadamente sin configurar". No
+// pretende validar cualquier host o puerto mal puesto: con un endpoint mal
+// configurado el socket no conecta, y la página y el flujo HTTP/Inertia
+// siguen funcionando igual.
+const realtimeEnabled = Boolean(import.meta.env.VITE_REVERB_APP_KEY);
+
+export default function Index({ bookings, businessId }) {
     const { errors } = usePage().props;
     const [reschedulingId, setReschedulingId] = useState(null);
     const [rescheduleDate, setRescheduleDate] = useState('');
@@ -75,6 +92,7 @@ export default function Index({ bookings }) {
 
     return (
         <DashboardLayout>
+            {realtimeEnabled && <BookingsRealtime businessId={businessId} only={RELOAD_ONLY} />}
             <div className="p-8">
                 <div className="mb-6 flex items-center justify-between">
                     <h1 className="text-2xl font-bold">Reservas</h1>
