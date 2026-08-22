@@ -6,6 +6,7 @@ export default function Home() {
     return (
         <div className="min-h-screen flex flex-col items-center justify-center gap-4">
             <h1 className="text-3xl font-bold">ReservaHub</h1>
+            <Link href="/negocios" className="text-sm underline">Ver negocios</Link>
             {auth?.user?.role === 'customer' && (
                 <Link href="/mis-reservas" className="text-sm underline">Ver mis reservas</Link>
             )}
