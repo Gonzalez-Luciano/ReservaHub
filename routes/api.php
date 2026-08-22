@@ -42,8 +42,8 @@ Route::name('api.')->group(function () {
         Route::get('bookings/{booking}/payments/{payment}', [PaymentController::class, 'show'])
             ->name('bookings.payments.show')->whereNumber('booking')->whereNumber('payment');
 
-        // Outside the prefix businesses/{business:slug}: that group requires BindPublicBusiness,
-        // which requires a slug. Without EnsureBusinessContext: does not query models with BusinessScope.
+        // Fuera del prefijo businesses/{business:slug}: ese grupo exige BindPublicBusiness,
+        // que requiere un slug. Sin EnsureBusinessContext: no consulta modelos con BusinessScope.
         Route::get('businesses', [BusinessController::class, 'index'])->name('businesses.index');
     });
 

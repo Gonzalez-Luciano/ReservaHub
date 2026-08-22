@@ -9,6 +9,7 @@ use App\Models\Schedule;
 use App\Models\Service;
 use App\Models\User;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 
 class DemoSeeder extends Seeder
 {
@@ -57,51 +58,53 @@ class DemoSeeder extends Seeder
             return;
         }
 
-        $business = Business::create([
-            'name' => $name,
-            'slug' => $slug,
-            'timezone' => 'America/Argentina/Buenos_Aires',
-            'currency' => 'ARS',
-            'cancellation_hours' => 24,
-            'is_active' => true,
-        ]);
+        DB::transaction(function () use ($slug, $name, $ownerEmail, $employees, $services): void {
+            $business = Business::create([
+                'name' => $name,
+                'slug' => $slug,
+                'timezone' => 'America/Argentina/Buenos_Aires',
+                'currency' => 'ARS',
+                'cancellation_hours' => 24,
+                'is_active' => true,
+            ]);
 
-        User::factory()->create([
-            'name' => $name.' Owner',
-            'email' => $ownerEmail,
-            'password' => 'password',
-            'role' => Role::Owner,
-            'business_id' => $business->id,
-        ]);
-
-        $employeeModels = User::factory()
-            ->count(count($employees))
-            ->sequence(...$employees)
-            ->create([
+            User::factory()->create([
+                'name' => $name.' Owner',
+                'email' => $ownerEmail,
                 'password' => 'password',
-                'role' => Role::Employee,
+                'role' => Role::Owner,
                 'business_id' => $business->id,
             ]);
 
-        $serviceModels = Service::factory()
-            ->for($business)
-            ->count(count($services))
-            ->sequence(...$services)
-            ->create();
-
-        $weekdays = [DayOfWeek::Monday, DayOfWeek::Tuesday, DayOfWeek::Wednesday, DayOfWeek::Thursday, DayOfWeek::Friday];
-
-        foreach ($employeeModels as $employee) {
-            foreach ($weekdays as $day) {
-                Schedule::factory()->for($business)->create([
-                    'employee_id' => $employee->id,
-                    'day_of_week' => $day,
-                    'start_time' => '09:00',
-                    'end_time' => '18:00',
+            $employeeModels = User::factory()
+                ->count(count($employees))
+                ->sequence(...$employees)
+                ->create([
+                    'password' => 'password',
+                    'role' => Role::Employee,
+                    'business_id' => $business->id,
                 ]);
-            }
 
-            $employee->services()->sync($serviceModels->pluck('id'));
-        }
+            $serviceModels = Service::factory()
+                ->for($business)
+                ->count(count($services))
+                ->sequence(...$services)
+                ->create();
+
+            $weekdays = [DayOfWeek::Monday, DayOfWeek::Tuesday, DayOfWeek::Wednesday, DayOfWeek::Thursday, DayOfWeek::Friday];
+
+            foreach ($employeeModels as $employee) {
+                foreach ($weekdays as $day) {
+                    Schedule::factory()->for($business)->create([
+                        'employee_id' => $employee->id,
+                        'day_of_week' => $day,
+                        'start_time' => '09:00',
+                        'end_time' => '18:00',
+                    ]);
+                }
+
+                $employee->services()->sync($serviceModels->pluck('id'));
+            }
+        });
     }
 }

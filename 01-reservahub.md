@@ -556,11 +556,11 @@ El frontend dejó de ser aceptable como "la interfaz mínima para ejercitar los 
 
 - 17 páginas Inertia en `resources/js/Pages/` y 4 componentes en `resources/js/Components/` (`AuthCard`, `DashboardLayout`, `InputError`, `PublicLayout`).
 - Tailwind CSS 4 vía `@tailwindcss/vite`, sin librería de componentes; `resources/css/app.css` tiene 9 líneas y solo declara la familia tipográfica.
-- `Pages/Home.jsx` es una portada de una sola línea (`<h1>ReservaHub</h1>` más un enlace condicional). No hay landing pública.
+- `Pages/Home.jsx` es una portada mínima (`<h1>ReservaHub</h1>` más un enlace a `/negocios` y, para clientes logueados, otro a `/mis-reservas`). No hay landing pública.
 - `Pages/Dashboard/Index.jsx` es un placeholder que dice explícitamente que el dashboard real llega en una fase posterior; `DashboardController` solo pasa el nombre del negocio. **El dashboard del alcance funcional (§2) no está implementado y ninguna fase previa lo reclama** — esta fase decide qué se construye y con qué datos reales.
 - Áreas ya conectadas: autenticación (login, registro, verificación, recuperación, reset), invitaciones de empleados, servicios, empleados, horarios, pausas, licencias, reservas del panel con su ciclo de vida completo (confirmar, cancelar, completar, ausencia, reprogramar), página pública de negocio, reserva pública y "mis reservas" del cliente.
 - Sin UI (aunque el backend existe o el dominio lo requiere): notificaciones en base de datos, ajustes del negocio, perfil/cuenta del usuario, gestión de tokens de API.
-- Listado/descubrimiento de negocios: **ni backend ni frontend existen todavía** (a diferencia de los ítems anteriores) — lo cierra la Fase 10.5.
+- Listado/descubrimiento de negocios (`GET /negocios` y `GET /api/businesses`) ya existe: lo construyó la Fase 10.5 — la Fase 11 rediseña esa pantalla como cualquier otra ya conectada.
 - Pagos (Fase 9) y tiempo real (Fase 10) ya existen: la Fase 11 rediseña también la tabla de reservas que ya se actualiza sola — **solo se rediseña lo que esté implementado cuando la fase empiece**.
 
 #### Workflow obligatorio al ejecutar esta fase
@@ -900,7 +900,7 @@ owner@reservahub.test
 password
 ```
 
-Implementado parcialmente en `database/seeders/DemoSeeder.php`: siembra empresa, owner, dos empleados, cinco servicios y horarios semanales; **faltan clientes y reservas futuras/pasadas**. Es idempotente (no re-siembra si ya existe `peluqueria-demo`) y no contiene datos reales de clientes ni de pagos. `DatabaseSeeder` además crea un usuario `test@example.com` de conveniencia: **en un entorno público hay que sembrar con `db:seed --class=DemoSeeder`, no con el seeder por defecto**, y la contraseña de demo debe poder rotarse desde el entorno. Nunca correr `migrate:fresh --seed` sobre datos que deban persistir.
+Implementado parcialmente en `database/seeders/DemoSeeder.php`: siembra dos negocios — `peluqueria-demo` (un owner, dos empleados, cinco servicios) y `estudio-demo` (un owner, un empleado, dos servicios) — con horarios semanales en ambos; **faltan clientes y reservas futuras/pasadas**. Es idempotente por negocio (guard por slug: vuelve a correrlo no duplica nada y siembra solo los negocios de demo que falten) y no contiene datos reales de clientes ni de pagos. `DatabaseSeeder` además crea un usuario `test@example.com` de conveniencia: **en un entorno público hay que sembrar con `db:seed --class=DemoSeeder`, no con el seeder por defecto**, y la contraseña de demo debe poder rotarse desde el entorno. Nunca correr `migrate:fresh --seed` sobre datos que deban persistir.
 
 ## 11. Capturas recomendadas
 
