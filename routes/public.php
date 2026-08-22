@@ -7,6 +7,9 @@ use App\Http\Controllers\Public\MyBookingsController;
 use App\Http\Middleware\BindPublicBusiness;
 use Illuminate\Support\Facades\Route;
 
+// Fuera del grupo con prefijo de slug: ese lleva BindPublicBusiness, que exige un slug.
+Route::get('negocios', [BusinessController::class, 'index'])->name('public.business.index');
+
 Route::prefix('negocios/{business:slug}')->middleware(BindPublicBusiness::class)->name('public.business.')->group(function () {
     Route::get('/', [BusinessController::class, 'show'])->name('show');
     Route::get('/reservar', [BookingController::class, 'create'])->middleware('auth')->name('booking.create');

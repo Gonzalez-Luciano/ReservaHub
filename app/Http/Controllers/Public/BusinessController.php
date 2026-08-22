@@ -10,6 +10,13 @@ use Inertia\Response;
 
 class BusinessController extends Controller
 {
+    public function index(): Response
+    {
+        return Inertia::render('Public/Business/Index', [
+            'businesses' => Business::where('is_active', true)->orderBy('name')->get(['id', 'name', 'slug']),
+        ]);
+    }
+
     public function show(Business $business): Response
     {
         return Inertia::render('Public/Business/Show', [
