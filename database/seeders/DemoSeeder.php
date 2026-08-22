@@ -14,13 +14,52 @@ class DemoSeeder extends Seeder
 {
     public function run(): void
     {
-        if (Business::where('slug', 'peluqueria-demo')->exists()) {
+        $this->seedBusiness(
+            slug: 'peluqueria-demo',
+            name: 'Peluquería Demo',
+            ownerEmail: 'owner@reservahub.test',
+            employees: [
+                ['name' => 'Ana Empleada', 'email' => 'ana@reservahub.test'],
+                ['name' => 'Beto Empleado', 'email' => 'beto@reservahub.test'],
+            ],
+            services: [
+                ['name' => 'Corte de cabello', 'duration_minutes' => 30, 'buffer_minutes' => 5, 'price' => 3500],
+                ['name' => 'Coloración', 'duration_minutes' => 90, 'buffer_minutes' => 15, 'price' => 12000],
+                ['name' => 'Manicura', 'duration_minutes' => 45, 'buffer_minutes' => 5, 'price' => 4000],
+                ['name' => 'Masaje', 'duration_minutes' => 60, 'buffer_minutes' => 10, 'price' => 8000],
+                ['name' => 'Depilación', 'duration_minutes' => 30, 'buffer_minutes' => 10, 'price' => 5000],
+            ],
+        );
+
+        $this->seedBusiness(
+            slug: 'estudio-demo',
+            name: 'Estudio Demo',
+            ownerEmail: 'owner2@reservahub.test',
+            employees: [
+                ['name' => 'Carla Empleada', 'email' => 'carla@reservahub.test'],
+            ],
+            services: [
+                ['name' => 'Clase de guitarra', 'duration_minutes' => 60, 'buffer_minutes' => 10, 'price' => 6000],
+                ['name' => 'Grabación de demo', 'duration_minutes' => 120, 'buffer_minutes' => 30, 'price' => 20000],
+            ],
+        );
+    }
+
+    /**
+     * @param  array<int, array{name: string, email: string}>  $employees
+     * @param  array<int, array{name: string, duration_minutes: int, buffer_minutes: int, price: int}>  $services
+     */
+    private function seedBusiness(string $slug, string $name, string $ownerEmail, array $employees, array $services): void
+    {
+        // Idempotencia por negocio: un guard global impediría sembrar un negocio
+        // nuevo en una instalación donde el primero ya existe.
+        if (Business::where('slug', $slug)->exists()) {
             return;
         }
 
         $business = Business::create([
-            'name' => 'Peluquería Demo',
-            'slug' => 'peluqueria-demo',
+            'name' => $name,
+            'slug' => $slug,
             'timezone' => 'America/Argentina/Buenos_Aires',
             'currency' => 'ARS',
             'cancellation_hours' => 24,
@@ -28,40 +67,31 @@ class DemoSeeder extends Seeder
         ]);
 
         User::factory()->create([
-            'name' => 'Owner Demo',
-            'email' => 'owner@reservahub.test',
+            'name' => $name.' Owner',
+            'email' => $ownerEmail,
             'password' => 'password',
             'role' => Role::Owner,
             'business_id' => $business->id,
         ]);
 
-        $employees = User::factory()
-            ->count(2)
-            ->sequence(
-                ['name' => 'Ana Empleada', 'email' => 'ana@reservahub.test'],
-                ['name' => 'Beto Empleado', 'email' => 'beto@reservahub.test'],
-            )
+        $employeeModels = User::factory()
+            ->count(count($employees))
+            ->sequence(...$employees)
             ->create([
                 'password' => 'password',
                 'role' => Role::Employee,
                 'business_id' => $business->id,
             ]);
 
-        $services = Service::factory()
+        $serviceModels = Service::factory()
             ->for($business)
-            ->count(5)
-            ->sequence(
-                ['name' => 'Corte de cabello', 'duration_minutes' => 30, 'buffer_minutes' => 5, 'price' => 3500],
-                ['name' => 'Coloración', 'duration_minutes' => 90, 'buffer_minutes' => 15, 'price' => 12000],
-                ['name' => 'Manicura', 'duration_minutes' => 45, 'buffer_minutes' => 5, 'price' => 4000],
-                ['name' => 'Masaje', 'duration_minutes' => 60, 'buffer_minutes' => 10, 'price' => 8000],
-                ['name' => 'Depilación', 'duration_minutes' => 30, 'buffer_minutes' => 10, 'price' => 5000],
-            )
+            ->count(count($services))
+            ->sequence(...$services)
             ->create();
 
         $weekdays = [DayOfWeek::Monday, DayOfWeek::Tuesday, DayOfWeek::Wednesday, DayOfWeek::Thursday, DayOfWeek::Friday];
 
-        foreach ($employees as $employee) {
+        foreach ($employeeModels as $employee) {
             foreach ($weekdays as $day) {
                 Schedule::factory()->for($business)->create([
                     'employee_id' => $employee->id,
@@ -71,7 +101,7 @@ class DemoSeeder extends Seeder
                 ]);
             }
 
-            $employee->services()->sync($services->pluck('id'));
+            $employee->services()->sync($serviceModels->pluck('id'));
         }
     }
 }

@@ -141,7 +141,7 @@ php artisan db:seed --class=DemoSeeder         # datos de demo, opcional, idempo
 
 - Las migraciones no destruyen datos; no hay migraciones `down` pensadas para rollback en caliente.
 - **Nunca** `migrate:fresh`, `migrate:refresh` ni `db:wipe` sobre datos que deban persistir.
-- `DemoSeeder` es seguro y repetible: si ya existe el negocio `peluqueria-demo` no hace nada. Hoy crea la empresa demo, un owner, dos empleados, cinco servicios y horarios de lunes a viernes (todavía no siembra clientes ni reservas). Sin datos reales de clientes ni de pagos.
+- `DemoSeeder` es seguro y repetible: siembra solo los negocios de demo que falten (guard por slug), así que volver a correrlo no duplica nada. Hoy crea dos negocios — `peluqueria-demo` (un owner, dos empleados, cinco servicios) y `estudio-demo` (un owner, un empleado, dos servicios) — con horarios de lunes a viernes en ambos (todavía no siembra clientes ni reservas). Sin datos reales de clientes ni de pagos.
 - **No usar `db:seed` sin `--class`**: el `DatabaseSeeder` por defecto crea además un usuario de prueba `test@example.com`.
 - Las credenciales de demo (`owner@reservahub.test`) son públicas por diseño. Si la instancia es accesible desde internet, la contraseña de demo debe cambiarse tras el seed o gestionarse desde el entorno.
 
