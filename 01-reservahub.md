@@ -398,6 +398,7 @@ contexto obligatorio y anidar reutiliza la resolución de scope de reservas.
 | 8 — Gestión de cuenta y negocio | Hecha | `tests/Feature/Account/*`, `tests/Feature/Dashboard/{BusinessSettingsTest,UserStatusTest,UserStatusConcurrencyTest,HolidaysTest}`, `tests/Feature/Api/{AccountTest,BusinessTest,UsersTest,HolidaysTest}`, `business_holidays` en `AvailabilityService` |
 | 9 — Pagos | Hecha | `app/Services/Payments/*`, `app/Actions/Payments/*`, `payments`/`webhook_events`, `tests/Feature/Payments/*` (incluye concurrencia), `payments:reconcile` y `bookings:expire-unpaid` en el scheduler |
 | 10 — Tiempo real | Hecha | `laravel/reverb`, `app/Events/Broadcasting/BookingChanged.php`, `app/Listeners/BroadcastBookingChange.php`, `routes/channels.php`, servicio `reverb` en `compose.yaml`, `tests/Feature/Realtime/*` |
+| 10.5 — Listado público de negocios | Pendiente | No existe ni backend ni frontend: `Public\BusinessController` solo tiene `show()`, no hay ruta `GET /negocios` |
 | 11 — Rediseño y experiencia frontend | Pendiente | Frontend actual mínimo: 17 páginas Inertia y 4 componentes, `Pages/Home.jsx` es un `<h1>`, `Pages/Dashboard/Index.jsx` es un placeholder |
 | 12 — Release readiness y handoff | En curso | `docs/DEPLOYMENT_HANDOFF.md` escrito. Pendientes: workflow de CI, README propio, seeder de demo con clientes y reservas, proxies de confianza para operar detrás de un proxy/tunnel |
 
@@ -521,6 +522,26 @@ resto del dominio.
 4. Autorizar canal.
 5. Actualizar calendario en vivo.
 
+### Fase 10.5 — Listado público de negocios
+
+Cierra la brecha marcada en la Fase 11 (§ punto de partida): hoy no existe ni backend ni frontend
+para que un cliente descubra qué negocios existen — solo se puede llegar a `/negocios/{slug}`
+sabiendo el slug de antemano.
+
+1. **Backend.** `Public\BusinessController::index()`, ruta `GET /negocios`, sin autenticación (mismo
+   criterio que `/negocios/{slug}` — solo `/reservar` exige sesión). Devuelve los negocios con
+   `is_active = true`, ordenados por nombre, proyectando `id`, `name`, `slug`.
+2. **Frontend.** `Public/Business/Index.jsx`, mismo patrón visual mínimo que `Show.jsx` (lista +
+   `PublicLayout`, sin librería de componentes) — cada negocio linkea a `/negocios/{slug}`.
+3. **Punto de entrada.** `Pages/Home.jsx` gana un link a `/negocios` (hoy solo tiene "Ver mis
+   reservas" para clientes logueados) — sin esto, el listado no tiene desde dónde llegar sin escribir
+   la URL a mano.
+4. **Test.** Un negocio con `is_active = false` no aparece en el listado — mismo invariante que ya
+   protege `/negocios/{slug}` vía `BindPublicBusiness`.
+
+Fuera de alcance: paginación (la escala de demo no la necesita), búsqueda o filtro, categorías de
+negocio, y cualquier diseño visual — eso es Fase 11.
+
 ### Fase 11 — Rediseño y experiencia frontend
 
 **Objetivo:** convertir una aplicación ya funcional en una demo SaaS profesional, coherente y presentable, sin rediseñar el backend por motivos visuales.
@@ -538,7 +559,8 @@ El frontend dejó de ser aceptable como "la interfaz mínima para ejercitar los 
 - `Pages/Home.jsx` es una portada de una sola línea (`<h1>ReservaHub</h1>` más un enlace condicional). No hay landing pública.
 - `Pages/Dashboard/Index.jsx` es un placeholder que dice explícitamente que el dashboard real llega en una fase posterior; `DashboardController` solo pasa el nombre del negocio. **El dashboard del alcance funcional (§2) no está implementado y ninguna fase previa lo reclama** — esta fase decide qué se construye y con qué datos reales.
 - Áreas ya conectadas: autenticación (login, registro, verificación, recuperación, reset), invitaciones de empleados, servicios, empleados, horarios, pausas, licencias, reservas del panel con su ciclo de vida completo (confirmar, cancelar, completar, ausencia, reprogramar), página pública de negocio, reserva pública y "mis reservas" del cliente.
-- Sin UI (aunque el backend existe o el dominio lo requiere): notificaciones en base de datos, ajustes del negocio, perfil/cuenta del usuario, gestión de tokens de API, listado/descubrimiento de negocios.
+- Sin UI (aunque el backend existe o el dominio lo requiere): notificaciones en base de datos, ajustes del negocio, perfil/cuenta del usuario, gestión de tokens de API.
+- Listado/descubrimiento de negocios: **ni backend ni frontend existen todavía** (a diferencia de los ítems anteriores) — lo cierra la Fase 10.5.
 - Pagos (Fase 9) y tiempo real (Fase 10) ya existen: la Fase 11 rediseña también la tabla de reservas que ya se actualiza sola — **solo se rediseña lo que esté implementado cuando la fase empiece**.
 
 #### Workflow obligatorio al ejecutar esta fase
