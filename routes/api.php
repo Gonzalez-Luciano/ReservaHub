@@ -41,6 +41,10 @@ Route::name('api.')->group(function () {
             ->name('bookings.payments.store')->whereNumber('booking');
         Route::get('bookings/{booking}/payments/{payment}', [PaymentController::class, 'show'])
             ->name('bookings.payments.show')->whereNumber('booking')->whereNumber('payment');
+
+        // Outside the prefix businesses/{business:slug}: that group requires BindPublicBusiness,
+        // which requires a slug. Without EnsureBusinessContext: does not query models with BusinessScope.
+        Route::get('businesses', [BusinessController::class, 'index'])->name('businesses.index');
     });
 
     Route::middleware(['auth:sanctum', 'business'])->group(function () {

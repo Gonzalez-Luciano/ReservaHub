@@ -49,6 +49,7 @@ devuelve 401. Después de cambiarla hay que volver a `POST /api/auth/login`.
 | GET | `/api/holidays` | staff (owner/admin) | Feriados del negocio |
 | POST | `/api/holidays` | staff (owner/admin) | Crea un feriado |
 | DELETE | `/api/holidays/{holiday}` | staff (owner/admin) | Elimina un feriado |
+| GET | `/api/businesses` | cliente | Negocios activos, ordenados por nombre |
 | GET | `/api/businesses/{slug}/services` | cliente | Servicios del negocio |
 | GET | `/api/businesses/{slug}/employees` | cliente | Empleados del negocio |
 | GET | `/api/businesses/{slug}/availability` | cliente | Slots libres |

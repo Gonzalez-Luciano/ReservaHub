@@ -12,6 +12,13 @@ use Illuminate\Http\JsonResponse;
 
 class BusinessController extends Controller
 {
+    public function index(): JsonResponse
+    {
+        $businesses = Business::where('is_active', true)->orderBy('name')->get();
+
+        return ApiResponse::success(BusinessResource::collection($businesses));
+    }
+
     public function show(): JsonResponse
     {
         $business = Business::current();
