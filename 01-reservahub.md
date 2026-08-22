@@ -398,7 +398,7 @@ contexto obligatorio y anidar reutiliza la resolución de scope de reservas.
 | 8 — Gestión de cuenta y negocio | Hecha | `tests/Feature/Account/*`, `tests/Feature/Dashboard/{BusinessSettingsTest,UserStatusTest,UserStatusConcurrencyTest,HolidaysTest}`, `tests/Feature/Api/{AccountTest,BusinessTest,UsersTest,HolidaysTest}`, `business_holidays` en `AvailabilityService` |
 | 9 — Pagos | Hecha | `app/Services/Payments/*`, `app/Actions/Payments/*`, `payments`/`webhook_events`, `tests/Feature/Payments/*` (incluye concurrencia), `payments:reconcile` y `bookings:expire-unpaid` en el scheduler |
 | 10 — Tiempo real | Hecha | `laravel/reverb`, `app/Events/Broadcasting/BookingChanged.php`, `app/Listeners/BroadcastBookingChange.php`, `routes/channels.php`, servicio `reverb` en `compose.yaml`, `tests/Feature/Realtime/*` |
-| 10.5 — Listado público de negocios | Pendiente | No existe ni backend ni frontend: `Public\BusinessController` solo tiene `show()`, no hay ruta `GET /negocios` |
+| 10.5 — Listado público de negocios | Hecha | `Public\BusinessController::index()` + `GET /negocios`, `Api\BusinessController::index()` + `GET /api/businesses`, `Pages/Public/Business/Index.jsx`, link desde `Home.jsx`, `tests/Feature/Public/BusinessIndexTest`, `tests/Feature/Api/BusinessesIndexTest`, `DemoSeeder` con dos negocios |
 | 11 — Rediseño y experiencia frontend | Pendiente | Frontend actual mínimo: 17 páginas Inertia y 4 componentes, `Pages/Home.jsx` es un `<h1>`, `Pages/Dashboard/Index.jsx` es un placeholder |
 | 12 — Release readiness y handoff | En curso | `docs/DEPLOYMENT_HANDOFF.md` escrito. Pendientes: workflow de CI, README propio, seeder de demo con clientes y reservas, proxies de confianza para operar detrás de un proxy/tunnel |
 
