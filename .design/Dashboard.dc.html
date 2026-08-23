@@ -1,0 +1,278 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&display=swap">
+  <style>
+    *{box-sizing:border-box}
+    body{margin:0;background:#ECEDE8;color:#191A17;font-family:'Instrument Sans',ui-sans-serif,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+    a{color:#191A17;text-underline-offset:3px}
+    a:hover{color:#000}
+  </style>
+</helmet>
+
+<div style="display:flex;width:1440px;height:900px;overflow:hidden">
+
+  <!-- ============ SIDEBAR ============ -->
+  <div style="display:flex;flex-direction:column;width:240px;flex-shrink:0;background:#E3E5DE;border-right:1px solid #D9DAD3">
+    <div style="padding:20px 16px 16px 16px;border-bottom:1px solid #D9DAD3">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+        <div>
+          <div style="font-size:15px;font-weight:600;letter-spacing:-0.01em">Peluquería Demo</div>
+          <div style="font-size:12px;line-height:16px;color:#676860;margin-top:2px">Negocio activo</div>
+        </div>
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#676860" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6.5L8 10.5L12 6.5"/></svg>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:2px;padding:12px 10px">
+      <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:4px;font-size:13px;font-weight:600;background:#D9DAD3;color:#191A17">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="2.5" width="4.5" height="4.5"/><rect x="9" y="2.5" width="4.5" height="4.5"/><rect x="2.5" y="9" width="4.5" height="4.5"/><rect x="9" y="9" width="4.5" height="4.5"/></svg>
+        <span>Panel</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:4px;font-size:13px;color:#191A17">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="3.5" width="11" height="10"/><path d="M2.5 6.5h11M5.5 2v3M10.5 2v3"/></svg>
+        <span>Reservas</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:4px;font-size:13px;color:#191A17">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="5.5"/><path d="M8 5v3l2 1.2"/></svg>
+        <span>Servicios</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:4px;font-size:13px;color:#191A17">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="5.5" r="2.5"/><path d="M1.8 13.5c0-2.3 1.9-4 4.2-4s4.2 1.7 4.2 4"/><path d="M10.8 3.4a2.5 2.5 0 010 4.3M12 9.8c1.4.6 2.3 1.9 2.3 3.7"/></svg>
+        <span>Personal</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:4px;font-size:13px;color:#191A17">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="3.5" width="11" height="10"/><path d="M2.5 6.5h11M6 9.5l4 3M10 9.5l-4 3"/></svg>
+        <span>Feriados</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:4px;font-size:13px;color:#191A17">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="2.2"/><path d="M8 1.8v1.6M8 12.6v1.6M14.2 8h-1.6M3.4 8H1.8M12.4 3.6l-1.1 1.1M4.7 11.3l-1.1 1.1M12.4 12.4l-1.1-1.1M4.7 4.7L3.6 3.6"/></svg>
+        <span>Configuración</span>
+      </div>
+    </div>
+
+    <div style="flex-grow:1"></div>
+
+    <div style="display:flex;align-items:center;gap:10px;padding:14px 16px;border-top:1px solid #D9DAD3">
+      <div style="display:flex;align-items:center;justify-content:center;width:28px;height:28px;flex-shrink:0;border-radius:4px;background:#191A17;color:#ECEDE8;font-size:12px;font-weight:600">LG</div>
+      <div style="min-width:0">
+        <div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Luciano González</div>
+        <div style="font-size:12px;line-height:15px;color:#676860">Owner</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ CONTENT ============ -->
+  <div style="display:flex;flex-direction:column;flex-grow:1;min-width:0;padding:28px 32px;overflow:hidden">
+
+    <div style="margin-bottom:20px">
+      <h1 style="margin:0;font-size:24px;line-height:32px;font-weight:600;letter-spacing:-0.02em">Panel</h1>
+      <p style="margin:2px 0 0 0;font-size:13px;line-height:20px;color:#676860">Lunes 24 de agosto · America/Argentina/Buenos_Aires</p>
+    </div>
+
+    <!-- one dominant figure, three subordinate stats : typography, not tiles -->
+    <div style="display:flex;align-items:flex-end;gap:44px;padding-bottom:22px;border-bottom:1px solid #D9DAD3;margin-bottom:24px">
+
+      <div>
+        <div style="display:flex;align-items:baseline;gap:12px">
+          <span style="font-size:68px;line-height:64px;font-weight:600;letter-spacing:-0.05em;font-variant-numeric:tabular-nums">6</span>
+          <span style="font-size:22px;line-height:30px;font-weight:600;letter-spacing:-0.02em">turnos hoy</span>
+        </div>
+        <div style="font-size:13px;line-height:20px;color:#676860;margin-top:6px">3 confirmadas · 2 pendientes · 1 cancelada</div>
+      </div>
+
+      <div style="flex-grow:1"></div>
+
+      <div style="display:flex;align-items:flex-end;gap:36px">
+
+        <div>
+          <div style="font-size:12px;line-height:16px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#676860">Sin confirmar</div>
+          <div style="display:flex;align-items:baseline;gap:7px;margin-top:2px">
+            <span style="font-size:26px;line-height:32px;font-weight:600;letter-spacing:-0.03em;font-variant-numeric:tabular-nums">2</span>
+            <span style="font-size:13px;color:#676860">esperan</span>
+          </div>
+        </div>
+
+        <div style="width:1px;height:38px;background:#D9DAD3"></div>
+
+        <div>
+          <div style="font-size:12px;line-height:16px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#92400E">Seña sin pagar</div>
+          <div style="display:flex;align-items:baseline;gap:7px;margin-top:2px">
+            <span style="font-size:26px;line-height:32px;font-weight:600;letter-spacing:-0.03em;font-variant-numeric:tabular-nums;color:#92400E">1</span>
+            <span style="font-size:13px;color:#676860">vence 15:40</span>
+          </div>
+        </div>
+
+        <div style="width:1px;height:38px;background:#D9DAD3"></div>
+
+        <div>
+          <div style="font-size:12px;line-height:16px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#676860">Próximos 7 días</div>
+          <div style="display:flex;align-items:baseline;gap:7px;margin-top:2px">
+            <span style="font-size:26px;line-height:32px;font-weight:600;letter-spacing:-0.03em;font-variant-numeric:tabular-nums">14</span>
+            <span style="font-size:13px;color:#676860">confirmadas</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- two columns -->
+    <div style="display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:20px">
+
+      <!-- ---- day rail ---- -->
+      <div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+          <span style="font-size:12px;line-height:16px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#676860">Hoy · la jornada</span>
+          <div style="flex-grow:1;height:1px;background:#D9DAD3"></div>
+          <a href="#" style="font-size:13px">Ver todas</a>
+        </div>
+
+        <div style="border:1px solid #D9DAD3;border-radius:6px;background:#FFFFFF;padding:14px 16px 14px 0">
+          <div style="position:relative;height:528px">
+
+            <!-- hour grid -->
+            <div style="position:absolute;left:0;top:0;width:100%;height:100%">
+              <div style="position:absolute;top:0px;left:0;width:100%;height:1px;background:#EDEEE9"></div>
+              <div style="position:absolute;top:0px;left:16px;font-size:12px;line-height:16px;color:#676860;font-variant-numeric:tabular-nums;transform:translateY(-8px);background:#FFFFFF;padding-right:6px">09:00</div>
+              <div style="position:absolute;top:66px;left:0;width:100%;height:1px;background:#EDEEE9"></div>
+              <div style="position:absolute;top:66px;left:16px;font-size:12px;line-height:16px;color:#676860;font-variant-numeric:tabular-nums;transform:translateY(-8px);background:#FFFFFF;padding-right:6px">10:00</div>
+              <div style="position:absolute;top:132px;left:0;width:100%;height:1px;background:#EDEEE9"></div>
+              <div style="position:absolute;top:132px;left:16px;font-size:12px;line-height:16px;color:#676860;font-variant-numeric:tabular-nums;transform:translateY(-8px);background:#FFFFFF;padding-right:6px">11:00</div>
+              <div style="position:absolute;top:198px;left:0;width:100%;height:1px;background:#EDEEE9"></div>
+              <div style="position:absolute;top:198px;left:16px;font-size:12px;line-height:16px;color:#676860;font-variant-numeric:tabular-nums;transform:translateY(-8px);background:#FFFFFF;padding-right:6px">12:00</div>
+              <div style="position:absolute;top:264px;left:0;width:100%;height:1px;background:#EDEEE9"></div>
+              <div style="position:absolute;top:264px;left:16px;font-size:12px;line-height:16px;color:#676860;font-variant-numeric:tabular-nums;transform:translateY(-8px);background:#FFFFFF;padding-right:6px">13:00</div>
+              <div style="position:absolute;top:330px;left:0;width:100%;height:1px;background:#EDEEE9"></div>
+              <div style="position:absolute;top:330px;left:16px;font-size:12px;line-height:16px;color:#676860;font-variant-numeric:tabular-nums;transform:translateY(-8px);background:#FFFFFF;padding-right:6px">14:00</div>
+              <div style="position:absolute;top:396px;left:0;width:100%;height:1px;background:#EDEEE9"></div>
+              <div style="position:absolute;top:396px;left:16px;font-size:12px;line-height:16px;color:#676860;font-variant-numeric:tabular-nums;transform:translateY(-8px);background:#FFFFFF;padding-right:6px">15:00</div>
+              <div style="position:absolute;top:462px;left:0;width:100%;height:1px;background:#EDEEE9"></div>
+              <div style="position:absolute;top:462px;left:16px;font-size:12px;line-height:16px;color:#676860;font-variant-numeric:tabular-nums;transform:translateY(-8px);background:#FFFFFF;padding-right:6px">16:00</div>
+              <div style="position:absolute;top:528px;left:0;width:100%;height:1px;background:#EDEEE9"></div>
+              <div style="position:absolute;top:528px;left:16px;font-size:12px;line-height:16px;color:#676860;font-variant-numeric:tabular-nums;transform:translateY(-8px);background:#FFFFFF;padding-right:6px">17:00</div>
+            </div>
+
+            <!-- blocks : height is real duration -->
+            <div style="position:absolute;left:72px;right:0;top:0px;height:33px;display:grid;grid-template-columns:3px minmax(0,1fr);border-radius:0 4px 4px 0;overflow:hidden;background:#F6FBF7">
+              <div style="background:#166534"></div>
+              <div style="display:flex;align-items:center;gap:8px;padding:0 10px;min-width:0">
+                <span style="font-size:13px;font-weight:600;font-variant-numeric:tabular-nums">09:00</span>
+                <span style="font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Corte de cabello · Ana · Marina Ruiz</span>
+              </div>
+            </div>
+
+            <div style="position:absolute;left:72px;right:0;top:99px;height:99px;display:grid;grid-template-columns:3px minmax(0,1fr);border-radius:0 4px 4px 0;overflow:hidden;background:#FFFBEB">
+              <div style="background:#92400E"></div>
+              <div style="display:flex;flex-direction:column;justify-content:center;gap:3px;padding:0 10px;min-width:0">
+                <div style="display:flex;align-items:center;gap:8px">
+                  <span style="font-size:13px;font-weight:600;font-variant-numeric:tabular-nums">10:30</span>
+                  <span style="font-size:13px">Coloración · Beto · Julián Paz</span>
+                </div>
+                <div style="font-size:12px;line-height:16px;color:#676860;font-variant-numeric:tabular-nums">90 min</div>
+                <div style="font-size:12px;line-height:16px;color:#92400E;font-variant-numeric:tabular-nums">Seña $2.400 · vence 15:40</div>
+              </div>
+            </div>
+
+            <div style="position:absolute;left:72px;right:0;top:330px;height:50px;display:grid;grid-template-columns:3px minmax(0,1fr);border-radius:0 4px 4px 0;overflow:hidden;background:#F6FBF7">
+              <div style="background:#166534"></div>
+              <div style="display:flex;flex-direction:column;justify-content:center;gap:2px;padding:0 10px;min-width:0">
+                <div style="display:flex;align-items:center;gap:8px">
+                  <span style="font-size:13px;font-weight:600;font-variant-numeric:tabular-nums">14:00</span>
+                  <span style="font-size:13px">Manicura · Ana · Lucía Gil</span>
+                </div>
+                <div style="font-size:12px;line-height:16px;color:#676860;font-variant-numeric:tabular-nums">45 min</div>
+              </div>
+            </div>
+
+            <div style="position:absolute;left:72px;right:0;top:462px;height:66px;display:grid;grid-template-columns:3px minmax(0,1fr);border-radius:0 4px 4px 0;overflow:hidden;background:#FAFAF9">
+              <div style="background:#57534E"></div>
+              <div style="display:flex;flex-direction:column;justify-content:center;gap:2px;padding:0 10px;min-width:0">
+                <div style="display:flex;align-items:center;gap:8px">
+                  <span style="font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;color:#676860;text-decoration:line-through">16:00</span>
+                  <span style="font-size:13px;color:#676860">Masaje · Beto · Rodrigo Sosa</span>
+                </div>
+                <div style="font-size:12px;line-height:16px;color:#57534E">Cancelada · el horario quedó libre</div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ---- attention queue ---- -->
+      <div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+          <span style="font-size:12px;line-height:16px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#676860">Requieren atención</span>
+          <div style="flex-grow:1;height:1px;background:#D9DAD3"></div>
+        </div>
+
+        <!-- one surface, rows with a status gutter : same anatomy as the bookings list -->
+        <div style="border:1px solid #D9DAD3;border-radius:6px;background:#FFFFFF;overflow:hidden;margin-bottom:20px">
+
+          <div style="display:grid;grid-template-columns:3px minmax(0,1fr);border-bottom:1px solid #D9DAD3">
+            <div style="align-self:stretch;background:#92400E"></div>
+            <div style="padding:13px 16px">
+              <div style="display:flex;align-items:center;gap:6px">
+                <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="#92400E" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="5.8"/><path d="M8 4.6V8l2.4 1.5"/></svg>
+                <span style="font-size:12px;line-height:16px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#92400E">Seña vence 15:40</span>
+              </div>
+              <div style="font-size:14px;font-weight:500;margin-top:5px">Coloración · Julián Paz</div>
+              <div style="font-size:13px;line-height:20px;color:#676860;font-variant-numeric:tabular-nums">Hoy 10:30 · Beto Empleado · $2.400</div>
+              <div style="display:flex;gap:8px;margin-top:10px">
+                <button style="height:30px;padding:0 12px;border:1px solid #D9DAD3;border-radius:4px;background:#FFFFFF;color:#191A17;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer">Ver reserva</button>
+              </div>
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:3px minmax(0,1fr)">
+            <div style="align-self:stretch;background:#92400E"></div>
+            <div style="padding:13px 16px">
+              <div style="display:flex;align-items:center;gap:6px">
+                <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="#92400E" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="5.8"/><path d="M8 4.6V8l2.4 1.5"/></svg>
+                <span style="font-size:12px;line-height:16px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#92400E">Sin confirmar</span>
+              </div>
+              <div style="font-size:14px;font-weight:500;margin-top:5px">Depilación · Pablo Vera</div>
+              <div style="font-size:13px;line-height:20px;color:#676860;font-variant-numeric:tabular-nums">Mañana 09:00 · Ana Empleada</div>
+              <div style="display:flex;gap:8px;margin-top:10px">
+                <button style="height:30px;padding:0 12px;border:1px solid #191A17;border-radius:4px;background:#191A17;color:#ECEDE8;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer">Confirmar</button>
+                <button style="height:30px;padding:0 12px;border:1px solid #D9DAD3;border-radius:4px;background:#FFFFFF;color:#191A17;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer">Ver</button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- shortcuts : plain type, no surface -->
+        <div style="font-size:12px;line-height:16px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#676860;margin-bottom:6px">Atajos</div>
+        <div style="display:flex;flex-direction:column;gap:2px">
+          <a href="#" style="font-size:13px;line-height:26px">Cargar una reserva a mano</a>
+          <a href="#" style="font-size:13px;line-height:26px">Editar horarios del personal</a>
+          <a href="#" style="font-size:13px;line-height:26px">Agregar un feriado</a>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ---------- SHELL FOOTER ---------- -->
+    <div style="display:flex;align-items:center;gap:14px;margin-top:auto;padding-top:16px;border-top:1px solid #D9DAD3">
+      <span style="font-size:12px;line-height:18px;color:#676860">ReservaHub · demo de portfolio · pagos y emails simulados</span>
+      <div style="flex-grow:1"></div>
+      <a href="#" style="font-size:12px">Cómo funciona la demo</a>
+      <span style="width:1px;height:14px;background:#D9DAD3"></span>
+      <a href="mailto:lucianogonzalez12004@gmail.com" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:500">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1.8" y="3.5" width="12.4" height="9"/><path d="M1.8 4.5L8 8.8l6.2-4.3"/></svg>
+        lucianogonzalez12004@gmail.com
+      </a>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

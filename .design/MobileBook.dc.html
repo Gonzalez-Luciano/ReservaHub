@@ -1,0 +1,116 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&display=swap">
+  <style>
+    *{box-sizing:border-box}
+    body{margin:0;background:#ECEDE8;color:#191A17;font-family:'Instrument Sans',ui-sans-serif,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+    a{color:#191A17;text-underline-offset:3px}
+    a:hover{color:#000}
+  </style>
+</helmet>
+
+<div style="display:flex;flex-direction:column;width:390px;height:844px;background:#ECEDE8;overflow:hidden">
+
+  <!-- header -->
+  <div style="display:flex;align-items:center;gap:12px;height:56px;padding:0 16px;border-bottom:1px solid #D9DAD3;flex-shrink:0">
+    <button style="display:flex;align-items:center;justify-content:center;width:44px;height:44px;margin-left:-12px;border:0;border-radius:4px;background:transparent;cursor:pointer">
+      <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="#191A17" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 3.5L5 8l4.5 4.5"/></svg>
+    </button>
+    <span style="font-size:15px;font-weight:600;letter-spacing:-0.01em">Reservar</span>
+    <div style="flex-grow:1"></div>
+    <span style="font-size:11px;line-height:15px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#676860">Demo</span>
+  </div>
+
+  <!-- scrolling body -->
+  <div style="flex-grow:1;min-height:0;overflow:hidden;padding:16px">
+
+    <!-- chosen service -->
+    <div style="border:1px solid #D9DAD3;border-radius:6px;background:#FFFFFF;overflow:hidden">
+      <div style="display:flex;align-items:center;gap:12px;padding:13px 14px">
+        <div style="min-width:0">
+          <div style="font-size:15px;font-weight:500">Coloración</div>
+          <div style="font-size:13px;line-height:20px;color:#676860;font-variant-numeric:tabular-nums">90 min · $12.000 · Beto Empleado</div>
+        </div>
+        <div style="flex-grow:1"></div>
+        <a href="#" style="font-size:13px">Cambiar</a>
+      </div>
+    </div>
+
+    <!-- date -->
+    <div style="font-size:12px;line-height:16px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#676860;margin:20px 0 10px 0">Fecha</div>
+    <div style="display:flex;gap:8px;overflow:hidden">
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;width:64px;height:66px;flex-shrink:0;border:1px solid #191A17;border-radius:4px;background:#191A17;color:#ECEDE8">
+        <span style="font-size:12px;line-height:16px">lun</span>
+        <span style="font-size:20px;line-height:26px;font-weight:600;font-variant-numeric:tabular-nums">24</span>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;width:64px;height:66px;flex-shrink:0;border:1px solid #D9DAD3;border-radius:4px;background:#FFFFFF">
+        <span style="font-size:12px;line-height:16px;color:#676860">mar</span>
+        <span style="font-size:20px;line-height:26px;font-weight:600;font-variant-numeric:tabular-nums">25</span>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;width:64px;height:66px;flex-shrink:0;border:1px solid #D9DAD3;border-radius:4px;background:#FFFFFF">
+        <span style="font-size:12px;line-height:16px;color:#676860">mié</span>
+        <span style="font-size:20px;line-height:26px;font-weight:600;font-variant-numeric:tabular-nums">26</span>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;width:64px;height:66px;flex-shrink:0;border:1px solid #D9DAD3;border-radius:4px;background:#FFFFFF">
+        <span style="font-size:12px;line-height:16px;color:#676860">jue</span>
+        <span style="font-size:20px;line-height:26px;font-weight:600;font-variant-numeric:tabular-nums">27</span>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;width:64px;height:66px;flex-shrink:0;border:1px solid #D9DAD3;border-radius:4px;background:#FFFFFF;opacity:.55">
+        <span style="font-size:12px;line-height:16px;color:#676860">vie</span>
+        <span style="font-size:20px;line-height:26px;font-weight:600;font-variant-numeric:tabular-nums">28</span>
+      </div>
+    </div>
+
+    <!-- slots -->
+    <div style="display:flex;align-items:baseline;gap:8px;margin:20px 0 10px 0">
+      <span style="font-size:12px;line-height:16px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#676860">Horario</span>
+      <span style="font-size:13px;color:#676860">8 libres</span>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(3, minmax(0, 1fr));gap:8px">
+      <div style="display:flex;align-items:center;justify-content:center;height:48px;border:1px solid #D9DAD3;border-radius:4px;background:#FFFFFF;font-size:16px;font-weight:500;font-variant-numeric:tabular-nums">09:00</div>
+      <div style="display:flex;align-items:center;justify-content:center;height:48px;border:1px solid #D9DAD3;border-radius:4px;background:#FFFFFF;font-size:16px;font-weight:500;font-variant-numeric:tabular-nums">09:30</div>
+      <div style="display:flex;align-items:center;justify-content:center;height:48px;border:1px solid #191A17;border-radius:4px;background:#191A17;color:#ECEDE8;font-size:16px;font-weight:500;font-variant-numeric:tabular-nums">10:30</div>
+      <div style="display:flex;align-items:center;justify-content:center;height:48px;border:1px solid #D9DAD3;border-radius:4px;background:#FFFFFF;font-size:16px;font-weight:500;font-variant-numeric:tabular-nums">12:00</div>
+      <div style="display:flex;align-items:center;justify-content:center;height:48px;border:1px solid #D9DAD3;border-radius:4px;background:#FFFFFF;font-size:16px;font-weight:500;font-variant-numeric:tabular-nums">12:30</div>
+      <div style="display:flex;align-items:center;justify-content:center;height:48px;border:1px solid #D9DAD3;border-radius:4px;background:#FFFFFF;font-size:16px;font-weight:500;font-variant-numeric:tabular-nums">13:00</div>
+      <div style="display:flex;align-items:center;justify-content:center;height:48px;border:1px solid #D9DAD3;border-radius:4px;background:#FFFFFF;font-size:16px;font-weight:500;font-variant-numeric:tabular-nums">14:45</div>
+      <div style="display:flex;align-items:center;justify-content:center;height:48px;border:1px solid #D9DAD3;border-radius:4px;background:#FFFFFF;font-size:16px;font-weight:500;font-variant-numeric:tabular-nums">15:15</div>
+    </div>
+
+    <!-- deposit disclosure -->
+    <div style="border:1px solid #EBD8A8;border-radius:6px;background:#FFFBEB;padding:12px 14px;margin-top:18px">
+      <div style="display:flex;align-items:center;gap:7px">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#92400E" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="5.8"/><path d="M8 4.6V8l2.4 1.5"/></svg>
+        <span style="font-size:13px;line-height:18px;font-weight:600;color:#92400E">Pide seña de $2.400</span>
+      </div>
+      <p style="margin:5px 0 0 0;font-size:13px;line-height:19px;color:#78350F">
+        Tenés 30 minutos para pagarla. Si no, el turno se libera solo.
+      </p>
+    </div>
+
+  </div>
+
+  <!-- sticky action bar -->
+  <div style="flex-shrink:0;border-top:1px solid #D9DAD3;background:#FFFFFF;padding:12px 16px 16px 16px">
+    <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:10px">
+      <span style="font-size:14px;font-weight:500;font-variant-numeric:tabular-nums">Lunes 24 · 10:30 → 12:00</span>
+      <span style="font-size:14px;color:#676860;font-variant-numeric:tabular-nums">Seña $2.400</span>
+    </div>
+    <button style="width:100%;height:50px;border:1px solid #191A17;border-radius:4px;background:#191A17;color:#ECEDE8;font-family:inherit;font-size:16px;font-weight:500;cursor:pointer">Reservar y pagar la seña</button>
+    <p style="margin:9px 0 0 0;font-size:12px;line-height:18px;color:#676860;text-align:center">
+      Demo pública · usá datos ficticios · <a href="#">cómo funciona</a>
+    </p>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>

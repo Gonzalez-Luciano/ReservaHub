@@ -1,0 +1,227 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&display=swap">
+  <style>
+    *{box-sizing:border-box}
+    body{margin:0;background:#ECEDE8;color:#191A17;font-family:'Instrument Sans',ui-sans-serif,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+    a{color:#191A17;text-underline-offset:3px}
+    a:hover{color:#000}
+  </style>
+</helmet>
+
+<div style="width:1440px;min-height:920px;background:#ECEDE8">
+
+  <!-- ============ PUBLIC HEADER ============ -->
+  <div style="display:flex;align-items:center;gap:20px;height:64px;padding:0 120px;border-bottom:1px solid #D9DAD3">
+    <div style="display:flex;align-items:baseline;gap:10px">
+      <span style="font-size:17px;font-weight:600;letter-spacing:-0.02em">ReservaHub</span>
+      <span style="font-size:12px;line-height:16px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#676860">Demo pública</span>
+    </div>
+    <div style="flex-grow:1"></div>
+    <a href="#" style="font-size:14px">Negocios</a>
+    <a href="#" style="font-size:14px">Cómo funciona la demo</a>
+    <a href="#" style="font-size:14px">Mis reservas</a>
+    <div style="display:flex;align-items:center;gap:8px;padding:5px 10px 5px 6px;border:1px solid #D9DAD3;border-radius:4px;background:#FFFFFF">
+      <div style="display:flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:3px;background:#191A17;color:#ECEDE8;font-size:11px;font-weight:600">MR</div>
+      <span style="font-size:13px;font-weight:500">Marina Ruiz</span>
+      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="#676860" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6.5L8 10.5L12 6.5"/></svg>
+    </div>
+  </div>
+
+  <div style="padding:28px 120px 0 120px">
+
+    <!-- breadcrumb -->
+    <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:#676860;margin-bottom:14px">
+      <a href="#">Negocios</a>
+      <span>/</span>
+      <a href="#">Peluquería Demo</a>
+      <span>/</span>
+      <span style="color:#191A17">Reservar</span>
+    </div>
+
+    <h1 style="margin:0 0 24px 0;font-size:30px;line-height:38px;font-weight:600;letter-spacing:-0.025em">Reservar en Peluquería Demo</h1>
+
+    <div style="display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:28px">
+
+      <!-- ============ STEPS ============ -->
+      <div style="display:flex;flex-direction:column;gap:14px">
+
+        <!-- step 1 : done -->
+        <div style="border:1px solid #D9DAD3;border-radius:6px;background:#FFFFFF;overflow:hidden">
+          <div style="display:flex;align-items:center;gap:16px;padding:16px 20px">
+            <div style="font-size:12px;line-height:16px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#676860;width:88px;flex-shrink:0">Servicio</div>
+            <div style="min-width:0">
+              <div style="font-size:16px;font-weight:500">Coloración</div>
+              <div style="font-size:13px;line-height:20px;color:#676860;font-variant-numeric:tabular-nums">90 min · $12.000</div>
+            </div>
+            <div style="flex-grow:1"></div>
+            <a href="#" style="font-size:13px">Cambiar</a>
+          </div>
+        </div>
+
+        <!-- step 2 : done -->
+        <div style="border:1px solid #D9DAD3;border-radius:6px;background:#FFFFFF;overflow:hidden">
+          <div style="display:flex;align-items:center;gap:16px;padding:16px 20px">
+            <div style="font-size:12px;line-height:16px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#676860;width:88px;flex-shrink:0">Profesional</div>
+            <div style="min-width:0">
+              <div style="font-size:16px;font-weight:500">Beto Empleado</div>
+              <div style="font-size:13px;line-height:20px;color:#676860">Hace Coloración, Corte de cabello y Masaje</div>
+            </div>
+            <div style="flex-grow:1"></div>
+            <a href="#" style="font-size:13px">Cambiar</a>
+          </div>
+        </div>
+
+        <!-- step 3 : date -->
+        <div style="border:1px solid #191A17;border-radius:6px;background:#FFFFFF;overflow:hidden">
+          <div style="padding:16px 20px">
+            <div style="font-size:12px;line-height:16px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#676860">Fecha</div>
+            <div style="display:flex;gap:8px;margin-top:12px">
+
+              <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;width:70px;height:64px;border:1px solid #191A17;border-radius:4px;background:#191A17;color:#ECEDE8">
+                <span style="font-size:12px;line-height:16px">lun</span>
+                <span style="font-size:19px;line-height:24px;font-weight:600;font-variant-numeric:tabular-nums">24</span>
+              </div>
+              <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;width:70px;height:64px;border:1px solid #D9DAD3;border-radius:4px;background:#FFFFFF">
+                <span style="font-size:12px;line-height:16px;color:#676860">mar</span>
+                <span style="font-size:19px;line-height:24px;font-weight:600;font-variant-numeric:tabular-nums">25</span>
+              </div>
+              <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;width:70px;height:64px;border:1px solid #D9DAD3;border-radius:4px;background:#FFFFFF">
+                <span style="font-size:12px;line-height:16px;color:#676860">mié</span>
+                <span style="font-size:19px;line-height:24px;font-weight:600;font-variant-numeric:tabular-nums">26</span>
+              </div>
+              <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;width:70px;height:64px;border:1px solid #D9DAD3;border-radius:4px;background:#FFFFFF">
+                <span style="font-size:12px;line-height:16px;color:#676860">jue</span>
+                <span style="font-size:19px;line-height:24px;font-weight:600;font-variant-numeric:tabular-nums">27</span>
+              </div>
+              <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;width:70px;height:64px;border:1px solid #D9DAD3;border-radius:4px;background:#FFFFFF">
+                <span style="font-size:12px;line-height:16px;color:#676860">vie</span>
+                <span style="font-size:19px;line-height:24px;font-weight:600;font-variant-numeric:tabular-nums">28</span>
+              </div>
+              <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;width:70px;height:64px;border:1px solid #EDEEE9;border-radius:4px;background:#FAFAF9;color:#A8A29E">
+                <span style="font-size:12px;line-height:16px">sáb</span>
+                <span style="font-size:19px;line-height:24px;font-weight:600;font-variant-numeric:tabular-nums">29</span>
+              </div>
+              <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;width:70px;height:64px;border:1px solid #EDEEE9;border-radius:4px;background:#FAFAF9;color:#A8A29E">
+                <span style="font-size:12px;line-height:16px">dom</span>
+                <span style="font-size:19px;line-height:24px;font-weight:600;font-variant-numeric:tabular-nums">30</span>
+              </div>
+
+            </div>
+            <p style="margin:10px 0 0 0;font-size:13px;line-height:20px;color:#676860">Sábado y domingo el negocio no atiende.</p>
+          </div>
+        </div>
+
+        <!-- step 4 : slots -->
+        <div style="border:1px solid #191A17;border-radius:6px;background:#FFFFFF;overflow:hidden">
+          <div style="padding:16px 20px">
+            <div style="display:flex;align-items:baseline;gap:12px">
+              <div style="font-size:12px;line-height:16px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#676860">Horario disponible</div>
+              <div style="font-size:13px;color:#676860">Lunes 24 · 8 turnos libres para 90 min</div>
+            </div>
+
+            <div style="display:grid;grid-template-columns:repeat(6, minmax(0, 1fr));gap:8px;margin-top:12px">
+              <div style="display:flex;align-items:center;justify-content:center;height:44px;border:1px solid #D9DAD3;border-radius:4px;background:#FFFFFF;font-size:15px;font-weight:500;font-variant-numeric:tabular-nums">09:00</div>
+              <div style="display:flex;align-items:center;justify-content:center;height:44px;border:1px solid #D9DAD3;border-radius:4px;background:#FFFFFF;font-size:15px;font-weight:500;font-variant-numeric:tabular-nums">09:30</div>
+              <div style="display:flex;align-items:center;justify-content:center;height:44px;border:1px solid #191A17;border-radius:4px;background:#191A17;color:#ECEDE8;font-size:15px;font-weight:500;font-variant-numeric:tabular-nums">10:30</div>
+              <div style="display:flex;align-items:center;justify-content:center;height:44px;border:1px solid #D9DAD3;border-radius:4px;background:#FFFFFF;font-size:15px;font-weight:500;font-variant-numeric:tabular-nums">12:00</div>
+              <div style="display:flex;align-items:center;justify-content:center;height:44px;border:1px solid #D9DAD3;border-radius:4px;background:#FFFFFF;font-size:15px;font-weight:500;font-variant-numeric:tabular-nums">12:30</div>
+              <div style="display:flex;align-items:center;justify-content:center;height:44px;border:1px solid #D9DAD3;border-radius:4px;background:#FFFFFF;font-size:15px;font-weight:500;font-variant-numeric:tabular-nums">13:00</div>
+              <div style="display:flex;align-items:center;justify-content:center;height:44px;border:1px solid #D9DAD3;border-radius:4px;background:#FFFFFF;font-size:15px;font-weight:500;font-variant-numeric:tabular-nums">14:45</div>
+              <div style="display:flex;align-items:center;justify-content:center;height:44px;border:1px solid #D9DAD3;border-radius:4px;background:#FFFFFF;font-size:15px;font-weight:500;font-variant-numeric:tabular-nums">15:15</div>
+            </div>
+
+            <p style="margin:12px 0 0 0;font-size:13px;line-height:20px;color:#676860">
+              Solo aparecen los horarios en los que Beto tiene 90 minutos libres seguidos.
+            </p>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ============ SUMMARY ============ -->
+      <div>
+        <div style="border:1px solid #D9DAD3;border-radius:6px;background:#FFFFFF;overflow:hidden">
+          <div style="padding:20px 22px 18px 22px;border-bottom:1px solid #D9DAD3">
+            <div style="font-size:12px;line-height:16px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#676860">Tu turno</div>
+            <div style="font-size:20px;line-height:28px;font-weight:600;letter-spacing:-0.015em;margin-top:8px">Coloración</div>
+            <div style="font-size:14px;line-height:22px;color:#676860;margin-top:2px">Peluquería Demo · Beto Empleado</div>
+
+            <div style="display:flex;align-items:baseline;gap:8px;margin-top:14px">
+              <span style="font-size:22px;line-height:28px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-0.02em">10:30</span>
+              <span style="font-size:14px;color:#676860">→</span>
+              <span style="font-size:22px;line-height:28px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-0.02em">12:00</span>
+            </div>
+            <div style="font-size:14px;line-height:22px;color:#676860;font-variant-numeric:tabular-nums">Lunes 24 de agosto · 90 min</div>
+          </div>
+
+          <div style="padding:18px 22px;border-bottom:1px solid #D9DAD3">
+            <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px">
+              <span style="font-size:14px;color:#676860">Precio del servicio</span>
+              <span style="font-size:15px;font-weight:500;font-variant-numeric:tabular-nums">$12.000</span>
+            </div>
+            <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-top:8px">
+              <span style="font-size:14px;font-weight:500">Seña a pagar ahora</span>
+              <span style="font-size:15px;font-weight:600;font-variant-numeric:tabular-nums">$2.400</span>
+            </div>
+            <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-top:8px">
+              <span style="font-size:14px;color:#676860">Resto en el local</span>
+              <span style="font-size:15px;color:#676860;font-variant-numeric:tabular-nums">$9.600</span>
+            </div>
+          </div>
+
+          <div style="background:#FFFBEB;border-bottom:1px solid #D9DAD3;padding:14px 22px">
+            <div style="display:flex;align-items:center;gap:7px">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#92400E" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="5.8"/><path d="M8 4.6V8l2.4 1.5"/></svg>
+              <span style="font-size:13px;line-height:18px;font-weight:600;color:#92400E">Este servicio pide seña</span>
+            </div>
+            <p style="margin:6px 0 0 0;font-size:13px;line-height:20px;color:#78350F">
+              El turno queda reservado como <strong>pendiente</strong> y tenés 30 minutos para pagar la
+              seña. Si no se paga, se cancela solo y el horario vuelve a quedar libre.
+            </p>
+          </div>
+
+          <div style="padding:18px 22px">
+            <button style="width:100%;height:46px;border:1px solid #191A17;border-radius:4px;background:#191A17;color:#ECEDE8;font-family:inherit;font-size:15px;font-weight:500;cursor:pointer">Reservar y pagar la seña</button>
+            <p style="margin:10px 0 0 0;font-size:12px;line-height:18px;color:#676860;text-align:center">
+              Pago simulado. No se cobra nada y no hace falta ningún dato de tarjeta.
+            </p>
+            <p style="margin:10px 0 0 0;font-size:13px;line-height:20px;color:#676860">
+              Podés cancelar o reprogramar hasta 24 horas antes del turno.
+            </p>
+            <p style="margin:14px 0 0 0;padding-top:14px;border-top:1px solid #D9DAD3;font-size:12px;line-height:19px;color:#676860">
+              Demo pública compartida: usá datos ficticios. El email de confirmación llega al
+              <a href="#">buzón de la demo</a>, donde también hay mensajes de otras personas.
+            </p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ============ FOOTER ============ -->
+  <div style="margin-top:44px;border-top:1px solid #D9DAD3">
+    <div style="display:flex;align-items:center;gap:24px;padding:22px 120px">
+      <span style="font-size:13px;color:#676860">Entorno de demostración · pagos y emails simulados</span>
+      <div style="flex-grow:1"></div>
+      <a href="#" style="font-size:13px">Cómo funciona la demo</a>
+      <span style="width:1px;height:18px;background:#D9DAD3"></span>
+      <a href="mailto:lucianogonzalez12004@gmail.com" style="display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:500">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1.8" y="3.5" width="12.4" height="9"/><path d="M1.8 4.5L8 8.8l6.2-4.3"/></svg>
+        lucianogonzalez12004@gmail.com
+      </a>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>

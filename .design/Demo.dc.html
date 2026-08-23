@@ -1,0 +1,350 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&display=swap">
+  <style>
+    *{box-sizing:border-box}
+    body{margin:0;background:#ECEDE8;color:#191A17;font-family:'Instrument Sans',ui-sans-serif,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+    a{color:#191A17;text-underline-offset:3px}
+    a:hover{color:#000}
+  </style>
+</helmet>
+
+<div style="width:1440px;min-height:1980px;background:#ECEDE8">
+
+  <!-- ============ PUBLIC HEADER ============ -->
+  <div style="display:flex;align-items:center;gap:20px;height:64px;padding:0 160px;border-bottom:1px solid #D9DAD3">
+    <div style="display:flex;align-items:baseline;gap:12px">
+      <span style="font-size:17px;font-weight:600;letter-spacing:-0.02em">ReservaHub</span>
+      <span style="font-size:12px;line-height:16px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#676860">Demo pública</span>
+    </div>
+    <div style="flex-grow:1"></div>
+    <a href="#" style="font-size:14px">Negocios</a>
+    <span style="font-size:14px;font-weight:600">Cómo funciona la demo</span>
+    <a href="#" style="font-size:14px">Ingresar</a>
+    <button style="height:34px;padding:0 14px;border:1px solid #191A17;border-radius:4px;background:#191A17;color:#ECEDE8;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer">Crear cuenta</button>
+  </div>
+
+  <!-- ============ TITLE ============ -->
+  <div style="padding:60px 160px 0 160px">
+    <h1 style="margin:0;font-size:44px;line-height:48px;font-weight:600;letter-spacing:-0.032em;max-width:820px;text-wrap:pretty">Cómo funciona la demo</h1>
+    <p style="margin:18px 0 0 0;font-size:18px;line-height:29px;color:#3A3835;max-width:760px;text-wrap:pretty">
+      ReservaHub es un proyecto de portfolio, no un servicio comercial en funcionamiento. Esta página
+      explica cómo recorrerlo en pocos minutos, qué esperar de un entorno compartido y qué información
+      conviene usar.
+    </p>
+  </div>
+
+  <!-- ============ SHARED + RESET ============ -->
+  <div style="padding:52px 160px 0 160px">
+    <div style="display:grid;grid-template-columns:minmax(0,1fr) 420px;gap:24px">
+
+      <div style="border:1px solid #D9DAD3;border-radius:6px;background:#FFFFFF;padding:26px 28px">
+        <div style="font-size:12px;line-height:16px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#676860">Es una demo compartida</div>
+        <h2 style="margin:10px 0 0 0;font-size:24px;line-height:32px;font-weight:600;letter-spacing:-0.02em">Puede haber otras personas usándola ahora mismo</h2>
+        <p style="margin:12px 0 0 0;font-size:16px;line-height:26px;color:#3A3835;max-width:640px">
+          Vas a encontrarte con reservas, clientes y correos que no son parte de tu prueba. Es el
+          comportamiento esperado: hay una sola instalación y todo el mundo entra a la misma.
+        </p>
+        <p style="margin:12px 0 0 0;font-size:16px;line-height:26px;color:#3A3835;max-width:640px">
+          Te pedimos una sola cosa: si un dato claramente pertenece a la prueba de otra persona, no lo
+          borres ni lo modifiques. Creá lo tuyo y dejá lo demás como está.
+        </p>
+      </div>
+
+      <div style="border:1px solid #D9DAD3;border-radius:6px;background:#FFFFFF;padding:26px 28px">
+        <div style="font-size:12px;line-height:16px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#676860">Próximo reinicio</div>
+        <div style="display:flex;align-items:baseline;gap:10px;margin-top:10px">
+          <span style="font-size:40px;line-height:44px;font-weight:600;letter-spacing:-0.04em;font-variant-numeric:tabular-nums">8 h 42 min</span>
+        </div>
+        <p style="margin:10px 0 0 0;font-size:14px;line-height:22px;color:#676860">
+          Todos los días a las <span style="font-variant-numeric:tabular-nums;color:#191A17;font-weight:500">00:00</span>,
+          hora de Argentina (<span style="font-variant-numeric:tabular-nums">America/Argentina/Buenos_Aires</span>),
+          sin importar desde dónde entres.
+        </p>
+        <div style="margin-top:18px;padding-top:16px;border-top:1px solid #D9DAD3">
+          <div style="font-size:13px;line-height:21px;color:#3A3835">En cada reinicio:</div>
+          <div style="display:flex;flex-direction:column;gap:5px;margin-top:8px">
+            <div style="display:flex;gap:9px;font-size:13px;line-height:21px;color:#3A3835">
+              <svg style="flex-shrink:0;margin-top:4px" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="#191A17" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.2 8.4l3.3 3.3L12.8 5.2"/></svg>
+              <span>los datos vuelven al estado inicial</span>
+            </div>
+            <div style="display:flex;gap:9px;font-size:13px;line-height:21px;color:#3A3835">
+              <svg style="flex-shrink:0;margin-top:4px" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="#191A17" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.2 8.4l3.3 3.3L12.8 5.2"/></svg>
+              <span>se vacía el buzón de correo</span>
+            </div>
+            <div style="display:flex;gap:9px;font-size:13px;line-height:21px;color:#3A3835">
+              <svg style="flex-shrink:0;margin-top:4px" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="#191A17" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.2 8.4l3.3 3.3L12.8 5.2"/></svg>
+              <span>se pierde lo que hayas creado</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ============ SAFE DATA ============ -->
+  <div style="padding:44px 160px 0 160px">
+    <div style="border:1px solid #EBD8A8;border-radius:6px;background:#FFFBEB;padding:26px 28px">
+      <div style="display:flex;align-items:center;gap:9px">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#92400E" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2.2L14.4 13H1.6z"/><path d="M8 6.6v2.6M8 11.2v.1"/></svg>
+        <span style="font-size:12px;line-height:16px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#92400E">Usá información ficticia</span>
+      </div>
+      <h2 style="margin:10px 0 0 0;font-size:22px;line-height:30px;font-weight:600;letter-spacing:-0.02em;color:#78350F">Todo lo que escribas acá es descartable y visible para cualquiera</h2>
+      <div style="display:grid;grid-template-columns:repeat(2, minmax(0, 1fr));column-gap:56px;row-gap:6px;margin-top:16px;max-width:980px">
+        <p style="margin:0;font-size:15px;line-height:25px;color:#78350F">
+          <strong>No ingreses</strong> tu nombre real si podés evitarlo, tu correo personal, información
+          privada ni datos de tu negocio.
+        </p>
+        <p style="margin:0;font-size:15px;line-height:25px;color:#78350F">
+          <strong>Nunca reutilices</strong> una contraseña que uses en otro servicio. Inventá una
+          descartable, solo para esta demo.
+        </p>
+        <p style="margin:0;font-size:15px;line-height:25px;color:#78350F">
+          <strong>No hay pagos reales.</strong> No se piden números de tarjeta, códigos de seguridad ni
+          datos bancarios en ninguna pantalla.
+        </p>
+        <p style="margin:0;font-size:15px;line-height:25px;color:#78350F">
+          <strong>Nada es privado.</strong> Cualquier visitante puede ver lo que cargues, incluidos los
+          correos que se generen.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ JOURNEYS ============ -->
+  <div style="padding:56px 160px 0 160px">
+    <h2 style="margin:0;font-size:28px;line-height:36px;font-weight:600;letter-spacing:-0.02em">Dos recorridos sugeridos</h2>
+    <p style="margin:8px 0 0 0;font-size:16px;line-height:26px;color:#676860;max-width:700px">
+      Abrí uno en una ventana normal y el otro en incógnito: vas a ver la agenda del negocio
+      actualizarse sola mientras reservás como cliente.
+    </p>
+
+    <div style="display:grid;grid-template-columns:repeat(2, minmax(0, 1fr));gap:24px;margin-top:26px">
+
+      <!-- staff -->
+      <div style="border:1px solid #D9DAD3;border-radius:6px;background:#FFFFFF;padding:26px 28px">
+        <div style="font-size:12px;line-height:16px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#676860">Recorrido A</div>
+        <h3 style="margin:8px 0 0 0;font-size:21px;line-height:28px;font-weight:600;letter-spacing:-0.015em">Del lado del negocio</h3>
+
+        <div style="margin-top:16px;padding:14px 16px;border:1px solid #D9DAD3;border-radius:4px;background:#FAFAF8">
+          <div style="font-size:12px;line-height:16px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#676860">Cuenta de demostración</div>
+          <div style="display:flex;align-items:baseline;gap:10px;margin-top:6px">
+            <span style="font-size:14px;font-weight:500;font-variant-numeric:tabular-nums">owner@reservahub.test</span>
+            <span style="font-size:13px;color:#676860">·</span>
+            <span style="font-size:14px;font-weight:500;font-variant-numeric:tabular-nums">password</span>
+          </div>
+          <div style="font-size:12px;line-height:18px;color:#676860;margin-top:4px">Cuenta ficticia, creada por el seeder. No es de nadie.</div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:12px;margin-top:18px">
+
+          <div style="display:flex;gap:14px">
+            <span style="flex-shrink:0;width:22px;font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;color:#676860;padding-top:2px">01</span>
+            <div>
+              <div style="font-size:15px;font-weight:500">Ingresá al panel</div>
+              <div style="font-size:13px;line-height:20px;color:#676860">Turnos de hoy, lo que espera confirmación y las señas por vencer.</div>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:14px">
+            <span style="flex-shrink:0;width:22px;font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;color:#676860;padding-top:2px">02</span>
+            <div>
+              <div style="font-size:15px;font-weight:500">Gestioná una reserva</div>
+              <div style="font-size:13px;line-height:20px;color:#676860">Confirmar, reprogramar, cancelar, completar o marcar ausencia.</div>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:14px">
+            <span style="flex-shrink:0;width:22px;font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;color:#676860;padding-top:2px">03</span>
+            <div>
+              <div style="font-size:15px;font-weight:500">Mirá los servicios</div>
+              <div style="font-size:13px;line-height:20px;color:#676860">Duración, precio y cuáles piden seña.</div>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:14px">
+            <span style="flex-shrink:0;width:22px;font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;color:#676860;padding-top:2px">04</span>
+            <div>
+              <div style="font-size:15px;font-weight:500">Abrí el horario de una persona</div>
+              <div style="font-size:13px;line-height:20px;color:#676860">Horario semanal, pausas y licencias: de ahí sale la disponibilidad.</div>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:14px">
+            <span style="flex-shrink:0;width:22px;font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;color:#676860;padding-top:2px">05</span>
+            <div>
+              <div style="font-size:15px;font-weight:500">Cargá un feriado</div>
+              <div style="font-size:13px;line-height:20px;color:#676860">Ese día deja de ofrecer turnos. Si choca con reservas, te avisa antes.</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- customer -->
+      <div style="border:1px solid #D9DAD3;border-radius:6px;background:#FFFFFF;padding:26px 28px">
+        <div style="font-size:12px;line-height:16px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#676860">Recorrido B</div>
+        <h3 style="margin:8px 0 0 0;font-size:21px;line-height:28px;font-weight:600;letter-spacing:-0.015em">Del lado del cliente</h3>
+
+        <div style="margin-top:16px;padding:14px 16px;border:1px solid #D9DAD3;border-radius:4px;background:#FAFAF8">
+          <div style="font-size:12px;line-height:16px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#676860">Necesitás una cuenta</div>
+          <div style="font-size:13px;line-height:20px;color:#3A3835;margin-top:6px">
+            Creala con datos inventados y una contraseña descartable. Se borra en el próximo reinicio.
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:12px;margin-top:18px">
+
+          <div style="display:flex;gap:14px">
+            <span style="flex-shrink:0;width:22px;font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;color:#676860;padding-top:2px">01</span>
+            <div>
+              <div style="font-size:15px;font-weight:500">Elegí un negocio</div>
+              <div style="font-size:13px;line-height:20px;color:#676860">Hay dos, con servicios y equipos distintos.</div>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:14px">
+            <span style="flex-shrink:0;width:22px;font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;color:#676860;padding-top:2px">02</span>
+            <div>
+              <div style="font-size:15px;font-weight:500">Elegí servicio, profesional y día</div>
+              <div style="font-size:13px;line-height:20px;color:#676860">Solo aparecen los horarios que están libres de verdad.</div>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:14px">
+            <span style="flex-shrink:0;width:22px;font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;color:#676860;padding-top:2px">03</span>
+            <div>
+              <div style="font-size:15px;font-weight:500">Reservá</div>
+              <div style="font-size:13px;line-height:20px;color:#676860">Si el servicio pide seña, el turno queda pendiente hasta pagarla.</div>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:14px">
+            <span style="flex-shrink:0;width:22px;font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;color:#676860;padding-top:2px">04</span>
+            <div>
+              <div style="font-size:15px;font-weight:500">Pagá en el checkout simulado</div>
+              <div style="font-size:13px;line-height:20px;color:#676860">Aprobar, rechazar o abandonar. Los tres caminos son reales.</div>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:14px">
+            <span style="flex-shrink:0;width:22px;font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;color:#676860;padding-top:2px">05</span>
+            <div>
+              <div style="font-size:15px;font-weight:500">Mirá tus reservas</div>
+              <div style="font-size:13px;line-height:20px;color:#676860">Estado, seña y la opción de reprogramar o cancelar a tiempo.</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ============ MAIL ============ -->
+  <div style="padding:56px 160px 0 160px">
+    <div style="display:grid;grid-template-columns:minmax(0,1fr) 460px;gap:24px;align-items:start">
+
+      <div>
+        <h2 style="margin:0;font-size:28px;line-height:36px;font-weight:600;letter-spacing:-0.02em">Los emails de la demo</h2>
+        <p style="margin:8px 0 0 0;font-size:16px;line-height:26px;color:#676860;max-width:640px">
+          Confirmaciones, reprogramaciones, cancelaciones, recordatorios e invitaciones de personal salen
+          por email de verdad. Podés abrir el buzón de la demo y ver el mensaje que generó tu acción.
+        </p>
+
+        <div style="display:flex;flex-direction:column;gap:12px;margin-top:22px;max-width:640px">
+          <div style="display:flex;gap:14px">
+            <span style="flex-shrink:0;width:22px;font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;color:#676860;padding-top:2px">01</span>
+            <div style="font-size:15px;line-height:24px">Hacé algo que genere un correo: reservar, cancelar o invitar a alguien al equipo.</div>
+          </div>
+          <div style="display:flex;gap:14px">
+            <span style="flex-shrink:0;width:22px;font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;color:#676860;padding-top:2px">02</span>
+            <div style="font-size:15px;line-height:24px">Abrí el buzón de la demo.</div>
+          </div>
+          <div style="display:flex;gap:14px">
+            <span style="flex-shrink:0;width:22px;font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;color:#676860;padding-top:2px">03</span>
+            <div style="font-size:15px;line-height:24px">Buscá el mensaje dirigido a la dirección que usaste vos.</div>
+          </div>
+          <div style="display:flex;gap:14px">
+            <span style="flex-shrink:0;width:22px;font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;color:#676860;padding-top:2px">04</span>
+            <div style="font-size:15px;line-height:24px">Abrilo y, si tiene un enlace, seguilo desde ahí.</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="border:1px solid #D9DAD3;border-radius:6px;background:#FFFFFF;padding:24px 26px">
+        <div style="font-size:12px;line-height:16px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#676860">El buzón también es compartido</div>
+        <p style="margin:10px 0 0 0;font-size:15px;line-height:24px;color:#3A3835">
+          Puede haber mensajes generados por otras personas. Si un correo no corresponde a tu prueba, te
+          pedimos que lo ignores para no interrumpir la experiencia de otro visitante.
+        </p>
+        <p style="margin:10px 0 0 0;font-size:15px;line-height:24px;color:#3A3835">
+          Por eso mismo: no uses tu dirección real. Cualquier visitante puede leer lo que llegue ahí.
+        </p>
+        <a href="#" style="display:inline-flex;align-items:center;gap:9px;height:44px;padding:0 18px;margin-top:18px;border:1px solid #191A17;border-radius:4px;background:#191A17;color:#ECEDE8;font-size:15px;font-weight:500;text-decoration:none">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1.8" y="3.5" width="12.4" height="9"/><path d="M1.8 4.5L8 8.8l6.2-4.3"/></svg>
+          Ver los emails de la demo
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5h6.5V10M12.5 3.5L4 12"/></svg>
+        </a>
+        <p style="margin:9px 0 0 0;font-size:12px;line-height:18px;color:#676860">
+          Se abre en una pestaña nueva. Si el buzón no está disponible, el resto de la demo sigue
+          funcionando igual.
+        </p>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ============ FOOTER ============ -->
+  <div style="margin-top:72px;border-top:1px solid #D9DAD3">
+
+    <div style="display:flex;align-items:flex-start;gap:64px;padding:38px 160px 30px 160px">
+      <div style="max-width:300px">
+        <div style="font-size:16px;font-weight:600;letter-spacing:-0.015em">ReservaHub</div>
+        <p style="margin:6px 0 0 0;font-size:13px;line-height:21px;color:#676860">
+          Sistema de reservas por franjas horarias. Proyecto de portfolio con pagos y emails simulados.
+        </p>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <div style="font-size:12px;line-height:16px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#676860;margin-bottom:2px">La demo</div>
+        <a href="#" style="font-size:13px">Ver negocios</a>
+        <a href="#" style="font-size:13px">Ver los emails de la demo</a>
+        <a href="#" style="font-size:13px">Ingresar</a>
+      </div>
+
+      <div style="flex-grow:1"></div>
+
+      <div style="max-width:360px">
+        <div style="font-size:12px;line-height:16px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#676860">Contacto</div>
+        <div style="font-size:19px;line-height:26px;font-weight:600;letter-spacing:-0.015em;margin-top:6px">¿Hablamos del proyecto?</div>
+        <p style="margin:5px 0 0 0;font-size:13px;line-height:21px;color:#676860">
+          Escribime si querés ver el código, preguntar cómo está construido o charlar de trabajo.
+        </p>
+        <a href="mailto:lucianogonzalez12004@gmail.com" style="display:inline-flex;align-items:center;gap:9px;height:42px;padding:0 16px;margin-top:12px;border:1px solid #191A17;border-radius:4px;background:#191A17;color:#ECEDE8;font-size:14px;font-weight:500;text-decoration:none">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1.8" y="3.5" width="12.4" height="9"/><path d="M1.8 4.5L8 8.8l6.2-4.3"/></svg>
+          lucianogonzalez12004@gmail.com
+        </a>
+      </div>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:16px;padding:16px 160px;border-top:1px solid #D9DAD3">
+      <span style="font-size:13px;color:#676860">Hecho por Luciano González</span>
+      <div style="flex-grow:1"></div>
+      <span style="font-size:13px;color:#676860">No es un servicio comercial en funcionamiento.</span>
+    </div>
+
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>

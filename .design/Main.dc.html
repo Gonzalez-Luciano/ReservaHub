@@ -1,0 +1,324 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&display=swap">
+  <style>
+    *{box-sizing:border-box}
+    body{margin:0;background:#ECEDE8;color:#191A17;font-family:'Instrument Sans',ui-sans-serif,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+    a{color:#191A17;text-underline-offset:3px}
+    a:hover{color:#000}
+  </style>
+</helmet>
+
+<div style="display:flex;width:1440px;height:900px;overflow:hidden">
+
+  <!-- ============ SIDEBAR ============ -->
+  <div style="display:flex;flex-direction:column;width:240px;flex-shrink:0;background:#E3E5DE;border-right:1px solid #D9DAD3">
+
+    <div style="padding:20px 16px 16px 16px;border-bottom:1px solid #D9DAD3">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+        <div>
+          <div style="font-size:15px;font-weight:600;letter-spacing:-0.01em">Peluquería Demo</div>
+          <div style="font-size:12px;line-height:16px;color:#676860;margin-top:2px">Negocio activo</div>
+        </div>
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#676860" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6.5L8 10.5L12 6.5"/></svg>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:2px;padding:12px 10px">
+
+      <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:4px;font-size:13px;color:#191A17">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="2.5" width="4.5" height="4.5"/><rect x="9" y="2.5" width="4.5" height="4.5"/><rect x="2.5" y="9" width="4.5" height="4.5"/><rect x="9" y="9" width="4.5" height="4.5"/></svg>
+        <span>Panel</span>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:4px;font-size:13px;font-weight:600;background:#D9DAD3;color:#191A17">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="3.5" width="11" height="10"/><path d="M2.5 6.5h11M5.5 2v3M10.5 2v3"/></svg>
+        <span>Reservas</span>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:4px;font-size:13px;color:#191A17">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="5.5"/><path d="M8 5v3l2 1.2"/></svg>
+        <span>Servicios</span>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:4px;font-size:13px;color:#191A17">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="5.5" r="2.5"/><path d="M1.8 13.5c0-2.3 1.9-4 4.2-4s4.2 1.7 4.2 4"/><path d="M10.8 3.4a2.5 2.5 0 010 4.3M12 9.8c1.4.6 2.3 1.9 2.3 3.7"/></svg>
+        <span>Personal</span>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:4px;font-size:13px;color:#191A17">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="3.5" width="11" height="10"/><path d="M2.5 6.5h11M6 9.5l4 3M10 9.5l-4 3"/></svg>
+        <span>Feriados</span>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:4px;font-size:13px;color:#191A17">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="2.2"/><path d="M8 1.8v1.6M8 12.6v1.6M14.2 8h-1.6M3.4 8H1.8M12.4 3.6l-1.1 1.1M4.7 11.3l-1.1 1.1M12.4 12.4l-1.1-1.1M4.7 4.7L3.6 3.6"/></svg>
+        <span>Configuración</span>
+      </div>
+
+    </div>
+
+    <div style="flex-grow:1"></div>
+
+    <div style="display:flex;align-items:center;gap:10px;padding:14px 16px;border-top:1px solid #D9DAD3">
+      <div style="display:flex;align-items:center;justify-content:center;width:28px;height:28px;flex-shrink:0;border-radius:4px;background:#191A17;color:#ECEDE8;font-size:12px;font-weight:600">LG</div>
+      <div style="min-width:0">
+        <div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Luciano González</div>
+        <div style="font-size:12px;line-height:15px;color:#676860">Owner</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ============ CONTENT ============ -->
+  <div style="display:flex;flex-direction:column;flex-grow:1;min-width:0;padding:28px 32px;overflow:hidden">
+
+    <!-- page header -->
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:24px;margin-bottom:20px">
+      <div>
+        <h1 style="margin:0;font-size:24px;line-height:32px;font-weight:600;letter-spacing:-0.02em">Reservas</h1>
+        <p style="margin:2px 0 0 0;font-size:13px;line-height:20px;color:#676860">Se actualizan solas cuando cambia algo.</p>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button style="display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 14px;border:1px solid #191A17;border-radius:4px;background:#191A17;color:#ECEDE8;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M8 3.5v9M3.5 8h9"/></svg>
+          Nueva reserva
+        </button>
+      </div>
+    </div>
+
+    <!-- filters -->
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:24px">
+      <div style="display:inline-flex;align-items:center;gap:8px;height:34px;padding:0 12px;border:1px solid #D9DAD3;border-radius:4px;background:#FFFFFF;font-size:13px">
+        <span style="color:#676860">Estado</span><span style="font-weight:500">Todos</span>
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="#676860" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6.5L8 10.5L12 6.5"/></svg>
+      </div>
+      <div style="display:inline-flex;align-items:center;gap:8px;height:34px;padding:0 12px;border:1px solid #D9DAD3;border-radius:4px;background:#FFFFFF;font-size:13px">
+        <span style="color:#676860">Personal</span><span style="font-weight:500">Todos</span>
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="#676860" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6.5L8 10.5L12 6.5"/></svg>
+      </div>
+      <div style="display:inline-flex;align-items:center;gap:8px;height:34px;padding:0 12px;border:1px solid #191A17;border-radius:4px;background:#FFFFFF;font-size:13px">
+        <span style="color:#676860">Desde</span><span style="font-weight:500;font-variant-numeric:tabular-nums">24/08/2026</span>
+      </div>
+      <div style="flex-grow:1"></div>
+      <div style="font-size:13px;color:#676860;font-variant-numeric:tabular-nums">8 reservas</div>
+    </div>
+
+    <!-- ---------- HOY ---------- -->
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+      <span style="font-size:12px;line-height:16px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#676860">Hoy · lunes 24 de agosto</span>
+      <div style="flex-grow:1;height:1px;background:#D9DAD3"></div>
+    </div>
+
+    <div style="border:1px solid #D9DAD3;border-radius:6px;background:#FFFFFF;overflow:hidden;margin-bottom:24px">
+
+      <!-- row : confirmada -->
+      <div style="display:grid;grid-template-columns:3px 76px minmax(0,1fr) 150px 150px 176px 84px;align-items:center;border-bottom:1px solid #D9DAD3">
+        <div style="align-self:stretch;background:#166534"></div>
+        <div style="padding-left:16px">
+          <div style="font-size:15px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-0.01em">09:00</div>
+          <div style="font-size:12px;line-height:16px;color:#676860;font-variant-numeric:tabular-nums">30 min</div>
+        </div>
+        <div style="padding:14px 12px 14px 0">
+          <div style="font-size:15px;font-weight:500">Corte de cabello</div>
+        </div>
+        <div style="font-size:13px;color:#191A17;padding-right:12px">Ana Empleada</div>
+        <div style="font-size:13px;color:#191A17;padding-right:12px">Marina Ruiz</div>
+        <div style="padding-right:12px">
+          <span style="display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:4px;background:#DCFCE7;color:#166534;font-size:12px;line-height:16px;font-weight:500">
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.2 8.4l3.3 3.3L12.8 5.2"/></svg>
+            Confirmada
+          </span>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:flex-end;gap:10px;padding-right:16px">
+          <a href="#" style="font-size:13px">Ver</a>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="#676860"><circle cx="3.2" cy="8" r="1.2"/><circle cx="8" cy="8" r="1.2"/><circle cx="12.8" cy="8" r="1.2"/></svg>
+        </div>
+      </div>
+
+      <!-- row : pendiente + seña -->
+      <div style="display:grid;grid-template-columns:3px 76px minmax(0,1fr) 150px 150px 176px 84px;align-items:center;border-bottom:1px solid #D9DAD3">
+        <div style="align-self:stretch;background:#92400E"></div>
+        <div style="padding-left:16px">
+          <div style="font-size:15px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-0.01em">10:30</div>
+          <div style="font-size:12px;line-height:16px;color:#676860;font-variant-numeric:tabular-nums">90 min</div>
+        </div>
+        <div style="padding:12px 12px 12px 0">
+          <div style="font-size:15px;font-weight:500">Coloración</div>
+          <div style="font-size:12px;line-height:16px;color:#676860;font-variant-numeric:tabular-nums">Seña $2.400 de $12.000</div>
+        </div>
+        <div style="font-size:13px;color:#191A17;padding-right:12px">Beto Empleado</div>
+        <div style="font-size:13px;color:#191A17;padding-right:12px">Julián Paz</div>
+        <div style="padding-right:12px">
+          <span style="display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:4px;background:#FEF3C7;color:#92400E;font-size:12px;line-height:16px;font-weight:500">
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="5.8"/><path d="M8 4.6V8l2.4 1.5"/></svg>
+            Pendiente
+          </span>
+          <div style="font-size:12px;line-height:16px;color:#92400E;margin-top:3px;font-variant-numeric:tabular-nums">Seña vence 15:40</div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:flex-end;gap:10px;padding-right:16px">
+          <a href="#" style="font-size:13px">Ver</a>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="#676860"><circle cx="3.2" cy="8" r="1.2"/><circle cx="8" cy="8" r="1.2"/><circle cx="12.8" cy="8" r="1.2"/></svg>
+        </div>
+      </div>
+
+      <!-- row : confirmada -->
+      <div style="display:grid;grid-template-columns:3px 76px minmax(0,1fr) 150px 150px 176px 84px;align-items:center;border-bottom:1px solid #D9DAD3">
+        <div style="align-self:stretch;background:#166534"></div>
+        <div style="padding-left:16px">
+          <div style="font-size:15px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-0.01em">14:00</div>
+          <div style="font-size:12px;line-height:16px;color:#676860;font-variant-numeric:tabular-nums">45 min</div>
+        </div>
+        <div style="padding:14px 12px 14px 0">
+          <div style="font-size:15px;font-weight:500">Manicura</div>
+        </div>
+        <div style="font-size:13px;color:#191A17;padding-right:12px">Ana Empleada</div>
+        <div style="font-size:13px;color:#191A17;padding-right:12px">Lucía Gil</div>
+        <div style="padding-right:12px">
+          <span style="display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:4px;background:#DCFCE7;color:#166534;font-size:12px;line-height:16px;font-weight:500">
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.2 8.4l3.3 3.3L12.8 5.2"/></svg>
+            Confirmada
+          </span>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:flex-end;gap:10px;padding-right:16px">
+          <a href="#" style="font-size:13px">Ver</a>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="#676860"><circle cx="3.2" cy="8" r="1.2"/><circle cx="8" cy="8" r="1.2"/><circle cx="12.8" cy="8" r="1.2"/></svg>
+        </div>
+      </div>
+
+      <!-- row : cancelada -->
+      <div style="display:grid;grid-template-columns:3px 76px minmax(0,1fr) 150px 150px 176px 84px;align-items:center">
+        <div style="align-self:stretch;background:#57534E"></div>
+        <div style="padding-left:16px">
+          <div style="font-size:15px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-0.01em;color:#676860;text-decoration:line-through">16:00</div>
+          <div style="font-size:12px;line-height:16px;color:#676860;font-variant-numeric:tabular-nums">60 min</div>
+        </div>
+        <div style="padding:14px 12px 14px 0">
+          <div style="font-size:15px;font-weight:500;color:#676860">Masaje</div>
+        </div>
+        <div style="font-size:13px;color:#676860;padding-right:12px">Beto Empleado</div>
+        <div style="font-size:13px;color:#676860;padding-right:12px">Rodrigo Sosa</div>
+        <div style="padding-right:12px">
+          <span style="display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:4px;background:#F5F5F4;color:#57534E;font-size:12px;line-height:16px;font-weight:500">
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4.4 4.4l7.2 7.2M11.6 4.4l-7.2 7.2"/></svg>
+            Cancelada
+          </span>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:flex-end;gap:10px;padding-right:16px">
+          <a href="#" style="font-size:13px">Ver</a>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ---------- MAÑANA ---------- -->
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+      <span style="font-size:12px;line-height:16px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#676860">Martes 25 de agosto</span>
+      <div style="flex-grow:1;height:1px;background:#D9DAD3"></div>
+    </div>
+
+    <div style="border:1px solid #D9DAD3;border-radius:6px;background:#FFFFFF;overflow:hidden;margin-bottom:24px">
+
+      <div style="display:grid;grid-template-columns:3px 76px minmax(0,1fr) 150px 150px 176px 84px;align-items:center">
+        <div style="align-self:stretch;background:#92400E"></div>
+        <div style="padding-left:16px">
+          <div style="font-size:15px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-0.01em">09:00</div>
+          <div style="font-size:12px;line-height:16px;color:#676860;font-variant-numeric:tabular-nums">30 min</div>
+        </div>
+        <div style="padding:14px 12px 14px 0">
+          <div style="font-size:15px;font-weight:500">Depilación</div>
+        </div>
+        <div style="font-size:13px;color:#191A17;padding-right:12px">Ana Empleada</div>
+        <div style="font-size:13px;color:#191A17;padding-right:12px">Pablo Vera</div>
+        <div style="padding-right:12px">
+          <span style="display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:4px;background:#FEF3C7;color:#92400E;font-size:12px;line-height:16px;font-weight:500">
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="5.8"/><path d="M8 4.6V8l2.4 1.5"/></svg>
+            Pendiente
+          </span>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:flex-end;gap:10px;padding-right:16px">
+          <a href="#" style="font-size:13px">Ver</a>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="#676860"><circle cx="3.2" cy="8" r="1.2"/><circle cx="8" cy="8" r="1.2"/><circle cx="12.8" cy="8" r="1.2"/></svg>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ---------- PASADAS ---------- -->
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+      <span style="font-size:12px;line-height:16px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#676860">Lunes 17 de agosto</span>
+      <div style="flex-grow:1;height:1px;background:#D9DAD3"></div>
+    </div>
+
+    <div style="border:1px solid #D9DAD3;border-radius:6px;background:#FFFFFF;overflow:hidden">
+
+      <div style="display:grid;grid-template-columns:3px 76px minmax(0,1fr) 150px 150px 176px 84px;align-items:center;border-bottom:1px solid #D9DAD3">
+        <div style="align-self:stretch;background:#334155"></div>
+        <div style="padding-left:16px">
+          <div style="font-size:15px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-0.01em">10:00</div>
+          <div style="font-size:12px;line-height:16px;color:#676860;font-variant-numeric:tabular-nums">90 min</div>
+        </div>
+        <div style="padding:14px 12px 14px 0">
+          <div style="font-size:15px;font-weight:500">Coloración</div>
+        </div>
+        <div style="font-size:13px;color:#191A17;padding-right:12px">Ana Empleada</div>
+        <div style="font-size:13px;color:#191A17;padding-right:12px">Valeria Ortiz</div>
+        <div style="padding-right:12px">
+          <span style="display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:4px;background:#E2E8F0;color:#334155;font-size:12px;line-height:16px;font-weight:500">
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="5.8"/><path d="M5.3 8.2l2 2 3.5-4"/></svg>
+            Completada
+          </span>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:flex-end;gap:10px;padding-right:16px">
+          <a href="#" style="font-size:13px">Ver</a>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:3px 76px minmax(0,1fr) 150px 150px 176px 84px;align-items:center">
+        <div style="align-self:stretch;background:#991B1B"></div>
+        <div style="padding-left:16px">
+          <div style="font-size:15px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-0.01em">15:00</div>
+          <div style="font-size:12px;line-height:16px;color:#676860;font-variant-numeric:tabular-nums">45 min</div>
+        </div>
+        <div style="padding:14px 12px 14px 0">
+          <div style="font-size:15px;font-weight:500">Manicura</div>
+        </div>
+        <div style="font-size:13px;color:#191A17;padding-right:12px">Beto Empleado</div>
+        <div style="font-size:13px;color:#191A17;padding-right:12px">Diego Ferrer</div>
+        <div style="padding-right:12px">
+          <span style="display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:4px;background:#FEE2E2;color:#991B1B;font-size:12px;line-height:16px;font-weight:500">
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="5.8"/><path d="M3.9 12.1L12.1 3.9"/></svg>
+            Ausencia
+          </span>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:flex-end;gap:10px;padding-right:16px">
+          <a href="#" style="font-size:13px">Ver</a>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ---------- SHELL FOOTER ---------- -->
+    <div style="display:flex;align-items:center;gap:14px;margin-top:auto;padding-top:16px;border-top:1px solid #D9DAD3">
+      <span style="font-size:12px;line-height:18px;color:#676860">ReservaHub · demo de portfolio · pagos y emails simulados</span>
+      <div style="flex-grow:1"></div>
+      <a href="#" style="font-size:12px">Cómo funciona la demo</a>
+      <span style="width:1px;height:14px;background:#D9DAD3"></span>
+      <a href="mailto:lucianogonzalez12004@gmail.com" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:500">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1.8" y="3.5" width="12.4" height="9"/><path d="M1.8 4.5L8 8.8l6.2-4.3"/></svg>
+        lucianogonzalez12004@gmail.com
+      </a>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

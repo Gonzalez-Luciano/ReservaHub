@@ -1,0 +1,277 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&display=swap">
+  <style>
+    *{box-sizing:border-box}
+    body{margin:0;background:#ECEDE8;color:#191A17;font-family:'Instrument Sans',ui-sans-serif,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+    a{color:#191A17;text-underline-offset:3px}
+    a:hover{color:#000}
+  </style>
+</helmet>
+
+<div style="width:1440px;min-height:1700px;background:#ECEDE8">
+
+  <!-- ============ PUBLIC HEADER ============ -->
+  <div style="display:flex;align-items:center;gap:20px;height:64px;padding:0 160px;border-bottom:1px solid #D9DAD3;background:#ECEDE8">
+    <div style="display:flex;align-items:baseline;gap:12px">
+      <span style="font-size:17px;font-weight:600;letter-spacing:-0.02em">ReservaHub</span>
+      <span style="font-size:12px;line-height:16px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#676860">Demo pública</span>
+    </div>
+    <div style="flex-grow:1"></div>
+    <a href="#" style="font-size:14px">Negocios</a>
+    <a href="#" style="font-size:14px">Cómo funciona la demo</a>
+    <a href="#" style="font-size:14px">Ingresar</a>
+    <button style="height:34px;padding:0 14px;border:1px solid #191A17;border-radius:4px;background:#191A17;color:#ECEDE8;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer">Crear cuenta</button>
+  </div>
+
+  <!-- ============ HERO ============ -->
+  <div style="padding:76px 160px 0 160px">
+
+    <div style="max-width:760px">
+      <div style="font-size:12px;line-height:16px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#676860">Demo de portfolio</div>
+      <h1 style="margin:14px 0 0 0;font-size:56px;line-height:60px;font-weight:600;letter-spacing:-0.03em;text-wrap:pretty">Turnos que no se superponen.</h1>
+      <p style="margin:20px 0 0 0;font-size:18px;line-height:29px;color:#3A3835;max-width:660px;text-wrap:pretty">
+        ReservaHub es un sistema de reservas por franjas horarias para peluquerías, estudios,
+        gimnasios y profesionales que trabajan con turnos. Esta demo tiene los dos lados abiertos:
+        el del negocio que administra su agenda y el del cliente que reserva.
+      </p>
+
+      <div style="display:flex;align-items:center;gap:10px;margin-top:28px">
+        <button style="height:44px;padding:0 20px;border:1px solid #191A17;border-radius:4px;background:#191A17;color:#ECEDE8;font-family:inherit;font-size:15px;font-weight:500;cursor:pointer">Ver negocios y reservar</button>
+        <button style="height:44px;padding:0 20px;border:1px solid #D9DAD3;border-radius:4px;background:#FFFFFF;color:#191A17;font-family:inherit;font-size:15px;font-weight:500;cursor:pointer">Entrar como negocio</button>
+      </div>
+      <p style="margin:12px 0 0 0;font-size:13px;line-height:20px;color:#676860">
+        Hay cuentas de demostración listas para usar.
+      </p>
+    </div>
+
+    <!-- ---- SIGNATURE : a real day, drawn to scale ---- -->
+    <div style="margin-top:52px">
+      <div style="display:flex;align-items:baseline;justify-content:space-between;gap:16px;margin-bottom:10px">
+        <span style="font-size:12px;line-height:16px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#676860">Peluquería Demo · Ana · lunes 24 de agosto</span>
+        <span style="font-size:13px;color:#676860">Cada bloque mide lo que dura de verdad</span>
+      </div>
+
+      <div style="position:relative;height:60px;width:1120px;border:1px solid #D9DAD3;border-radius:6px;background:#FFFFFF;overflow:hidden">
+        <div style="position:absolute;left:0px;top:0;width:62px;height:100%;background:#E1E3DB;display:flex;align-items:center;justify-content:center;font-size:12px;color:#57534E">30′</div>
+        <div style="position:absolute;left:62px;top:8px;width:124px;height:44px;border:1px dashed #C3C5BB;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:12px;color:#676860">2 libres</div>
+        <div style="position:absolute;left:187px;top:0;width:186px;height:100%;background:#E1E3DB;display:flex;align-items:center;justify-content:center;font-size:12px;color:#57534E">Coloración · 90′</div>
+        <div style="position:absolute;left:373px;top:8px;width:249px;height:44px;border:1px dashed #C3C5BB;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:12px;color:#676860">4 turnos libres</div>
+        <div style="position:absolute;left:622px;top:0;width:93px;height:100%;background:#E1E3DB;display:flex;align-items:center;justify-content:center;font-size:12px;color:#57534E">45′</div>
+        <div style="position:absolute;left:715px;top:8px;width:404px;height:44px;border:1px dashed #C3C5BB;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:12px;color:#676860">6 turnos libres</div>
+      </div>
+
+      <div style="position:relative;height:20px;width:1120px;margin-top:6px">
+        <span style="position:absolute;left:0px;font-size:12px;color:#676860;font-variant-numeric:tabular-nums">09</span>
+        <span style="position:absolute;left:124px;font-size:12px;color:#676860;font-variant-numeric:tabular-nums">10</span>
+        <span style="position:absolute;left:249px;font-size:12px;color:#676860;font-variant-numeric:tabular-nums">11</span>
+        <span style="position:absolute;left:373px;font-size:12px;color:#676860;font-variant-numeric:tabular-nums">12</span>
+        <span style="position:absolute;left:498px;font-size:12px;color:#676860;font-variant-numeric:tabular-nums">13</span>
+        <span style="position:absolute;left:622px;font-size:12px;color:#676860;font-variant-numeric:tabular-nums">14</span>
+        <span style="position:absolute;left:747px;font-size:12px;color:#676860;font-variant-numeric:tabular-nums">15</span>
+        <span style="position:absolute;left:871px;font-size:12px;color:#676860;font-variant-numeric:tabular-nums">16</span>
+        <span style="position:absolute;left:996px;font-size:12px;color:#676860;font-variant-numeric:tabular-nums">17</span>
+        <span style="position:absolute;left:1104px;font-size:12px;color:#676860;font-variant-numeric:tabular-nums">18</span>
+      </div>
+    </div>
+
+    <!-- ---- SHARED DEMO STRIP : informational, deliberately not warning-coloured ---- -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 216px;margin-top:38px;width:1120px;border:1px solid #D9DAD3;border-radius:6px;background:#FFFFFF;overflow:hidden">
+
+      <div style="padding:16px 20px">
+        <div style="font-size:12px;line-height:16px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#676860">Demo pública compartida</div>
+        <p style="margin:6px 0 0 0;font-size:13px;line-height:20px;color:#3A3835">
+          Puede haber otras personas usándola al mismo tiempo. Vas a ver reservas y usuarios que no son tuyos.
+        </p>
+      </div>
+
+      <div style="padding:16px 20px;border-left:1px solid #D9DAD3">
+        <div style="font-size:12px;line-height:16px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#676860">Se restaura cada día</div>
+        <p style="margin:6px 0 0 0;font-size:13px;line-height:20px;color:#3A3835">
+          Próximo reinicio en <span style="font-weight:600;font-variant-numeric:tabular-nums">8 h 42 min</span><br>
+          <span style="color:#676860">00:00, hora de Argentina</span>
+        </p>
+      </div>
+
+      <div style="padding:16px 20px;border-left:1px solid #D9DAD3">
+        <div style="font-size:12px;line-height:16px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#676860">Usá datos ficticios</div>
+        <p style="margin:6px 0 0 0;font-size:13px;line-height:20px;color:#3A3835">
+          Nada personal, ninguna contraseña que uses en otro lado, ningún dato financiero.
+        </p>
+      </div>
+
+      <div style="display:flex;align-items:center;padding:16px 20px;border-left:1px solid #D9DAD3">
+        <a href="#" style="display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:500">
+          Cómo funciona la demo
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8h9M9 4.5L12.5 8L9 11.5"/></svg>
+        </a>
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- ============ TWO SIDES ============ -->
+  <div style="padding:80px 160px 0 160px">
+    <h2 style="margin:0;font-size:28px;line-height:36px;font-weight:600;letter-spacing:-0.02em">Dos lados, una sola aplicación</h2>
+    <p style="margin:8px 0 0 0;font-size:16px;line-height:26px;color:#676860;max-width:660px">
+      Podés recorrer los dos con sesiones distintas. Abrí una en una ventana normal y la otra en incógnito para verlas a la vez.
+    </p>
+
+    <div style="display:grid;grid-template-columns:repeat(2, minmax(0, 1fr));gap:20px;margin-top:24px">
+
+      <div style="border:1px solid #D9DAD3;border-radius:6px;background:#FFFFFF;padding:24px 26px">
+        <div style="font-size:12px;line-height:16px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#676860">Del lado del negocio</div>
+        <h3 style="margin:8px 0 0 0;font-size:20px;line-height:28px;font-weight:600;letter-spacing:-0.01em">Administrar la agenda</h3>
+        <div style="display:flex;flex-direction:column;gap:9px;margin-top:16px">
+          <div style="display:flex;gap:10px;font-size:15px;line-height:23px">
+            <svg style="flex-shrink:0;margin-top:5px" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#191A17" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.2 8.4l3.3 3.3L12.8 5.2"/></svg>
+            <span>Confirmar, reprogramar, cancelar, completar y marcar ausencias</span>
+          </div>
+          <div style="display:flex;gap:10px;font-size:15px;line-height:23px">
+            <svg style="flex-shrink:0;margin-top:5px" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#191A17" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.2 8.4l3.3 3.3L12.8 5.2"/></svg>
+            <span>Cargar servicios con duración, precio y seña</span>
+          </div>
+          <div style="display:flex;gap:10px;font-size:15px;line-height:23px">
+            <svg style="flex-shrink:0;margin-top:5px" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#191A17" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.2 8.4l3.3 3.3L12.8 5.2"/></svg>
+            <span>Definir horarios semanales, pausas, licencias y feriados</span>
+          </div>
+          <div style="display:flex;gap:10px;font-size:15px;line-height:23px">
+            <svg style="flex-shrink:0;margin-top:5px" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#191A17" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.2 8.4l3.3 3.3L12.8 5.2"/></svg>
+            <span>Invitar personal por email y darle o quitarle acceso</span>
+          </div>
+        </div>
+        <button style="height:38px;padding:0 16px;margin-top:20px;border:1px solid #D9DAD3;border-radius:4px;background:#FFFFFF;color:#191A17;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer">Entrar como negocio</button>
+      </div>
+
+      <div style="border:1px solid #D9DAD3;border-radius:6px;background:#FFFFFF;padding:24px 26px">
+        <div style="font-size:12px;line-height:16px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#676860">Del lado del cliente</div>
+        <h3 style="margin:8px 0 0 0;font-size:20px;line-height:28px;font-weight:600;letter-spacing:-0.01em">Reservar un turno</h3>
+        <div style="display:flex;flex-direction:column;gap:9px;margin-top:16px">
+          <div style="display:flex;gap:10px;font-size:15px;line-height:23px">
+            <svg style="flex-shrink:0;margin-top:5px" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#191A17" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.2 8.4l3.3 3.3L12.8 5.2"/></svg>
+            <span>Elegir negocio, servicio, profesional y horario libre</span>
+          </div>
+          <div style="display:flex;gap:10px;font-size:15px;line-height:23px">
+            <svg style="flex-shrink:0;margin-top:5px" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#191A17" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.2 8.4l3.3 3.3L12.8 5.2"/></svg>
+            <span>Pagar la seña cuando el servicio la pide</span>
+          </div>
+          <div style="display:flex;gap:10px;font-size:15px;line-height:23px">
+            <svg style="flex-shrink:0;margin-top:5px" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#191A17" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.2 8.4l3.3 3.3L12.8 5.2"/></svg>
+            <span>Ver el estado de cada reserva y su comprobante de seña</span>
+          </div>
+          <div style="display:flex;gap:10px;font-size:15px;line-height:23px">
+            <svg style="flex-shrink:0;margin-top:5px" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#191A17" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.2 8.4l3.3 3.3L12.8 5.2"/></svg>
+            <span>Reprogramar o cancelar dentro del plazo que fija el negocio</span>
+          </div>
+        </div>
+        <button style="height:38px;padding:0 16px;margin-top:20px;border:1px solid #D9DAD3;border-radius:4px;background:#FFFFFF;color:#191A17;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer">Ver negocios</button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ============ WHAT HAPPENS UNDERNEATH ============ -->
+  <div style="padding:76px 160px 0 160px">
+    <h2 style="margin:0;font-size:28px;line-height:36px;font-weight:600;letter-spacing:-0.02em">Lo que pasa por debajo</h2>
+    <p style="margin:8px 0 0 0;font-size:16px;line-height:26px;color:#676860;max-width:660px">
+      Cuatro comportamientos que se observan usando la demo, no capturas de pantalla.
+    </p>
+
+    <div style="display:grid;grid-template-columns:repeat(2, minmax(0, 1fr));column-gap:72px;row-gap:38px;margin-top:32px;max-width:1060px">
+
+      <div>
+        <h3 style="margin:0;font-size:19px;line-height:26px;font-weight:600;letter-spacing:-0.015em">La disponibilidad se calcula en el servidor</h3>
+        <p style="margin:7px 0 0 0;font-size:15px;line-height:25px;color:#676860">
+          El horario semanal de cada persona, menos sus pausas, sus licencias, los feriados del negocio
+          y las reservas que ya existen. Lo que queda son los turnos que ves.
+        </p>
+      </div>
+
+      <div>
+        <h3 style="margin:0;font-size:19px;line-height:26px;font-weight:600;letter-spacing:-0.015em">Dos personas no pueden tomar el mismo turno</h3>
+        <p style="margin:7px 0 0 0;font-size:15px;line-height:25px;color:#676860">
+          La disponibilidad se vuelve a verificar en el momento de guardar. Si alguien se te adelantó
+          por un segundo, la reserva se rechaza en vez de duplicarse.
+        </p>
+      </div>
+
+      <div>
+        <h3 style="margin:0;font-size:19px;line-height:26px;font-weight:600;letter-spacing:-0.015em">La agenda se actualiza sola</h3>
+        <p style="margin:7px 0 0 0;font-size:15px;line-height:25px;color:#676860">
+          Cuando un cliente reserva o paga, la pantalla del negocio lo refleja sin que nadie recargue.
+          Probalo con dos ventanas abiertas.
+        </p>
+      </div>
+
+      <div>
+        <h3 style="margin:0;font-size:19px;line-height:26px;font-weight:600;letter-spacing:-0.015em">La seña tiene vencimiento</h3>
+        <p style="margin:7px 0 0 0;font-size:15px;line-height:25px;color:#676860">
+          Una reserva que pide seña queda pendiente hasta que el pago se aprueba. Si nadie paga dentro
+          de la ventana, se cancela sola y el horario vuelve a quedar libre.
+        </p>
+      </div>
+
+    </div>
+
+    <p style="margin:30px 0 0 0;font-size:15px;line-height:25px;color:#676860;max-width:900px">
+      Hay además cuatro roles —dueño, administrador, empleado y cliente— y dos negocios de demostración
+      que no ven la agenda del otro. Las confirmaciones, reprogramaciones y recordatorios salen por email
+      de verdad y podés leerlos en el <a href="#">buzón de la demo</a>, que también es compartido.
+    </p>
+  </div>
+
+  <!-- ============ FOOTER ============ -->
+  <div style="margin-top:72px;border-top:1px solid #D9DAD3">
+
+    <div style="display:flex;align-items:flex-start;gap:64px;padding:38px 160px 30px 160px">
+
+      <div style="max-width:300px">
+        <div style="font-size:16px;font-weight:600;letter-spacing:-0.015em">ReservaHub</div>
+        <p style="margin:6px 0 0 0;font-size:13px;line-height:21px;color:#676860">
+          Sistema de reservas por franjas horarias. Proyecto de portfolio con pagos y emails simulados.
+        </p>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <div style="font-size:12px;line-height:16px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#676860;margin-bottom:2px">La demo</div>
+        <a href="#" style="font-size:13px">Ver negocios</a>
+        <a href="#" style="font-size:13px">Cómo funciona la demo</a>
+        <a href="#" style="font-size:13px">Ingresar</a>
+      </div>
+
+      <div style="flex-grow:1"></div>
+
+      <div style="max-width:360px">
+        <div style="font-size:12px;line-height:16px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#676860">Contacto</div>
+        <div style="font-size:19px;line-height:26px;font-weight:600;letter-spacing:-0.015em;margin-top:6px">¿Hablamos del proyecto?</div>
+        <p style="margin:5px 0 0 0;font-size:13px;line-height:21px;color:#676860">
+          Escribime si querés ver el código, preguntar cómo está construido o charlar de trabajo.
+        </p>
+        <a href="mailto:lucianogonzalez12004@gmail.com" style="display:inline-flex;align-items:center;gap:9px;height:42px;padding:0 16px;margin-top:12px;border:1px solid #191A17;border-radius:4px;background:#191A17;color:#ECEDE8;font-size:14px;font-weight:500;text-decoration:none">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1.8" y="3.5" width="12.4" height="9"/><path d="M1.8 4.5L8 8.8l6.2-4.3"/></svg>
+          lucianogonzalez12004@gmail.com
+        </a>
+      </div>
+
+    </div>
+
+    <div style="display:flex;align-items:center;gap:16px;padding:16px 160px;border-top:1px solid #D9DAD3">
+      <span style="font-size:13px;color:#676860">Hecho por Luciano González</span>
+      <div style="flex-grow:1"></div>
+      <span style="font-size:13px;color:#676860">No es un servicio comercial en funcionamiento.</span>
+    </div>
+
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>

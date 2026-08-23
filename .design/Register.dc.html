@@ -1,0 +1,134 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&display=swap">
+  <style>
+    *{box-sizing:border-box}
+    body{margin:0;background:#ECEDE8;color:#191A17;font-family:'Instrument Sans',ui-sans-serif,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+    a{color:#191A17;text-underline-offset:3px}
+    a:hover{color:#000}
+  </style>
+</helmet>
+
+<div style="display:flex;flex-direction:column;width:900px;min-height:960px;background:#ECEDE8">
+
+  <div style="display:flex;align-items:center;gap:20px;height:64px;padding:0 40px;border-bottom:1px solid #D9DAD3">
+    <div style="display:flex;align-items:baseline;gap:12px">
+      <span style="font-size:17px;font-weight:600;letter-spacing:-0.02em">ReservaHub</span>
+      <span style="font-size:12px;line-height:16px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#676860">Demo pública</span>
+    </div>
+    <div style="flex-grow:1"></div>
+    <a href="#" style="font-size:14px">Cómo funciona la demo</a>
+    <a href="#" style="font-size:14px">Ingresar</a>
+  </div>
+
+  <div style="display:flex;justify-content:center;padding:44px 40px 40px 40px">
+    <div style="width:460px">
+
+      <h1 style="margin:0;font-size:28px;line-height:36px;font-weight:600;letter-spacing:-0.025em">Crear cuenta</h1>
+      <p style="margin:6px 0 0 0;font-size:15px;line-height:24px;color:#676860">Elegí desde qué lado querés recorrer ReservaHub.</p>
+
+      <!-- demo safety : the one place a password gets typed -->
+      <div style="border:1px solid #EBD8A8;border-radius:6px;background:#FFFBEB;padding:14px 16px;margin-top:20px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#92400E" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2.2L14.4 13H1.6z"/><path d="M8 6.6v2.6M8 11.2v.1"/></svg>
+          <span style="font-size:12px;line-height:16px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#92400E">Datos ficticios</span>
+        </div>
+        <p style="margin:6px 0 0 0;font-size:13px;line-height:20px;color:#78350F">
+          Es una demo pública y compartida. Usá un nombre y un correo inventados, y una contraseña
+          descartable que <strong>no uses en ningún otro servicio</strong>. Todo esto se borra en el
+          próximo reinicio diario.
+        </p>
+      </div>
+
+      <!-- account type : the fork, given real weight -->
+      <div style="margin-top:22px">
+        <div style="font-size:13px;font-weight:500;margin-bottom:8px">Tipo de cuenta</div>
+        <div style="display:grid;grid-template-columns:repeat(2, minmax(0, 1fr));gap:10px">
+
+          <div style="border:1px solid #191A17;border-radius:6px;background:#FFFFFF;padding:14px 16px">
+            <div style="display:flex;align-items:center;gap:9px">
+              <div style="display:flex;align-items:center;justify-content:center;width:16px;height:16px;flex-shrink:0;border:1px solid #191A17;border-radius:50%">
+                <div style="width:8px;height:8px;border-radius:50%;background:#191A17"></div>
+              </div>
+              <span style="font-size:15px;font-weight:500">Tengo un negocio</span>
+            </div>
+            <p style="margin:6px 0 0 25px;font-size:12px;line-height:18px;color:#676860">Panel, servicios, personal y agenda</p>
+          </div>
+
+          <div style="border:1px solid #D9DAD3;border-radius:6px;background:#FFFFFF;padding:14px 16px">
+            <div style="display:flex;align-items:center;gap:9px">
+              <div style="width:16px;height:16px;flex-shrink:0;border:1px solid #B8B5AE;border-radius:50%"></div>
+              <span style="font-size:15px;font-weight:500">Quiero reservar turnos</span>
+            </div>
+            <p style="margin:6px 0 0 25px;font-size:12px;line-height:18px;color:#676860">Buscar un negocio y sacar un turno</p>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- fields -->
+      <div style="display:flex;flex-direction:column;gap:16px;margin-top:22px">
+
+        <div>
+          <label style="display:block;font-size:13px;font-weight:500;margin-bottom:6px">Nombre del negocio</label>
+          <div style="display:flex;align-items:center;height:42px;padding:0 12px;border:1px solid #D9DAD3;border-radius:4px;background:#FFFFFF;font-size:15px">Estudio de prueba</div>
+        </div>
+
+        <div>
+          <label style="display:block;font-size:13px;font-weight:500;margin-bottom:6px">Tu nombre</label>
+          <div style="display:flex;align-items:center;height:42px;padding:0 12px;border:1px solid #D9DAD3;border-radius:4px;background:#FFFFFF;font-size:15px;color:#A8A29E">Ej. Ana Prueba</div>
+        </div>
+
+        <div>
+          <label style="display:block;font-size:13px;font-weight:500;margin-bottom:6px">Correo electrónico</label>
+          <div style="display:flex;align-items:center;height:42px;padding:0 12px;border:1px solid #D9DAD3;border-radius:4px;background:#FFFFFF;font-size:15px;color:#A8A29E">ana@ejemplo.test</div>
+          <p style="margin:6px 0 0 0;font-size:12px;line-height:18px;color:#676860">
+            Los correos de la demo llegan a un <a href="#">buzón compartido</a> que cualquiera puede abrir.
+          </p>
+        </div>
+
+        <div>
+          <label style="display:block;font-size:13px;font-weight:500;margin-bottom:6px">Contraseña</label>
+          <div style="display:flex;align-items:center;height:42px;padding:0 12px;border:1px solid #D9DAD3;border-radius:4px;background:#FFFFFF;font-size:15px;color:#A8A29E">Mínimo 8 caracteres</div>
+        </div>
+
+        <div>
+          <label style="display:block;font-size:13px;font-weight:500;margin-bottom:6px">Repetir contraseña</label>
+          <div style="display:flex;align-items:center;height:42px;padding:0 12px;border:1px solid #D9DAD3;border-radius:4px;background:#FFFFFF;font-size:15px"></div>
+        </div>
+
+        <button style="width:100%;height:46px;margin-top:2px;border:1px solid #191A17;border-radius:4px;background:#191A17;color:#ECEDE8;font-family:inherit;font-size:15px;font-weight:500;cursor:pointer">Crear cuenta</button>
+
+        <p style="margin:0;font-size:14px;line-height:22px;color:#676860;text-align:center">
+          ¿Ya tenés cuenta? <a href="#">Iniciar sesión</a>
+        </p>
+
+      </div>
+
+    </div>
+  </div>
+
+  <div style="flex-grow:1"></div>
+
+  <div style="display:flex;align-items:center;gap:14px;padding:18px 40px;border-top:1px solid #D9DAD3">
+    <span style="font-size:12px;line-height:18px;color:#676860">ReservaHub · demo de portfolio · pagos y emails simulados</span>
+    <div style="flex-grow:1"></div>
+    <a href="#" style="font-size:12px">Cómo funciona la demo</a>
+    <span style="width:1px;height:14px;background:#D9DAD3"></span>
+    <a href="mailto:lucianogonzalez12004@gmail.com" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:500">
+      <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1.8" y="3.5" width="12.4" height="9"/><path d="M1.8 4.5L8 8.8l6.2-4.3"/></svg>
+      lucianogonzalez12004@gmail.com
+    </a>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>
