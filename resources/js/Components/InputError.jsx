@@ -1,7 +1,7 @@
-export default function InputError({ message }) {
+export default function InputError({ id, message }) {
     if (!message) {
         return null;
     }
 
-    return <p className="mt-1 text-sm text-red-600">{message}</p>;
+    return <p id={id} className="mt-1.5 text-[13px] text-noshow-fg">{message}</p>;
 }
