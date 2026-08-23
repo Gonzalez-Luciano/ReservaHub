@@ -180,8 +180,8 @@ son canónicos. Se declaran para que la implementación no los invente.
 | `--rule-faint` | `#EDEEE9` | líneas de la grilla horaria del riel del día |
 | `--surface-inset` | `#FAFAF8` | superficies embebidas (bloque de credenciales de demo) |
 | `--surface-disabled` | `#FAFAF9` | celdas de día deshabilitadas; bloque neutro del riel |
-| `--slot-taken` | `#E1E3DB` | bloque ocupado de la tira del día del Home |
-| `--slot-free-border` | `#C3C5BB` | borde punteado del hueco libre de esa tira |
+| `--slot-taken` | `#E1E3DB` | bloque con reserva de la tira del Home |
+| `--track-empty-border` | `#C3C5BB` | borde punteado del tramo **sin reserva** de esa tira. El nombre evita deliberadamente la palabra "libre": ese tramo no es disponibilidad (§5.7) |
 | `--check-on-ink` | `#86EFAC` | icono de check sobre el botón tinta de aprobar pago |
 
 Las tintas de bloque del riel del día derivan del estado: `#F6FBF7` confirmada,
@@ -280,18 +280,69 @@ con la etiqueta — sin barra lateral.
 en la tira del Home y en los horarios que siembra el `DemoSeeder`. Un solo
 número, para que ninguna reserva sembrada quede recortada fuera del riel.
 
+**La tira del Home es una visualización de OCUPACIÓN, no de disponibilidad.**
+Distinción obligatoria: un tramo sin reserva **no** equivale a un turno libre.
+Puede estar bloqueado por una pausa del horario, una licencia, un feriado del
+negocio, la duración del servicio o su buffer. El propio `DemoSeeder` siembra
+una pausa de 13:00–14:00, así que llamar "libre" a todo lo no ocupado ya
+falsearía el estado real de la aplicación.
+
+Por eso la tira dibuja **solo dos cosas**: intervalos con reservas reales no
+canceladas, y pista neutra sin reserva. El texto dice `sin reserva`, nunca
+"libre", "disponible", "reservable" ni un conteo de turnos. Quien quiera saber
+qué hay disponible de verdad va al flujo de reserva, donde responde
+`AvailabilityService`.
+
+`HomeController` **no** se convierte en un segundo motor de disponibilidad y
+**no** duplica `AvailabilityService`.
+
 - **Panel:** riel vertical de 09:00 a 18:00 sobre una grilla horaria a
   **1,1 px por minuto** — 66px por hora, 594px de alto. La altura del bloque
   **es** la duración: una coloración de 90 min ocupa exactamente el triple que un
-  corte de 30. El riel es de una sola columna, así que el dataset sembrado no
-  contiene reservas superpuestas en el mismo día.
+  corte de 30.
 - **Home:** la misma idea en horizontal, sobre una pista de 1120px que cubre las
-  mismas nueve horas (2,074 px/min): bloques ocupados y huecos libres de un día
-  real.
+  mismas nueve horas (2,074 px/min).
 
 Ninguna de las dos es decorativa: ambas se derivan de `starts_at`, `ends_at` y
 `duration_minutes` reales entregados por el servidor (§8.1 y §9.1). **Ninguna
 de las dos admite datos fabricados en el cliente.**
+
+#### Carriles para reservas simultáneas — riel del panel
+
+Dos reservas a la misma hora con **empleados distintos** son estado de negocio
+válido: Ana 10:00–10:30 y Beto 10:00–11:00 no violan ninguna regla del dominio.
+Una sola columna absoluta las dibujaría una encima de la otra y una taparía a la
+otra por completo.
+
+El riel reparte los bloques que se solapan en el tiempo en **carriles
+horizontales dentro de la misma grilla**. Algoritmo determinista, sin librería
+de calendario y sin dependencia nueva:
+
+1. Ordenar por `starts_at` ascendente, desempatando por `ends_at` ascendente y
+   después por `id` ascendente.
+2. Agrupar en **racimos** de bloques que se solapan transitivamente: un bloque
+   entra al racimo abierto si su `starts_at` es menor que el mayor `ends_at` del
+   racimo; si no, cierra el racimo y abre uno nuevo.
+3. Dentro de cada racimo, asignación voraz de carril: cada bloque toma el
+   carril de índice más bajo cuyo último bloque termina en o antes de su
+   `starts_at`; si no hay ninguno, se abre un carril nuevo.
+4. Ancho del bloque = `100% / carriles del racimo`; desplazamiento horizontal =
+   `índice de carril × ancho`.
+
+Consecuencias que el plan debe verificar:
+
+- **Ningún bloque válido tapa a otro.**
+- La posición vertical sigue derivando de `starts_at` y la altura de
+  `duration_minutes`: los carriles solo afectan el eje horizontal.
+- La asignación es determinista: los mismos datos dan siempre el mismo dibujo.
+- **Un racimo de un solo bloque tiene un solo carril y ocupa el ancho completo**,
+  así que el dataset sembrado —que no tiene solapes— se renderiza exactamente
+  igual que el artboard aprobado. Los carriles son comportamiento defensivo para
+  datos válidos, no una función de calendario nueva.
+- El cálculo es de presentación y vive en el cliente sobre los datos de `today`
+  que el controlador ya entrega. **No** se computan carriles en el backend.
+- En móvil (~390px) no hay carriles: sigue vigente la lista vertical
+  proporcional ya aprobada (§12).
 
 ### 5.8 Iconografía
 
@@ -601,7 +652,6 @@ Convención: **Props** lista solo lo que cambia respecto de lo actual.
     employee_name:   string,          // nombre de pila
     date:            "YYYY-MM-DD",    // en la zona del negocio
     window:          { start: "09:00", end: "18:00" },
-    slot_minutes:    int,             // granularidad del conteo de huecos
     occupied: [ { starts_at: "HH:MM",  // hora de pared local
                   ends_at:   "HH:MM",
                   duration_minutes: int,
@@ -622,10 +672,14 @@ Convención: **Props** lista solo lo que cambia respecto de lo actual.
   catálogo público del negocio, ya visible en `/negocios/{slug}`—, pero queda
   anotado que en un despliegue con clientes reales esa proyección lo omitiría.
 
-  Los huecos libres se derivan en el cliente restando `occupied` a `window` y
-  dividiendo por `slot_minutes`: es aritmética sobre datos del servidor, no
-  invención. **Prohibido** `fetch` desde el cliente y **prohibido** cualquier
-  arreglo de horarios escrito a mano en React.
+  El cliente puede calcular los tramos geométricos entre bloques ocupados —es
+  aritmética sobre datos del servidor, no invención—, pero esos tramos son
+  **únicamente "sin reserva"**. No son salida de `AvailabilityService` y la
+  interfaz tiene prohibido llamarlos libres, disponibles o reservables, o
+  contarlos como turnos. Ver §5.7.
+
+  **Prohibido** `fetch` desde el cliente y **prohibido** cualquier arreglo de
+  horarios escrito a mano en React.
 - **Prohibido.** Que el aviso de demo sea el hero. Caja de alerta gigante. El
   currículum del autor. Amarillo de advertencia decorativo.
 
@@ -715,6 +769,14 @@ los correos llegan a un buzón compartido que cualquiera puede abrir.
   `starts_at` y con altura `duration_minutes × 1,1`. Cada bloque: spine de
   estado, hora, servicio, empleado, cliente; los pendientes añaden importe y
   vencimiento de seña; los cancelados llevan hora tachada.
+
+  **Carriles.** Owner y admin ven la agenda de todo el equipo, así que dos
+  reservas simultáneas con empleados distintos son estado válido y frecuente. El
+  riel las reparte en carriles horizontales con el algoritmo determinista de
+  §5.7. Un racimo sin solapes conserva un solo carril y el ancho completo, así
+  que el dataset sembrado se ve igual que el artboard. Para `employee`, cuyo
+  riel está filtrado a su propia agenda, los solapes son imposibles por dominio
+  y el riel queda siempre en un carril.
 - **Cola de atención.** Una sola superficie con filas separadas por filete, cada
   una con spine de estado — misma anatomía que la lista de reservas.
 
@@ -1033,11 +1095,15 @@ Alcance por rol: `employee` filtra todo por `employee_id = self`.
 restantes. Una misma reserva **nunca** aparece dos veces en `attention`, aunque
 las métricas `awaiting_deposit` y `expiring_soon` sí se solapen a propósito.
 
-`today` se ordena por `starts_at` ascendente. El riel es de una sola columna, así
-que el dataset sembrado no contiene reservas superpuestas el mismo día (§10.2);
-si dos llegaran a superponerse por acción de un visitante, se renderizan en el
-orden recibido y se acepta el solape visual — no se introduce carriles por
-empleado en esta fase.
+`today` se ordena por `starts_at` ascendente, desempatando por `ends_at` y
+después por `id`, de modo que la asignación de carriles del cliente (§5.7) sea
+determinista sin necesidad de que el backend la calcule. **El servidor no
+computa carriles**: es presentación.
+
+El dataset sembrado no contiene reservas superpuestas el mismo día (§10.2), pero
+un visitante sí puede crear una que se solape con otra de otro empleado —es
+estado de dominio válido— y el riel debe dibujar ambas sin que ninguna tape a la
+otra.
 
 **Tests.**
 
@@ -1109,10 +1175,23 @@ ruta y sin autenticación.
 
 Devuelve `timeline` con el contrato de §8.1, o `null`.
 
-**Selección determinista.** El primer negocio activo por nombre; dentro de él,
-el primer empleado activo por nombre que tenga horario hoy. Sin horario, sin
-empleados activos o sin negocios activos → `timeline: null` y el Home omite la
-tira.
+**Selección determinista, y con filtro de elegibilidad.** El primer negocio
+activo, por orden determinista, **que tenga al menos un empleado activo con
+horario activo para hoy**; dentro de él, el primer empleado elegible por el
+mismo orden. Un negocio activo sin empleado elegible hoy **se saltea**, no
+aborta la búsqueda.
+
+`timeline: null` solo cuando **ningún** negocio activo tiene un empleado
+elegible hoy.
+
+Este filtro no es un detalle: el `DemoSeeder` siembra Estudio Demo con horarios
+de lunes a viernes y Peluquería Demo con los siete días, y "Estudio" ordena
+antes que "Peluquería". Un algoritmo que tomara el primer negocio y se rindiera
+al no encontrar empleado devolvería `null` todos los sábados y domingos, con la
+tira de Peluquería perfectamente disponible.
+
+**Prohibido** resolverlo fijando `peluqueria-demo` en el controlador: el filtro
+de elegibilidad es la solución, y funciona con cualquier dataset.
 
 **Proyección mínima.** Solo `starts_at`, `ends_at`, `duration_minutes` y el
 nombre del servicio de las reservas no canceladas de ese empleado hoy, más el
@@ -1124,14 +1203,21 @@ nombre del negocio y el nombre de pila del empleado. Las horas se formatean a
 
 **Tests.**
 
-- Devuelve `timeline: null` sin negocios activos, y la página igual responde 200.
-- Devuelve `timeline: null` cuando el empleado elegido no tiene horario hoy.
+- **Saltea un negocio activo anterior que hoy no tiene ningún empleado elegible,
+  y elige el siguiente negocio elegible.** Es el caso del fin de semana con
+  Estudio Demo y Peluquería Demo.
+- Devuelve `timeline: null` **solo** cuando ningún negocio activo tiene empleado
+  elegible hoy, y la página igual responde 200 sin la tira.
+- Devuelve `timeline: null` sin negocios activos.
+- Un negocio inactivo nunca se elige, aunque tenga empleados con horario hoy.
+- Un empleado inactivo no vuelve elegible a su negocio.
 - Con datos sembrados, los bloques ocupados coinciden con las reservas reales de
   ese empleado hoy.
 - **Las reservas canceladas no aparecen** como ocupadas.
 - **La respuesta no contiene** nombre de cliente, correo, id de reserva, estado
   ni ningún campo de pago — aserción explícita sobre las claves proyectadas.
-- Un negocio inactivo nunca se elige.
+- **La respuesta no contiene** `slot_minutes` ni ningún campo de disponibilidad:
+  el contrato es de ocupación (§5.7).
 
 ### 9.9 Middleware compartido
 
@@ -1309,12 +1395,13 @@ la arquitectura de §10.1 descarta.
 - Conteos por negocio: **21 en Peluquería, 2 en Estudio** (23 en total).
 - Estudio **no tiene reservas hoy**, y las que tiene caen en día hábil.
 - Los dos servicios con seña tienen `deposit_amount`; los otros cinco, `null`.
-- Los cinco estados de reserva están presentes en el dataset completo
-  (confirmada y cancelada hoy; completada y ausencia en el pasado; **`pending`
-  deliberadamente ausente**).
+- **Los cuatro estados estables sembrados están presentes:** `confirmed` y
+  `cancelled` hoy, `completed` y `no_show` en el pasado.
 - **Ninguna reserva sembrada queda en `pending`** y **ningún pago sembrado queda
   en `pending`** — es el invariante de §10.1.1 y el que evita que el estado
-  inicial se degrade solo tras el reinicio.
+  inicial se degrade solo tras el reinicio. `pending` es el quinto estado del
+  dominio y lo produce únicamente el recorrido real de un visitante que reserva
+  un servicio con seña.
 - Consistencia `payments` ↔ `simulated_provider_payments` en las tres filas.
 - **`Notification::fake()` + `assertNothingSent()`**: un reinicio no manda
   correo.
@@ -1496,6 +1583,16 @@ JavaScript. Se reemplaza por booleanos del servidor (§9.5).
 13. Smoke de tiempo real de la Fase 10 con dos ventanas, incluido el aislamiento
     entre negocios.
 14. Verificación de que ninguna cifra visible carece de consulta detrás.
+15. **Carriles del riel:** con dos reservas simultáneas de empleados distintos
+    creadas a mano, comprobar en navegador que ninguna tapa a la otra, que la
+    posición vertical sigue derivando de `starts_at` y la altura de
+    `duration_minutes`, y que el dataset sembrado —sin solapes— se renderiza
+    idéntico al artboard aprobado.
+16. **Tira del Home:** comprobar que en ningún ancho aparece la palabra "libre",
+    "disponible" ni un conteo de turnos sobre los tramos sin reserva.
+17. **Selección del Home en fin de semana:** con el reloj puesto en sábado,
+    comprobar que la tira se renderiza con Peluquería Demo y no desaparece por
+    haber elegido un negocio sin empleado con horario ese día.
 15. Revisión final de toda la rama.
 
 **Sin Playwright, Cypress, Vitest ni Jest en esta fase.**
