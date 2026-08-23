@@ -6,4 +6,79 @@
 @theme {
     --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
+
+    /* Marca sin hue: el color queda reservado para significado. */
+    --color-bg: #ECEDE8;
+    --color-surface: #FFFFFF;
+    --color-border: #D9DAD3;
+    --color-muted: #676860;
+    --color-fg: #191A17;
+    --color-chrome: #E3E5DE;
+    --color-chrome-active: #D9DAD3;
+
+    /* Escala de apoyo. */
+    --color-fg-body: #3A3835;
+    --color-fg-placeholder: #A8A29E;
+    --color-fg-on-ink-muted: #B8B5AE;
+    --color-rule-faint: #EDEEE9;
+    --color-surface-inset: #FAFAF8;
+    --color-surface-disabled: #FAFAF9;
+    --color-slot-taken: #E1E3DB;
+    --color-track-empty-border: #C3C5BB;
+
+    /* Estado. Nunca se usan como color de marca. */
+    --color-pending-fg: #92400E;
+    --color-pending-bg: #FEF3C7;
+    --color-pending-border: #EBD8A8;
+    --color-pending-strong: #78350F;
+    --color-pending-block: #FFFBEB;
+    --color-confirmed-fg: #166534;
+    --color-confirmed-bg: #DCFCE7;
+    --color-confirmed-block: #F6FBF7;
+    --color-completed-fg: #334155;
+    --color-completed-bg: #E2E8F0;
+    --color-cancelled-fg: #57534E;
+    --color-cancelled-bg: #F5F5F4;
+    --color-noshow-fg: #991B1B;
+    --color-noshow-bg: #FEE2E2;
+}
+
+@layer base {
+    body {
+        background-color: var(--color-bg);
+        color: var(--color-fg);
+    }
+
+    /* Anillo de foco único: tinta con separación blanca. Visible sobre papel
+       y sobre el botón tinta sin necesidad de un sexto color. */
+    :focus-visible {
+        outline: 2px solid var(--color-fg);
+        outline-offset: 2px;
+    }
+
+    a {
+        text-underline-offset: 3px;
+    }
+}
+
+@utility tnum {
+    font-variant-numeric: tabular-nums;
+}
+
+/* Micro-etiqueta: solo para metadatos operativos (fechas de agrupación,
+   encabezados de tabla, etiquetas de dato). Nunca como kicker decorativo. */
+@utility micro {
+    font-size: 12px;
+    line-height: 16px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+    }
 }
