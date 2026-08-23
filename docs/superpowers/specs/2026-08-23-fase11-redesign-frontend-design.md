@@ -344,6 +344,28 @@ interacción real del dominio):
 
 No se crean primitivas fuera de esta lista.
 
+### 5.11 Voz
+
+Español rioplatense, voseo, tono directo y sin adornos. Etiquetas de acción en
+infinitivo o imperativo según ya se usa (`Guardar`, `Confirmar`, `Reservar y
+pagar la seña`), y una acción conserva su nombre en todo el flujo.
+
+**Primera persona del singular, nunca del plural.** ReservaHub lo hizo una sola
+persona y la copia tiene que reflejarlo: *"te pido que lo ignores"*, no *"te
+pedimos"*. Nada de `nuestro`, `nuestra`, `hacemos`, `enviamos`, `ofrecemos` ni
+plural mayestático — ese registro finge una empresa detrás de un proyecto de
+portfolio.
+
+La mayor parte de la copia ni siquiera necesita primera persona: preferir la
+forma impersonal o dirigirse directamente a quien lee (*"los pagos son
+simulados"*, *"usá datos ficticios"*). La primera persona del singular queda
+para los dos lugares donde hay un pedido genuino a la persona que visita —
+respetar los datos de otra prueba y no interferir con los correos ajenos— y para
+el bloque de contacto del pie.
+
+Los errores no piden disculpas ni son vagos: dicen qué pasó y cómo seguir. Un
+estado vacío es una invitación a actuar, no un mensaje de ausencia.
+
 ---
 
 ## 6. Arquitectura de información
