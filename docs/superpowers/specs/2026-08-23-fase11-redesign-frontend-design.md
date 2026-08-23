@@ -276,14 +276,22 @@ con la etiqueta — sin barra lateral.
 
 ### 5.7 Firma 2 — geometría veraz del tiempo
 
-- **Panel:** el riel del día posiciona bloques en una grilla horaria a
-  **1,1 px por minuto**. La altura del bloque **es** la duración: una coloración
-  de 90 min ocupa exactamente el triple que un corte de 30.
-- **Home:** la misma idea en horizontal, sobre una pista de 1120px que cubre
-  09:00–18:00 (2,074 px/min): bloques ocupados y huecos libres de un día real.
+**Ventana canónica: 09:00–18:00.** Nueve horas, idéntica en el riel del panel,
+en la tira del Home y en los horarios que siembra el `DemoSeeder`. Un solo
+número, para que ninguna reserva sembrada quede recortada fuera del riel.
+
+- **Panel:** riel vertical de 09:00 a 18:00 sobre una grilla horaria a
+  **1,1 px por minuto** — 66px por hora, 594px de alto. La altura del bloque
+  **es** la duración: una coloración de 90 min ocupa exactamente el triple que un
+  corte de 30. El riel es de una sola columna, así que el dataset sembrado no
+  contiene reservas superpuestas en el mismo día.
+- **Home:** la misma idea en horizontal, sobre una pista de 1120px que cubre las
+  mismas nueve horas (2,074 px/min): bloques ocupados y huecos libres de un día
+  real.
 
 Ninguna de las dos es decorativa: ambas se derivan de `starts_at`, `ends_at` y
-`duration_minutes` reales.
+`duration_minutes` reales entregados por el servidor (§8.1 y §9.1). **Ninguna
+de las dos admite datos fabricados en el cliente.**
 
 ### 5.8 Iconografía
 
@@ -442,11 +450,22 @@ el copy y el requisito escrito en el handoff.
 `/como-funciona` (prominente, 40px). **No** va en `PublicLayout` ni en el panel:
 sería chrome repetido.
 
-**Cálculo.** Obtener la hora de pared actual en
-`America/Argentina/Buenos_Aires` con `Intl.DateTimeFormat` (`hour12: false`,
-`hour`/`minute`/`second` a dos dígitos), convertir a segundos transcurridos desde
-la medianoche de esa zona, y restar de 86 400. Un visitante en cualquier país ve
-el mismo instante de reinicio. **Sin librería de fechas.**
+**Cálculo — contrato exacto.** Sin librería de fechas.
+
+1. `Intl.DateTimeFormat` con `timeZone: 'America/Argentina/Buenos_Aires'`,
+   `hourCycle: 'h23'`, y `hour`, `minute`, `second` a dos dígitos.
+2. **`formatToParts()`**, nunca `format()`: se extraen las partes por su `type`
+   (`hour`, `minute`, `second`) y se convierten con `Number()`. Parsear una
+   cadena formateada por locale es frágil — algunos locales representan la
+   medianoche como `24:00`, y `hourCycle: 'h23'` más `formatToParts()` eliminan
+   esa clase de error por completo.
+3. `restantes = 86400 − (hora × 3600 + minuto × 60 + segundo)`.
+4. **Minutos por exceso:** `Math.ceil(restantes / 60)`, y de ahí horas y
+   minutos. Así la interfaz nunca muestra `0 h 0 min` mientras todavía faltan
+   segundos para el reinicio.
+
+Un visitante en cualquier país ve el mismo instante. **Sin sincronización con el
+backend.**
 
 **Presentación.** Precisión al minuto: `8 h 42 min`. **Nunca** segundos
 animados. Tinta sobre papel, sin caja de color, sin rojo, sin pulso: no puede
@@ -542,12 +561,49 @@ Convención: **Props** lista solo lo que cambia respecto de lo actual.
   columnas, sin cajas ni filetes, separados por espacio) y un párrafo de cierre
   sobre roles y correo. Pie con contacto.
 - **Acción primaria.** `Ver negocios y reservar` → `/negocios`.
-- **Estados.** Sin estado vacío: es contenido estático más el contador.
+- **Estados.** Si el servidor no devuelve agenda (`timeline === null`), **la tira
+  del día no se renderiza**: el hero conserva título, párrafo y acciones, y la
+  franja de demo sube a ocupar su lugar. La página nunca queda rota ni muestra
+  un hueco vacío.
 - **Responsive.** 1440 como el artboard · 1024: hero a ancho completo, franja a
   2+1, tira del día conserva proporción · 390: todo apilado, franja en tres
   bloques con filete entre ellos, tira del día pasa a lista vertical
   proporcional.
-- **Props.** Ninguna nueva. El contador es cliente puro.
+- **Props.** El contador es cliente puro, pero **la tira del día no**: dibuja
+  ocupación real y por lo tanto necesita datos reales del servidor (§9.9).
+  Contrato mínimo:
+
+  ```
+  timeline: {
+    business_name:   string,
+    employee_name:   string,          // nombre de pila
+    date:            "YYYY-MM-DD",    // en la zona del negocio
+    window:          { start: "09:00", end: "18:00" },
+    slot_minutes:    int,             // granularidad del conteo de huecos
+    occupied: [ { starts_at: "HH:MM",  // hora de pared local
+                  ends_at:   "HH:MM",
+                  duration_minutes: int,
+                  service_name: string } ]
+  } | null
+  ```
+
+  **Deliberadamente ausente:** nombre, correo o teléfono de cliente; id de
+  reserva; estado de reserva; importe, seña o cualquier dato de pago; apellido o
+  contacto del empleado. Los bloques ocupados se pintan neutros, sin color
+  semántico, porque la tira comunica **ocupación**, no estado.
+
+  Las horas viajan como cadenas `HH:MM` ya resueltas en la zona del negocio: el
+  cliente no hace aritmética de zonas horarias y no recibe instantes UTC que
+  pudieran revelar más de lo necesario.
+
+  El nombre del servicio se conserva —está en el artboard aprobado y es
+  catálogo público del negocio, ya visible en `/negocios/{slug}`—, pero queda
+  anotado que en un despliegue con clientes reales esa proyección lo omitiría.
+
+  Los huecos libres se derivan en el cliente restando `occupied` a `window` y
+  dividiendo por `slot_minutes`: es aritmética sobre datos del servidor, no
+  invención. **Prohibido** `fetch` desde el cliente y **prohibido** cualquier
+  arreglo de horarios escrito a mano en React.
 - **Prohibido.** Que el aviso de demo sea el hero. Caja de alerta gigante. El
   currículum del autor. Amarillo de advertencia decorativo.
 
@@ -614,7 +670,16 @@ los correos llegan a un buzón compartido que cualquiera puede abrir.
   | `N turnos hoy` (dominante) | reservas cuyo `starts_at` cae hoy en `business.timezone`, cualquier estado |
   | desglose bajo la cifra | conteo por estado dentro de ese mismo conjunto |
   | `Esperando seña` | `status = pending` |
-  | `Vence pronto` | `status = pending AND payment_expires_at <= now() + 15 min` |
+  | `Vence pronto` | `status = pending AND payment_expires_at > now() AND payment_expires_at <= now() + 15 min` |
+
+  **La condición `> now()` no es opcional.** Sin ella, una reserva ya vencida
+  cuenta como "vence pronto" durante la ventana que va desde el vencimiento
+  hasta que `bookings:expire-unpaid` la procesa. Se muestra como urgente algo
+  que ya caducó.
+
+  Las dos métricas se solapan a propósito: `Esperando seña` es el total de
+  pendientes y `Vence pronto` es su subconjunto urgente. El solapamiento en las
+  **cifras** es intencional; en la **cola de atención** está prohibido (§9.1).
   | `Próximos 7 días` | `status = confirmed AND starts_at` entre mañana y +7 días |
 
   **Corrección de dominio incorporada.** `CreateBooking:67` fija
@@ -623,14 +688,25 @@ los correos llegan a un buzón compartido que cualquiera puede abrir.
   negocio". Por eso la etiqueta es `Esperando seña` y no `Sin confirmar`, que
   sugeriría una acción de staff inexistente.
 
-- **Riel del día.** Ventana 09:00–17:00 en la zona del negocio, grilla horaria a
-  1,1 px/min, bloques posicionados por `starts_at` y con altura
-  `duration_minutes × 1,1`. Cada bloque: spine de estado, hora, servicio,
-  empleado, cliente; los pendientes añaden importe y vencimiento de seña; los
-  cancelados llevan hora tachada.
+- **Riel del día.** Ventana **09:00–18:00** en la zona del negocio (§5.7), grilla
+  horaria a 1,1 px/min — 66px por hora, 594px de alto. Bloques posicionados por
+  `starts_at` y con altura `duration_minutes × 1,1`. Cada bloque: spine de
+  estado, hora, servicio, empleado, cliente; los pendientes añaden importe y
+  vencimiento de seña; los cancelados llevan hora tachada.
 - **Cola de atención.** Una sola superficie con filas separadas por filete, cada
-  una con spine de estado — misma anatomía que la lista de reservas. Filas:
-  señas por vencer y reservas esperando seña, con acciones en línea.
+  una con spine de estado — misma anatomía que la lista de reservas.
+
+  **Sin duplicados.** Una reserva aparece **una sola vez**. La clasificación es
+  excluyente y priorizada: `expiring_soon` primero; `awaiting_deposit` recoge
+  solo las pendientes que **no** quedaron clasificadas como `expiring_soon`.
+  Cada fila lleva su `kind` y su micro-etiqueta correspondiente.
+
+  **Estado vacío.** Con el dataset sembrado recién reiniciado la cola está
+  vacía, porque el seeder no siembra reservas pendientes (§10.1). Muestra un
+  `EmptyState` compacto: "Nada requiere atención" más una línea explicando que
+  acá aparecen las reservas que esperan seña. **No es un caso degradado: es el
+  estado normal de la demo hasta que un visitante reserva un servicio con
+  seña.**
 - **Atajos.** Tipografía sobre papel, sin superficie: cargar reserva, editar
   horarios, agregar feriado.
 - **Rol.** `employee` ve el mismo layout con todas las consultas filtradas por
@@ -929,11 +1005,30 @@ attention:[ { id, kind, starts_at, status, service_name,
 ```
 
 Alcance por rol: `employee` filtra todo por `employee_id = self`.
-`kind` ∈ `expiring_soon | awaiting_deposit`.
 
-**Tests.** Conteos correctos por estado; ventana "hoy" resuelta en
-`business.timezone` y no en UTC; `employee` ve solo lo suyo; aislamiento entre
-negocios; `expiring_soon` respeta el umbral de 15 minutos.
+**`kind` ∈ `expiring_soon | awaiting_deposit`, y la clasificación es excluyente.**
+`expiring_soon` se resuelve primero; `awaiting_deposit` recoge las pendientes
+restantes. Una misma reserva **nunca** aparece dos veces en `attention`, aunque
+las métricas `awaiting_deposit` y `expiring_soon` sí se solapen a propósito.
+
+`today` se ordena por `starts_at` ascendente. El riel es de una sola columna, así
+que el dataset sembrado no contiene reservas superpuestas el mismo día (§10.2);
+si dos llegaran a superponerse por acción de un visitante, se renderizan en el
+orden recibido y se acepta el solape visual — no se introduce carriles por
+empleado en esta fase.
+
+**Tests.**
+
+- Conteos correctos por estado.
+- Ventana "hoy" resuelta en `business.timezone`, no en UTC.
+- `employee` ve solo lo suyo; aislamiento entre negocios.
+- **`expiring_soon` excluye una reserva ya vencida** (`payment_expires_at` en el
+  pasado, todavía `pending` porque el scheduler no corrió).
+- **`expiring_soon` incluye una reserva justo dentro de la ventana futura de 15
+  minutos.**
+- **`attention` no repite la misma reserva** cuando cumple ambos criterios.
+- Con el dataset sembrado recién reiniciado, `awaiting_deposit`, `expiring_soon`
+  y `attention` valen cero / vacío.
 
 ### 9.2 `Dashboard\BookingController::index`
 
@@ -983,7 +1078,40 @@ pasa lo que la vista necesita para el CTA del buzón; el contador es cliente pur
 **Tests.** Responde 200 para invitado y autenticado; renderiza el componente
 esperado.
 
-### 9.8 Middleware compartido
+### 9.8 `HomeController` (nuevo)
+
+Hoy `/` es una closure en `routes/web.php:7-9` que solo hace
+`Inertia::render('Home')`. Pasa a un controlador de una sola acción
+(`__invoke`), igual patrón que `DashboardController`, registrado en la misma
+ruta y sin autenticación.
+
+Devuelve `timeline` con el contrato de §8.1, o `null`.
+
+**Selección determinista.** El primer negocio activo por nombre; dentro de él,
+el primer empleado activo por nombre que tenga horario hoy. Sin horario, sin
+empleados activos o sin negocios activos → `timeline: null` y el Home omite la
+tira.
+
+**Proyección mínima.** Solo `starts_at`, `ends_at`, `duration_minutes` y el
+nombre del servicio de las reservas no canceladas de ese empleado hoy, más el
+nombre del negocio y el nombre de pila del empleado. Las horas se formatean a
+`HH:MM` en la zona del negocio dentro del controlador.
+
+**Nunca proyecta** `customer_id`, nombre o correo de cliente, `id` de reserva,
+`status`, `price`, `deposit_amount`, `payment_expires_at` ni relación de pago.
+
+**Tests.**
+
+- Devuelve `timeline: null` sin negocios activos, y la página igual responde 200.
+- Devuelve `timeline: null` cuando el empleado elegido no tiene horario hoy.
+- Con datos sembrados, los bloques ocupados coinciden con las reservas reales de
+  ese empleado hoy.
+- **Las reservas canceladas no aparecen** como ocupadas.
+- **La respuesta no contiene** nombre de cliente, correo, id de reserva, estado
+  ni ningún campo de pago — aserción explícita sobre las claves proyectadas.
+- Un negocio inactivo nunca se elige.
+
+### 9.9 Middleware compartido
 
 `HandleInertiaRequests::share` agrega `auth.user.email` y el nombre del negocio
 cuando hay contexto, para el shell. No se comparte nada más de forma global.
@@ -1004,6 +1132,45 @@ eventos suprimidos. `bookings.starts_at`/`ends_at` se persisten en **UTC**
 convierte. `price` y `deposit_amount` son snapshot en la reserva.
 
 Se conserva la idempotencia por slug.
+
+### 10.1.1 Ninguna reserva pendiente sembrada — y por qué
+
+El seeder **no siembra reservas en estado `pending`**, y por lo tanto tampoco
+pagos `pending`.
+
+La razón es de dominio, no de comodidad. Una reserva con seña recibe una
+`payment_expires_at` acotada (`config('payments.window_minutes')`, 30 por
+defecto) y `bookings:expire-unpaid` la cancela al vencer. El reinicio corre a las
+00:00 y la demo se usa durante todo el día: una reserva pendiente sembrada a
+medianoche estaría cancelada mucho antes de que alguien abra la página. El
+"estado inicial conocido" duraría media hora.
+
+Las salidas fáciles quedan **explícitamente prohibidas** porque volverían el
+dataset inconsistente con el dominio real: alargar artificialmente la ventana de
+pago, sembrar `created_at` en el futuro, dejar `payment_expires_at` en `null`
+para una reserva que sí pide seña, desactivar la expiración automática, o tocar
+cualquier comportamiento de la Fase 9.
+
+**El estado pendiente lo genera el visitante**, recorriendo el flujo real — que
+además es el mejor momento de la demo:
+
+```
+cliente reserva un servicio con seña
+    → aparece pendiente
+    → la pantalla del negocio se actualiza sola (Fase 10)
+    → el visitante abre el checkout simulado
+    → aprueba el pago
+    → la reserva pasa a confirmada
+    → la pantalla del negocio se actualiza de nuevo
+```
+
+En consecuencia, el panel recién reiniciado muestra legítimamente
+**`Esperando seña = 0`** y **`Vence pronto = 0`**, con la cola de atención en su
+estado vacío. **Ninguna métrica se infla artificialmente para no mostrar cero.**
+
+Para capturas de pantalla se crea una reserva pendiente real por el flujo normal
+justo antes de capturar. **No** se hornea en el seeder un estado pendiente que el
+dominio no puede sostener.
 
 ### 10.2 Dataset
 
@@ -1027,52 +1194,83 @@ $2.400** · Manicura 45′ $4.000 · Masaje 60′ $8.000 · Depilación 30′ $5
 Estudio: Clase de guitarra 60′ $6.000 · **Grabación de demo 120′ $20.000, seña
 $5.000**. Seña solo en los dos servicios largos y caros.
 
-**Horarios.** Ana y Beto: lunes a sábado 09:00–18:00; **Ana además domingo
-10:00–16:00**. Pausa 13:00–14:00 de lunes a viernes para ambos. Carla: **lunes a
-viernes** 09:00–18:00.
+**Horarios.** Ana y Beto: **los siete días, 09:00–18:00**, con pausa
+13:00–14:00 todos los días. Carla: **lunes a viernes** 09:00–18:00, misma pausa.
 
-Peluquería abre los siete días **a propósito**: el reinicio corre a diario y el
-panel tiene que ser significativo también un domingo. Estudio queda de lunes a
-viernes, así el caso "día cerrado, sin disponibilidad" sigue siendo demostrable.
+Peluquería abre los siete días con horario idéntico **a propósito y por dos
+motivos**. Primero, el reinicio corre a diario y el panel tiene que ser
+significativo también un domingo. Segundo, y decisivo: las reservas de hoy se
+siembran con horas de pared fijas (09:00 … 17:30), así que el horario del
+empleado tiene que ser el mismo cualquier día de la semana o el dataset se
+volvería inválido los fines de semana. Un horario reducido de domingo dejaría la
+reserva de las 09:00 y la de las 17:30 fuera de la jornada de su empleado.
+
+Estudio queda de lunes a viernes, así el caso "día cerrado, sin disponibilidad"
+sigue siendo demostrable sin comprometer la demo principal.
+
+La ventana 09:00–18:00 coincide exactamente con la ventana canónica del riel
+(§5.7): ninguna reserva sembrada puede quedar recortada.
 
 **Licencia.** Beto, tres días desde hoy+10. **Feriado.** Peluquería, un día en
 hoy+14. Ambas tablas dejan de estar vacías.
 
-**Reservas — 24 en total.**
+**Reservas — 23 en total (21 Peluquería + 2 Estudio), todas en estado estable.**
 
-Peluquería, hoy (6): 3 confirmadas, 2 esperando seña, 1 cancelada.
+Peluquería, hoy (6): 5 confirmadas, 1 cancelada. **Ninguna pendiente** (§10.1.1).
 
-| Hora | Servicio · empleado | Cliente | Estado |
+| Horario | Servicio · empleado | Cliente | Estado |
 |---|---|---|---|
-| 09:00 | Corte · Ana | Marina | confirmada |
-| 10:00 | Coloración · Ana | Lucía | pendiente, **sin intento de pago** |
-| 10:30 | Coloración · Beto | Julián | pendiente, **intento abierto, vence ~12 min** |
-| 15:00 | Manicura · Ana | Rodrigo | confirmada |
-| 16:30 | Masaje · Beto | Marina | confirmada |
-| 17:00 | Depilación · Ana | Julián | cancelada |
+| 09:00–09:30 | Corte · Ana | Marina | confirmada |
+| 10:00–11:30 | Coloración · Ana | Lucía | confirmada, **con seña aprobada** |
+| 12:00–12:30 | Corte · Beto | Rodrigo | confirmada |
+| 15:00–15:45 | Manicura · Ana | Rodrigo | confirmada |
+| 16:30–17:30 | Masaje · Beto | Marina | confirmada |
+| 17:30–18:00 | Depilación · Ana | Julián | cancelada |
 
-Verificado contra horarios, pausas y buffers: sin superposiciones ni choque con
-el almuerzo.
+Verificado contra horarios, pausas de 13:00–14:00 y buffers: sin choques con el
+almuerzo. **Y verificado contra el riel de una sola columna: ninguna de las seis
+se superpone con otra**, ni siquiera entre empleados distintos. La última
+termina exactamente a las 18:00, el borde de la ventana canónica.
 
-Peluquería, mañana (3) confirmadas. Días +2 a +6 (8) confirmadas — junto con las
-de hoy dan **14 en los próximos 7 días**.
+Peluquería, mañana (3) confirmadas. Días +2 a +6 (8) confirmadas — dan
+**`Próximos 7 días` = 11**, que es la métrica de mañana a +7 y por lo tanto
+**no** incluye las de hoy.
 
 Peluquería, pasadas (4): −7 d Coloración **completada con pago aprobado** (camino
 feliz completo en `Show`) · −7 d Manicura **ausencia** · −3 d Corte completada ·
 −2 d Masaje cancelada.
 
-Estudio (3): hoy 1 confirmada (el aislamiento es visible: owner ve 6, owner2 ve
-1) · +3 d Grabación pendiente con seña · −5 d completada.
+Estudio (2), **sin reservas hoy**: Grabación **confirmada con seña aprobada** en
+el primer día hábil a partir de hoy+3 · Clase de guitarra completada en el
+último día hábil anterior a hoy−5.
 
-**Pagos.**
+Ambas se ajustan al día hábil más cercano porque Carla trabaja de lunes a
+viernes: sin ese ajuste, un reinicio en fin de semana dejaría reservas fuera de
+su jornada. Peluquería no necesita el ajuste porque abre los siete días.
+
+Que Estudio no tenga reservas hoy es **deliberado y útil**: hace demostrable el
+estado vacío del panel y, al mismo tiempo, el aislamiento entre negocios sigue
+siendo evidente — `owner@` ve seis turnos hoy y `owner2@` ve cero, con datos
+completamente distintos en cada panel.
+
+**Pagos — tres, todos aprobados.**
 
 | Reserva | `payments` | `simulated_provider_payments` |
 |---|---|---|
-| hoy 10:30 Coloración | pending, vence ~12 min | pending |
+| hoy 10:00 Coloración | approved, `paid_at` | approved |
 | −7 d Coloración | approved, `paid_at` | approved |
+| Estudio +3 d Grabación | approved, `paid_at` | approved |
+
+**Cero pagos `pending` sembrados**, coherente con §10.1.1. El índice parcial
+`payments_one_pending_per_booking` queda intacto y nada tiene que expirar tras el
+reinicio.
 
 Las filas del proveedor son **obligatorias**: sin ellas `fetchPayment()` da 404 y
 el checkout no abre.
+
+**Métricas resultantes del panel de Peluquería recién reiniciado:**
+`6 turnos hoy` · `5 confirmadas · 1 cancelada` · `Esperando seña 0` ·
+`Vence pronto 0` · `Próximos 7 días 11` · cola de atención vacía.
 
 **Invitación.** Una `EmployeeInvitation` pendiente en Peluquería.
 
@@ -1085,10 +1283,26 @@ la arquitectura de §10.1 descarta.
 
 ### 10.3 Tests del seeder
 
-Idempotencia por slug · conteos por negocio · los dos servicios con seña · los
-cinco estados de reserva presentes · consistencia `payments` ↔
-`simulated_provider_payments` · **`Notification::fake()` + `assertNothingSent()`**
-· toda reserva de hoy cae dentro del horario de su empleado.
+- Idempotencia por slug.
+- Conteos por negocio: **21 en Peluquería, 2 en Estudio** (23 en total).
+- Estudio **no tiene reservas hoy**, y las que tiene caen en día hábil.
+- Los dos servicios con seña tienen `deposit_amount`; los otros cinco, `null`.
+- Los cinco estados de reserva están presentes en el dataset completo
+  (confirmada y cancelada hoy; completada y ausencia en el pasado; **`pending`
+  deliberadamente ausente**).
+- **Ninguna reserva sembrada queda en `pending`** y **ningún pago sembrado queda
+  en `pending`** — es el invariante de §10.1.1 y el que evita que el estado
+  inicial se degrade solo tras el reinicio.
+- Consistencia `payments` ↔ `simulated_provider_payments` en las tres filas.
+- **`Notification::fake()` + `assertNothingSent()`**: un reinicio no manda
+  correo.
+- Toda reserva de hoy cae dentro del horario de su empleado y fuera de su pausa.
+- **Ninguna reserva de hoy se superpone con otra**, requisito del riel de una
+  sola columna.
+- Toda reserva de hoy cae dentro de la ventana 09:00–18:00.
+- Las métricas del panel sobre el dataset recién sembrado dan exactamente
+  `6 / 5 confirmadas / 1 cancelada / 0 esperando seña / 0 vence pronto / 11
+  próximos 7 días`.
 
 ### 10.4 Nota de despliegue
 

@@ -84,7 +84,7 @@
           <span style="font-size:68px;line-height:64px;font-weight:600;letter-spacing:-0.05em;font-variant-numeric:tabular-nums">6</span>
           <span style="font-size:22px;line-height:30px;font-weight:600;letter-spacing:-0.02em">turnos hoy</span>
         </div>
-        <div style="font-size:13px;line-height:20px;color:#676860;margin-top:6px">3 confirmadas · 2 pendientes · 1 cancelada</div>
+        <div style="font-size:13px;line-height:20px;color:#676860;margin-top:6px">5 confirmadas · 1 cancelada</div>
       </div>
 
       <div style="flex-grow:1"></div>
@@ -92,20 +92,20 @@
       <div style="display:flex;align-items:flex-end;gap:36px">
 
         <div>
-          <div style="font-size:12px;line-height:16px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#676860">Sin confirmar</div>
+          <div style="font-size:12px;line-height:16px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#676860">Esperando seña</div>
           <div style="display:flex;align-items:baseline;gap:7px;margin-top:2px">
-            <span style="font-size:26px;line-height:32px;font-weight:600;letter-spacing:-0.03em;font-variant-numeric:tabular-nums">2</span>
-            <span style="font-size:13px;color:#676860">esperan</span>
+            <span style="font-size:26px;line-height:32px;font-weight:600;letter-spacing:-0.03em;font-variant-numeric:tabular-nums">0</span>
+            <span style="font-size:13px;color:#676860">pendientes</span>
           </div>
         </div>
 
         <div style="width:1px;height:38px;background:#D9DAD3"></div>
 
         <div>
-          <div style="font-size:12px;line-height:16px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#92400E">Seña sin pagar</div>
+          <div style="font-size:12px;line-height:16px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#676860">Vence pronto</div>
           <div style="display:flex;align-items:baseline;gap:7px;margin-top:2px">
-            <span style="font-size:26px;line-height:32px;font-weight:600;letter-spacing:-0.03em;font-variant-numeric:tabular-nums;color:#92400E">1</span>
-            <span style="font-size:13px;color:#676860">vence 15:40</span>
+            <span style="font-size:26px;line-height:32px;font-weight:600;letter-spacing:-0.03em;font-variant-numeric:tabular-nums">0</span>
+            <span style="font-size:13px;color:#676860">en 15 min</span>
           </div>
         </div>
 
@@ -114,7 +114,7 @@
         <div>
           <div style="font-size:12px;line-height:16px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#676860">Próximos 7 días</div>
           <div style="display:flex;align-items:baseline;gap:7px;margin-top:2px">
-            <span style="font-size:26px;line-height:32px;font-weight:600;letter-spacing:-0.03em;font-variant-numeric:tabular-nums">14</span>
+            <span style="font-size:26px;line-height:32px;font-weight:600;letter-spacing:-0.03em;font-variant-numeric:tabular-nums">11</span>
             <span style="font-size:13px;color:#676860">confirmadas</span>
           </div>
         </div>
@@ -134,9 +134,9 @@
         </div>
 
         <div style="border:1px solid #D9DAD3;border-radius:6px;background:#FFFFFF;padding:14px 16px 14px 0">
-          <div style="position:relative;height:528px">
+          <div style="position:relative;height:594px">
 
-            <!-- hour grid -->
+            <!-- hour grid : 09:00–18:00, 66px per hour, 1.1px per minute -->
             <div style="position:absolute;left:0;top:0;width:100%;height:100%">
               <div style="position:absolute;top:0px;left:0;width:100%;height:1px;background:#EDEEE9"></div>
               <div style="position:absolute;top:0px;left:16px;font-size:12px;line-height:16px;color:#676860;font-variant-numeric:tabular-nums;transform:translateY(-8px);background:#FFFFFF;padding-right:6px">09:00</div>
@@ -156,6 +156,8 @@
               <div style="position:absolute;top:462px;left:16px;font-size:12px;line-height:16px;color:#676860;font-variant-numeric:tabular-nums;transform:translateY(-8px);background:#FFFFFF;padding-right:6px">16:00</div>
               <div style="position:absolute;top:528px;left:0;width:100%;height:1px;background:#EDEEE9"></div>
               <div style="position:absolute;top:528px;left:16px;font-size:12px;line-height:16px;color:#676860;font-variant-numeric:tabular-nums;transform:translateY(-8px);background:#FFFFFF;padding-right:6px">17:00</div>
+              <div style="position:absolute;top:594px;left:0;width:100%;height:1px;background:#EDEEE9"></div>
+              <div style="position:absolute;top:594px;left:16px;font-size:12px;line-height:16px;color:#676860;font-variant-numeric:tabular-nums;transform:translateY(-8px);background:#FFFFFF;padding-right:6px">18:00</div>
             </div>
 
             <!-- blocks : height is real duration -->
@@ -167,37 +169,53 @@
               </div>
             </div>
 
-            <div style="position:absolute;left:72px;right:0;top:99px;height:99px;display:grid;grid-template-columns:3px minmax(0,1fr);border-radius:0 4px 4px 0;overflow:hidden;background:#FFFBEB">
-              <div style="background:#92400E"></div>
+            <div style="position:absolute;left:72px;right:0;top:66px;height:99px;display:grid;grid-template-columns:3px minmax(0,1fr);border-radius:0 4px 4px 0;overflow:hidden;background:#F6FBF7">
+              <div style="background:#166534"></div>
               <div style="display:flex;flex-direction:column;justify-content:center;gap:3px;padding:0 10px;min-width:0">
                 <div style="display:flex;align-items:center;gap:8px">
-                  <span style="font-size:13px;font-weight:600;font-variant-numeric:tabular-nums">10:30</span>
-                  <span style="font-size:13px">Coloración · Beto · Julián Paz</span>
+                  <span style="font-size:13px;font-weight:600;font-variant-numeric:tabular-nums">10:00</span>
+                  <span style="font-size:13px">Coloración · Ana · Lucía Gil</span>
                 </div>
                 <div style="font-size:12px;line-height:16px;color:#676860;font-variant-numeric:tabular-nums">90 min</div>
-                <div style="font-size:12px;line-height:16px;color:#92400E;font-variant-numeric:tabular-nums">Seña $2.400 · vence 15:40</div>
+                <div style="font-size:12px;line-height:16px;color:#166534;font-variant-numeric:tabular-nums">Seña $2.400 pagada</div>
               </div>
             </div>
 
-            <div style="position:absolute;left:72px;right:0;top:330px;height:50px;display:grid;grid-template-columns:3px minmax(0,1fr);border-radius:0 4px 4px 0;overflow:hidden;background:#F6FBF7">
+            <div style="position:absolute;left:72px;right:0;top:198px;height:33px;display:grid;grid-template-columns:3px minmax(0,1fr);border-radius:0 4px 4px 0;overflow:hidden;background:#F6FBF7">
+              <div style="background:#166534"></div>
+              <div style="display:flex;align-items:center;gap:8px;padding:0 10px;min-width:0">
+                <span style="font-size:13px;font-weight:600;font-variant-numeric:tabular-nums">12:00</span>
+                <span style="font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Corte de cabello · Beto · Rodrigo Sosa</span>
+              </div>
+            </div>
+
+            <div style="position:absolute;left:72px;right:0;top:396px;height:50px;display:grid;grid-template-columns:3px minmax(0,1fr);border-radius:0 4px 4px 0;overflow:hidden;background:#F6FBF7">
               <div style="background:#166534"></div>
               <div style="display:flex;flex-direction:column;justify-content:center;gap:2px;padding:0 10px;min-width:0">
                 <div style="display:flex;align-items:center;gap:8px">
-                  <span style="font-size:13px;font-weight:600;font-variant-numeric:tabular-nums">14:00</span>
-                  <span style="font-size:13px">Manicura · Ana · Lucía Gil</span>
+                  <span style="font-size:13px;font-weight:600;font-variant-numeric:tabular-nums">15:00</span>
+                  <span style="font-size:13px">Manicura · Ana · Rodrigo Sosa</span>
                 </div>
                 <div style="font-size:12px;line-height:16px;color:#676860;font-variant-numeric:tabular-nums">45 min</div>
               </div>
             </div>
 
-            <div style="position:absolute;left:72px;right:0;top:462px;height:66px;display:grid;grid-template-columns:3px minmax(0,1fr);border-radius:0 4px 4px 0;overflow:hidden;background:#FAFAF9">
-              <div style="background:#57534E"></div>
+            <div style="position:absolute;left:72px;right:0;top:495px;height:66px;display:grid;grid-template-columns:3px minmax(0,1fr);border-radius:0 4px 4px 0;overflow:hidden;background:#F6FBF7">
+              <div style="background:#166534"></div>
               <div style="display:flex;flex-direction:column;justify-content:center;gap:2px;padding:0 10px;min-width:0">
                 <div style="display:flex;align-items:center;gap:8px">
-                  <span style="font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;color:#676860;text-decoration:line-through">16:00</span>
-                  <span style="font-size:13px;color:#676860">Masaje · Beto · Rodrigo Sosa</span>
+                  <span style="font-size:13px;font-weight:600;font-variant-numeric:tabular-nums">16:30</span>
+                  <span style="font-size:13px">Masaje · Beto · Marina Ruiz</span>
                 </div>
-                <div style="font-size:12px;line-height:16px;color:#57534E">Cancelada · el horario quedó libre</div>
+                <div style="font-size:12px;line-height:16px;color:#676860;font-variant-numeric:tabular-nums">60 min</div>
+              </div>
+            </div>
+
+            <div style="position:absolute;left:72px;right:0;top:561px;height:33px;display:grid;grid-template-columns:3px minmax(0,1fr);border-radius:0 4px 4px 0;overflow:hidden;background:#FAFAF9">
+              <div style="background:#57534E"></div>
+              <div style="display:flex;align-items:center;gap:8px;padding:0 10px;min-width:0">
+                <span style="font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;color:#676860;text-decoration:line-through">17:30</span>
+                <span style="font-size:13px;color:#676860;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Depilación · Ana · Julián Paz — cancelada</span>
               </div>
             </div>
 
@@ -212,40 +230,13 @@
           <div style="flex-grow:1;height:1px;background:#D9DAD3"></div>
         </div>
 
-        <!-- one surface, rows with a status gutter : same anatomy as the bookings list -->
-        <div style="border:1px solid #D9DAD3;border-radius:6px;background:#FFFFFF;overflow:hidden;margin-bottom:20px">
-
-          <div style="display:grid;grid-template-columns:3px minmax(0,1fr);border-bottom:1px solid #D9DAD3">
-            <div style="align-self:stretch;background:#92400E"></div>
-            <div style="padding:13px 16px">
-              <div style="display:flex;align-items:center;gap:6px">
-                <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="#92400E" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="5.8"/><path d="M8 4.6V8l2.4 1.5"/></svg>
-                <span style="font-size:12px;line-height:16px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#92400E">Seña vence 15:40</span>
-              </div>
-              <div style="font-size:14px;font-weight:500;margin-top:5px">Coloración · Julián Paz</div>
-              <div style="font-size:13px;line-height:20px;color:#676860;font-variant-numeric:tabular-nums">Hoy 10:30 · Beto Empleado · $2.400</div>
-              <div style="display:flex;gap:8px;margin-top:10px">
-                <button style="height:30px;padding:0 12px;border:1px solid #D9DAD3;border-radius:4px;background:#FFFFFF;color:#191A17;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer">Ver reserva</button>
-              </div>
-            </div>
-          </div>
-
-          <div style="display:grid;grid-template-columns:3px minmax(0,1fr)">
-            <div style="align-self:stretch;background:#92400E"></div>
-            <div style="padding:13px 16px">
-              <div style="display:flex;align-items:center;gap:6px">
-                <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="#92400E" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="5.8"/><path d="M8 4.6V8l2.4 1.5"/></svg>
-                <span style="font-size:12px;line-height:16px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#92400E">Sin confirmar</span>
-              </div>
-              <div style="font-size:14px;font-weight:500;margin-top:5px">Depilación · Pablo Vera</div>
-              <div style="font-size:13px;line-height:20px;color:#676860;font-variant-numeric:tabular-nums">Mañana 09:00 · Ana Empleada</div>
-              <div style="display:flex;gap:8px;margin-top:10px">
-                <button style="height:30px;padding:0 12px;border:1px solid #191A17;border-radius:4px;background:#191A17;color:#ECEDE8;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer">Confirmar</button>
-                <button style="height:30px;padding:0 12px;border:1px solid #D9DAD3;border-radius:4px;background:#FFFFFF;color:#191A17;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer">Ver</button>
-              </div>
-            </div>
-          </div>
-
+        <!-- seeded baseline : nothing pending, so the queue shows its empty state -->
+        <div style="border:1px solid #D9DAD3;border-radius:6px;background:#FFFFFF;padding:28px 24px;margin-bottom:20px;text-align:center">
+          <svg style="opacity:.45" width="22" height="22" viewBox="0 0 16 16" fill="none" stroke="#676860" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="5.8"/><path d="M5.3 8.2l2 2 3.5-4"/></svg>
+          <div style="font-size:15px;font-weight:500;margin-top:8px">Nada requiere atención</div>
+          <p style="margin:5px auto 0 auto;font-size:13px;line-height:20px;color:#676860;max-width:280px">
+            Acá aparecen las reservas que esperan el pago de la seña y las que están por vencer.
+          </p>
         </div>
 
         <!-- shortcuts : plain type, no surface -->

@@ -1,13 +1,13 @@
 {
   "artboards": [
     { "file": "Main.dc.html",       "title": "Reservas — pantalla operativa",          "x": 0,    "y": 0,    "w": 1440, "h": 900 },
-    { "file": "Dashboard.dc.html",  "title": "Panel — hoy y lo que requiere atención", "x": 1560, "y": 0,    "w": 1440, "h": 900 },
-    { "file": "Landing.dc.html",    "title": "Home — landing pública",                 "x": 0,    "y": 1080, "w": 1440, "h": 2200 },
-    { "file": "Demo.dc.html",       "title": "/demo — guía del sandbox compartido",    "x": 1560, "y": 1080, "w": 1440, "h": 2560 },
-    { "file": "PublicBook.dc.html", "title": "Reserva pública — escritorio",           "x": 0,    "y": 3800, "w": 1440, "h": 980 },
-    { "file": "Register.dc.html",   "title": "Registro — datos ficticios",             "x": 1560, "y": 3800, "w": 900,  "h": 980 },
-    { "file": "Checkout.dc.html",   "title": "Checkout simulado",                      "x": 0,    "y": 4920, "w": 1000, "h": 880 },
-    { "file": "MobileBook.dc.html", "title": "Reserva pública — móvil 390",            "x": 1560, "y": 4920, "w": 390,  "h": 880 }
+    { "file": "Dashboard.dc.html",  "title": "Panel — hoy y lo que requiere atención", "x": 1560, "y": 0,    "w": 1440, "h": 1020 },
+    { "file": "Landing.dc.html",    "title": "Home — landing pública",                 "x": 0,    "y": 1180, "w": 1440, "h": 2200 },
+    { "file": "Demo.dc.html",       "title": "/como-funciona — guía del sandbox",      "x": 1560, "y": 1180, "w": 1440, "h": 2560 },
+    { "file": "PublicBook.dc.html", "title": "Reserva pública — escritorio",           "x": 0,    "y": 3900, "w": 1440, "h": 980 },
+    { "file": "Register.dc.html",   "title": "Registro — datos ficticios",             "x": 1560, "y": 3900, "w": 900,  "h": 980 },
+    { "file": "Checkout.dc.html",   "title": "Checkout simulado",                      "x": 0,    "y": 5020, "w": 1000, "h": 880 },
+    { "file": "MobileBook.dc.html", "title": "Reserva pública — móvil 390",            "x": 1560, "y": 5020, "w": 390,  "h": 880 }
   ],
   "annotations": [
     {
@@ -29,42 +29,49 @@
       "x": 3120,
       "y": 0,
       "w": 560,
-      "text": "FIRMA 2 — geometría veraz del tiempo\n\nEn el Panel la altura del bloque ES la duración: 1,1 px por minuto sobre una grilla horaria. La coloración de 90 min ocupa el triple que el corte de 30.\n\nEn el Home la misma idea, horizontal: bloques ocupados y huecos libres de un lunes real, a escala.\n\nEl encabezado del Panel usa una cifra dominante y tres estadísticas subordinadas, sin cajas — no la fila de cuatro contadores iguales de plantilla.\n\nNingún número sale de código: todos de consultas reales."
+      "text": "FIRMA 2 — geometría veraz del tiempo\n\nVentana canónica 09:00–18:00, idéntica en el riel del Panel, en la tira del Home y en los horarios que siembra el seeder. Un solo número, para que ninguna reserva sembrada quede recortada.\n\nEn el Panel la altura del bloque ES la duración: 1,1 px por minuto — 66px por hora, 594px de alto. La coloración de 90 min ocupa el triple que el corte de 30.\n\nEl riel es de una sola columna, así que el dataset sembrado no contiene reservas superpuestas el mismo día.\n\nEn el Home la misma idea, horizontal, con datos reales del servidor: ocupación y huecos de la jornada de un empleado, sin nombre de cliente, sin id de reserva, sin estado y sin dato de pago.\n\nEl encabezado del Panel usa una cifra dominante y tres estadísticas subordinadas, sin cajas — no la fila de cuatro contadores iguales de plantilla.\n\nNingún número sale de código: todos de consultas reales."
     },
     {
       "id": "demopublica",
       "x": 3120,
       "y": 700,
       "w": 560,
-      "text": "DEMO PÚBLICA COMPARTIDA — divulgación progresiva\n\nCuatro niveles, cada uno donde corresponde, sin repetir:\n\n1. Chrome — \"Demo pública\" en versalitas junto al wordmark, y \"Cómo funciona la demo\" en la navegación. Texto, no pastilla decorativa.\n\n2. Home — franja informativa de tres columnas bajo el hero: compartida / se restaura / datos ficticios. Neutra a propósito: es información, no una advertencia, así que no lleva ámbar.\n\n3. Puntos de entrada de datos — una sola línea donde de verdad se escribe algo: registro (ámbar, es el único lugar donde se tipea una contraseña) y resumen de reserva (neutra, avisa del buzón compartido).\n\n4. /demo — la explicación completa.\n\nLa banda ámbar que antes estaba en el Home se eliminó: quedaba redundante con la franja nueva."
+      "text": "DEMO PÚBLICA COMPARTIDA — divulgación progresiva\n\nCuatro niveles, cada uno donde corresponde, sin repetir:\n\n1. Chrome — \"Demo pública\" en versalitas junto al wordmark, y \"Cómo funciona la demo\" en la navegación. Texto, no pastilla decorativa.\n\n2. Home — franja informativa de tres columnas bajo el hero: compartida / se restaura / datos ficticios. Neutra a propósito: es información, no una advertencia, así que no lleva ámbar.\n\n3. Puntos de entrada de datos — una sola línea donde de verdad se escribe algo: registro (ámbar, es el único lugar donde se tipea una contraseña) y resumen de reserva (neutra, avisa del buzón compartido).\n\n4. /como-funciona — la explicación completa.\n\nLa banda ámbar que antes estaba en el Home se eliminó: quedaba redundante con la franja nueva."
     },
     {
       "id": "countdown",
       "x": 3120,
       "y": 1500,
       "w": 560,
-      "text": "CUENTA REGRESIVA — dos ubicaciones, nunca chrome\n\nHome: compacta, dentro de la franja informativa. Responde \"¿cuánto me queda?\" sin salir de la portada.\n\n/demo: prominente, 40px tabular, con la zona horaria escrita y qué se borra en cada reinicio.\n\nEn ningún otro lado. No va en PublicLayout ni en el panel: sería chrome repetido.\n\nPrecisión al minuto — \"8 h 42 min\", nunca segundos animados. Tinta sobre papel, sin caja de color, sin rojo, sin pulso: no puede parecer un contador de oferta.\n\nCálculo: hora actual en America/Argentina/Buenos_Aires vía Intl.DateTimeFormat, segundos hasta las próximas 00:00 de esa zona. Un visitante en Madrid ve el mismo momento que uno en Buenos Aires. Sin librería de fechas.\n\nAl llegar a cero rueda al día siguiente. No recarga, no desloguea, no redirige."
+      "text": "CUENTA REGRESIVA — dos ubicaciones, nunca chrome\n\nHome: compacta, dentro de la franja informativa. Responde \"¿cuánto me queda?\" sin salir de la portada.\n\n/como-funciona: prominente, 40px tabular, con la zona horaria escrita y qué se borra en cada reinicio.\n\nEn ningún otro lado. No va en PublicLayout ni en el panel: sería chrome repetido.\n\nPrecisión al minuto — \"8 h 42 min\", nunca segundos animados. Tinta sobre papel, sin caja de color, sin rojo, sin pulso: no puede parecer un contador de oferta.\n\nCálculo: Intl.DateTimeFormat sobre America/Argentina/Buenos_Aires con hourCycle h23 y formatToParts() —nunca parsear la cadena formateada, que en algunos locales da 24:00—, segundos hasta las próximas 00:00 de esa zona. Minutos redondeados por exceso, así nunca muestra 0 h 0 min con segundos todavía por delante. Un visitante en Madrid ve el mismo momento que uno en Buenos Aires. Sin librería de fechas.\n\nAncho mínimo fijo en el valor: sin eso la franja se reacomodaría sola cada 30 segundos al pasar de 12 h 42 min a 9 h 5 min.\n\nAl llegar a cero rueda al día siguiente. No recarga, no desloguea, no redirige."
     },
     {
       "id": "buzon",
       "x": 3120,
       "y": 2400,
       "w": 560,
-      "text": "BUZÓN COMPARTIDO\n\nMailpit pasa a ser parte de la demo pública. El CTA vive en /demo, precedido por la advertencia de que el buzón es compartido y de que no hay que usar una dirección real.\n\nSe referencia desde el resumen de reserva y desde el campo de email del registro — con enlace, no con el CTA repetido.\n\nLa URL sale de una variable de entorno pública en tiempo de build (VITE_DEMO_MAIL_URL, siguiendo la convención VITE_REVERB_* que ya usa el repo). Si no está definida, el CTA no se muestra.\n\nReservaHub no depende del buzón: sin él, reservas, panel, pagos simulados y tiempo real siguen funcionando. Nada consulta su estado desde el frontend."
+      "text": "BUZÓN COMPARTIDO\n\nMailpit pasa a ser parte de la demo pública. El CTA vive en /como-funciona, precedido por la advertencia de que el buzón es compartido y de que no hay que usar una dirección real.\n\nSe referencia desde el resumen de reserva y desde el campo de email del registro — con enlace, no con el CTA repetido.\n\nLa URL sale de una variable de entorno pública en tiempo de build (VITE_DEMO_MAIL_URL, siguiendo la convención VITE_REVERB_* que ya usa el repo). Si no está definida, el CTA no se muestra.\n\nReservaHub no depende del buzón: sin él, reservas, panel, pagos simulados y tiempo real siguen funcionando. Nada consulta su estado desde el frontend."
+    },
+    {
+      "id": "pendientes",
+      "x": 3120,
+      "y": 3080,
+      "w": 560,
+      "text": "SIN RESERVAS PENDIENTES SEMBRADAS\n\nEl panel de arriba muestra el estado real después de un reinicio: 6 turnos hoy, 5 confirmadas y 1 cancelada, Esperando seña 0, Vence pronto 0, cola de atención vacía.\n\nNo es un descuido. Una reserva con seña recibe una payment_expires_at acotada y bookings:expire-unpaid la cancela al vencer. Una pendiente sembrada a las 00:00 estaría cancelada mucho antes de que alguien abra la demo: el estado inicial duraría media hora.\n\nProhibido alargar la ventana, sembrar created_at futuro, dejar payment_expires_at en null o desactivar la expiración. Todo eso rompería la coherencia con el dominio real.\n\nEl estado pendiente lo genera el visitante recorriendo el flujo — que además es el mejor momento de la demo: reserva con seña, aparece pendiente, la pantalla del negocio se actualiza sola, paga en el checkout simulado, pasa a confirmada, la pantalla se actualiza de nuevo.\n\nNinguna métrica se infla para no mostrar cero."
     },
     {
       "id": "deposito",
       "x": 3120,
-      "y": 3800,
+      "y": 3900,
       "w": 560,
       "text": "BRECHA QUE SE CIERRA — la seña\n\nHoy el cliente descubre que el servicio pide seña DESPUÉS de crear la reserva. El backend ya tiene services.deposit_amount y bookings.payment_expires_at.\n\nEl resumen ahora lo dice antes de reservar: precio, seña a pagar ahora, resto en el local, y qué pasa si no se paga.\n\nMismo aviso en móvil, arriba de la barra de acción."
     },
     {
       "id": "contacto",
       "x": 3120,
-      "y": 4920,
+      "y": 5020,
       "w": 560,
-      "text": "CONTACTO — en los dos lados\n\nCon la dirección visible y mailto, nunca un \"Contactame\" que la esconde.\n\nHome y /demo — bloque propio: etiqueta, pregunta, contexto y botón con el mail.\n\nReserva pública, registro y checkout — una sola línea al pie.\n\nPanel y Reservas — la misma línea, 12px, al pie de la columna de contenido. Va dentro del área de contenido y no cruza la barra lateral.\n\nSiempre al pie: el producto manda arriba, el contacto aparece al final."
+      "text": "CONTACTO — en los dos lados\n\nCon la dirección visible y mailto, nunca un \"Contactame\" que la esconde.\n\nHome y /como-funciona — bloque propio: etiqueta, pregunta, contexto y botón con el mail.\n\nReserva pública, registro y checkout — una sola línea al pie.\n\nPanel y Reservas — la misma línea, 12px, al pie de la columna de contenido. Va dentro del área de contenido y no cruza la barra lateral.\n\nSiempre al pie: el producto manda arriba, el contacto aparece al final."
     }
   ],
   "launch": { "view": "canvas" }
