@@ -32,6 +32,10 @@ class BookingsWriteTest extends TestCase
     {
         parent::setUp();
 
+        // Ver la nota de MyBookingsTest: `$this->monday` se deriva de
+        // `next monday`, así que el reloj tiene que estar fijo antes.
+        $this->travelTo(CarbonImmutable::parse('2026-01-07 08:00', 'UTC'));
+
         Notification::fake();
 
         // Sanctum::actingAs() attaches a Mockery-mocked PersonalAccessToken to

@@ -17,6 +17,17 @@ class MyBookingsTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        // Miércoles fijo: `next monday` queda a cinco días, muy por encima de
+        // cualquier `cancellation_hours` de los casos. Sin esto la clase falla
+        // los domingos desde las 09:00 UTC, cuando el corte de cancelación de
+        // la reserva del lunes siguiente ya pasó.
+        $this->travelTo(CarbonImmutable::parse('2026-01-07 08:00', 'UTC'));
+    }
+
     private function nextMonday(string $timezone = 'UTC'): CarbonImmutable
     {
         return CarbonImmutable::parse('next monday', $timezone)->startOfDay();
