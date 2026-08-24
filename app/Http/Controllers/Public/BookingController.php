@@ -23,10 +23,13 @@ class BookingController extends Controller
         $this->authorize('createByCustomer', Booking::class);
 
         return Inertia::render('Public/Business/Book', [
-            'business' => $business->only(['id', 'name', 'slug']),
-            'services' => Service::where('is_active', true)->orderBy('name')->get(['id', 'name', 'duration_minutes']),
+            'business' => $business->only(['id', 'name', 'slug', 'currency', 'cancellation_hours']),
+            'services' => Service::where('is_active', true)->orderBy('name')->get([
+                'id', 'name', 'duration_minutes', 'price', 'deposit_amount',
+            ]),
             'employees' => $this->employeesFor($request),
             'slots' => $this->slotsFor($business, $availabilityService, $request),
+            'payment_window_minutes' => config('payments.window_minutes'),
         ]);
     }
 

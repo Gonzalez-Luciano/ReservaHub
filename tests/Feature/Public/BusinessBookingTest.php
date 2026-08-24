@@ -158,4 +158,25 @@ class BusinessBookingTest extends TestCase
         $this->actingAs($customer)->get('/negocios/barberia-juan/reservar')->assertNotFound();
         $this->actingAs($customer)->post('/negocios/barberia-juan/reservar', [])->assertNotFound();
     }
+
+    public function test_the_booking_page_announces_the_deposit_before_booking(): void
+    {
+        // Cierra la brecha C más seria: hoy el cliente descubre la seña
+        // DESPUÉS de crear la reserva.
+        $business = Business::factory()->create(['slug' => 'barberia-juan', 'currency' => 'ARS']);
+        Service::factory()->for($business)->create([
+            'is_active' => true,
+            'price' => 12000,
+            'deposit_amount' => 2400,
+        ]);
+        $customer = User::factory()->customer()->create();
+
+        $this->actingAs($customer)
+            ->get('/negocios/barberia-juan/reservar')
+            ->assertInertia(fn ($page) => $page->component('Public/Business/Book')
+                ->where('services.0.price', '12000.00')
+                ->where('services.0.deposit_amount', '2400.00')
+                ->where('payment_window_minutes', config('payments.window_minutes'))
+            );
+    }
 }
