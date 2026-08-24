@@ -5,8 +5,9 @@ import PublicLayout from '../../../Components/PublicLayout';
 import Alert from '../../../Components/ui/Alert';
 import Button from '../../../Components/ui/Button';
 import EmptyState from '../../../Components/ui/EmptyState';
+import IconButton from '../../../Components/ui/IconButton';
 import Surface from '../../../Components/ui/Surface';
-import { CheckIcon, ServiceIcon } from '../../../Components/ui/icons';
+import { CheckIcon, ChevronLeftIcon, ServiceIcon } from '../../../Components/ui/icons';
 import SlotPicker from '../../../Components/domain/SlotPicker';
 
 const STEP_ORDER = ['service', 'employee', 'date', 'slot'];
@@ -33,6 +34,34 @@ function formatTime(iso) {
 function formatLongDate(dateValue) {
     const [year, month, day] = dateValue.split('-').map(Number);
     return new Date(year, month - 1, day).toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
+}
+
+function formatMonthLabel(date) {
+    const text = date.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
+    return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+function startOfMonth(date) {
+    return new Date(date.getFullYear(), date.getMonth(), 1);
+}
+
+// Grilla de semanas completas (domingo a sábado, igual que WEEKDAY_LABELS)
+// que cubre el mes: celdas `null` para los días de relleno antes del 1° y
+// después del último día, así el calendario siempre ocupa filas parejas.
+function buildCalendarGrid(monthStart) {
+    const year = monthStart.getFullYear();
+    const month = monthStart.getMonth();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const leadingBlanks = monthStart.getDay();
+
+    const cells = Array.from({ length: leadingBlanks }, () => null);
+    for (let day = 1; day <= daysInMonth; day += 1) {
+        cells.push(new Date(year, month, day));
+    }
+    while (cells.length % 7 !== 0) {
+        cells.push(null);
+    }
+    return cells;
 }
 
 // Fila de un paso ya resuelto: una línea con lo elegido y una acción para
@@ -146,15 +175,16 @@ export default function Book({ business, services, employees, slots, payment_win
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [errors.starts_at]);
 
-    const weekDates = useMemo(() => {
-        const start = new Date();
-        return Array.from({ length: 7 }, (_, index) => {
-            const date = new Date(start);
-            date.setDate(start.getDate() + index);
-            return date;
-        });
-    }, []);
     const todayValue = toDateValue(new Date());
+    const currentMonthValue = toDateValue(startOfMonth(new Date()));
+
+    const [calendarMonth, setCalendarMonth] = useState(() => startOfMonth(new Date()));
+    const calendarDays = useMemo(() => buildCalendarGrid(calendarMonth), [calendarMonth]);
+    const canGoPrevMonth = toDateValue(calendarMonth) > currentMonthValue;
+
+    function shiftMonth(delta) {
+        setCalendarMonth((current) => new Date(current.getFullYear(), current.getMonth() + delta, 1));
+    }
 
     function submit(e) {
         e.preventDefault();
@@ -238,8 +268,32 @@ export default function Book({ business, services, employees, slots, payment_win
         if (step === 'date') {
             return (
                 <>
-                    <div className="flex gap-2 overflow-x-auto pb-1">
-                        {weekDates.map((date) => {
+                    <div className="flex items-center justify-between gap-2">
+                        <IconButton
+                            label="Mes anterior"
+                            icon={ChevronLeftIcon}
+                            disabled={!canGoPrevMonth}
+                            onClick={() => shiftMonth(-1)}
+                            className="disabled:opacity-30"
+                        />
+                        <div className="micro">{formatMonthLabel(calendarMonth)}</div>
+                        <IconButton
+                            label="Mes siguiente"
+                            icon={ChevronLeftIcon}
+                            onClick={() => shiftMonth(1)}
+                            className="[&_svg]:rotate-180"
+                        />
+                    </div>
+
+                    <div className="mt-3 grid grid-cols-7 gap-1.5">
+                        {WEEKDAY_LABELS.map((label) => (
+                            <div key={label} className="text-center text-[11px] uppercase tracking-wide text-muted">
+                                {label}
+                            </div>
+                        ))}
+                        {calendarDays.map((date, index) => {
+                            if (!date) return <div key={`blank-${index}`} aria-hidden="true" />;
+
                             const value = toDateValue(date);
                             const isPast = value < todayValue;
                             const selected = data.date === value;
@@ -248,8 +302,11 @@ export default function Book({ business, services, employees, slots, payment_win
                                     key={value}
                                     type="button"
                                     disabled={isPast}
-                                    onClick={() => setData((d) => ({ ...d, date: value, starts_at: '' }))}
-                                    className={`flex h-16 w-[64px] flex-shrink-0 flex-col items-center justify-center gap-0.5 rounded border sm:w-[70px] ${
+                                    onClick={() => {
+                                        setData((d) => ({ ...d, date: value, starts_at: '' }));
+                                        setOpenStep(null);
+                                    }}
+                                    className={`tnum aspect-square rounded border text-[14px] font-medium ${
                                         selected
                                             ? 'border-fg bg-fg text-bg'
                                             : isPast
@@ -257,10 +314,7 @@ export default function Book({ business, services, employees, slots, payment_win
                                               : 'border-border bg-surface hover:border-fg-placeholder'
                                     }`}
                                 >
-                                    <span className={`text-[12px] ${selected ? '' : isPast ? '' : 'text-muted'}`}>
-                                        {WEEKDAY_LABELS[date.getDay()]}
-                                    </span>
-                                    <span className="tnum text-[17px] font-semibold">{date.getDate()}</span>
+                                    {date.getDate()}
                                 </button>
                             );
                         })}
