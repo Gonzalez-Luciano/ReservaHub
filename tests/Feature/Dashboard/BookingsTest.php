@@ -120,6 +120,26 @@ class BookingsTest extends TestCase
             ->assertInertia(fn ($page) => $page->component('Dashboard/Bookings/Form'));
     }
 
+    public function test_the_form_only_offers_employees_assigned_to_the_service(): void
+    {
+        // Sin esto, CreateBooking:45 rechaza la combinación recién al guardar
+        // con "Ese empleado no realiza este servicio".
+        $business = Business::factory()->create();
+        $staff = User::factory()->employee()->create(['business_id' => $business->id]);
+        $service = Service::factory()->for($business)->create();
+        $assignedEmployee = User::factory()->employee()->create(['business_id' => $business->id]);
+        User::factory()->employee()->create(['business_id' => $business->id]);
+        $service->employees()->attach($assignedEmployee->id);
+
+        $this->actingAs($staff)
+            ->get("/dashboard/bookings/create?service_id={$service->id}")
+            ->assertInertia(fn ($page) => $page
+                ->component('Dashboard/Bookings/Form')
+                ->has('employees', 1)
+                ->where('employees.0.id', $assignedEmployee->id)
+            );
+    }
+
     public function test_staff_reschedules_a_booking(): void
     {
         $business = Business::factory()->create(['timezone' => 'UTC']);

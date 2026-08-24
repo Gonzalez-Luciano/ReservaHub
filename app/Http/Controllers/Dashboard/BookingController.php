@@ -133,10 +133,31 @@ class BookingController extends Controller
         $this->authorize('createByStaff', [Booking::class, Business::current()]);
 
         return Inertia::render('Dashboard/Bookings/Form', [
-            'services' => Service::where('is_active', true)->orderBy('name')->get(['id', 'name', 'duration_minutes']),
-            'employees' => User::where('business_id', Business::current()->id)->where('role', Role::Employee)->orderBy('name')->get(['id', 'name']),
+            'services' => Service::where('is_active', true)->orderBy('name')->get(['id', 'name', 'duration_minutes', 'price', 'deposit_amount']),
+            'employees' => $this->employeesFor($request),
             'slots' => $this->slotsFor($availabilityService, $request),
         ]);
+    }
+
+    /**
+     * Igual criterio que `Public\BookingController::employeesFor`: sin esto
+     * el desplegable ofrecía cualquier empleado del negocio y `CreateBooking:45`
+     * recién rechazaba la combinación al guardar con "Ese empleado no realiza
+     * este servicio". `Service::find` ya viene scopeado al negocio actual por
+     * `BelongsToBusiness` (BusinessScope), así que no hace falta repetir el
+     * filtro de `business_id` acá.
+     */
+    private function employeesFor(Request $request): array
+    {
+        $serviceId = $request->query('service_id');
+
+        if (! $serviceId || ! is_numeric($serviceId)) {
+            return [];
+        }
+
+        $service = Service::find($serviceId);
+
+        return $service ? $service->employees()->get(['users.id', 'users.name'])->all() : [];
     }
 
     public function store(BookingRequest $request, CreateBooking $action): RedirectResponse
