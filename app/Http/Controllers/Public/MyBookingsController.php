@@ -20,12 +20,14 @@ use Inertia\Response;
 
 class MyBookingsController extends Controller
 {
-    public function index(): Response
+    public function index(Request $request): Response
     {
+        $user = $request->user();
+
         $bookings = Booking::withoutGlobalScope(BusinessScope::class)
-            ->where('customer_id', request()->user()->id)
+            ->where('customer_id', $user->id)
             ->with([
-                'business:id,name,cancellation_hours',
+                'business:id,name,cancellation_hours,timezone,currency',
                 'employee:id,name',
                 'service' => fn ($query) => $query->withoutGlobalScope(BusinessScope::class)->select('id', 'name'),
                 'payments' => fn ($query) => $query->withoutGlobalScope(BusinessScope::class)->orderByDesc('id'),
@@ -34,7 +36,7 @@ class MyBookingsController extends Controller
             ->get();
 
         return Inertia::render('Public/MyBookings/Index', [
-            'bookings' => $bookings->map(function (Booking $booking) {
+            'bookings' => $bookings->map(function (Booking $booking) use ($user) {
                 $payment = $booking->payments->first();
 
                 return array_merge($booking->withoutRelations()->toArray(), [
@@ -44,6 +46,11 @@ class MyBookingsController extends Controller
                     'payment' => $payment === null
                         ? null
                         : PaymentResource::make($payment->setRelation('booking', $booking))->resolve(),
+                    // Derivados de BookingPolicy (cancel/reschedule comparten la
+                    // misma regla de ventana): el frontend no vuelve a calcular
+                    // el corte de cancelación, solo lee estos booleanos.
+                    'can_cancel' => $user->can('cancel', $booking),
+                    'can_reschedule' => $user->can('reschedule', $booking),
                 ]);
             }),
         ]);

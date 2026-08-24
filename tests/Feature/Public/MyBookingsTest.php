@@ -43,6 +43,47 @@ class MyBookingsTest extends TestCase
             ->assertInertia(fn ($page) => $page->component('Public/MyBookings/Index')->has('bookings', 2));
     }
 
+    public function test_it_exposes_whether_the_customer_may_still_cancel(): void
+    {
+        $business = Business::factory()->create(['cancellation_hours' => 24, 'timezone' => 'UTC']);
+        $customer = User::factory()->customer()->create();
+        $booking = Booking::factory()->create([
+            'business_id' => $business->id,
+            'customer_id' => $customer->id,
+            'status' => BookingStatus::Confirmed,
+            'starts_at' => CarbonImmutable::now('UTC')->addDays(3),
+            'ends_at' => CarbonImmutable::now('UTC')->addDays(3)->addMinutes(30),
+        ]);
+
+        $this->actingAs($customer)->get('/mis-reservas')
+            ->assertInertia(fn ($page) => $page
+                ->component('Public/MyBookings/Index')
+                ->where('bookings.0.id', $booking->id)
+                ->where('bookings.0.can_cancel', true)
+                ->where('bookings.0.can_reschedule', true));
+    }
+
+    public function test_it_exposes_false_once_the_window_has_closed(): void
+    {
+        $business = Business::factory()->create(['cancellation_hours' => 24, 'timezone' => 'UTC']);
+        $customer = User::factory()->customer()->create();
+        $booking = Booking::factory()->create([
+            'business_id' => $business->id,
+            'customer_id' => $customer->id,
+            'status' => BookingStatus::Confirmed,
+            // Dentro de las 24hs de corte: el cutoff ya quedó en el pasado.
+            'starts_at' => CarbonImmutable::now('UTC')->addHour(),
+            'ends_at' => CarbonImmutable::now('UTC')->addHour()->addMinutes(30),
+        ]);
+
+        $this->actingAs($customer)->get('/mis-reservas')
+            ->assertInertia(fn ($page) => $page
+                ->component('Public/MyBookings/Index')
+                ->where('bookings.0.id', $booking->id)
+                ->where('bookings.0.can_cancel', false)
+                ->where('bookings.0.can_reschedule', false));
+    }
+
     public function test_customer_cancels_their_own_booking(): void
     {
         $business = Business::factory()->create(['cancellation_hours' => 24, 'timezone' => 'UTC']);
