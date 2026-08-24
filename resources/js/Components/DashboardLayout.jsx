@@ -69,7 +69,7 @@ function NavLinks({ items, currentUrl, collapsed, onNavigate }) {
                             isActive ? 'bg-chrome-active font-semibold text-fg' : 'text-fg hover:bg-chrome-active/60'
                         }`}
                     >
-                        <Icon />
+                        <Icon size={18} className="shrink-0" />
                         <span className={collapsed ? 'lg:hidden xl:inline' : ''}>{item.label}</span>
                     </Link>
                 );
@@ -149,7 +149,7 @@ export default function DashboardLayout({ children }) {
 
     return (
         <div className="flex min-h-screen bg-bg">
-            <aside className={`sticky top-0 hidden h-screen shrink-0 flex-col overflow-y-auto border-r border-border bg-chrome md:flex ${asideWidth}`}>
+            <aside className={`sticky top-0 hidden min-h-screen shrink-0 flex-col overflow-y-auto border-r border-border bg-chrome md:flex ${asideWidth}`}>
                 <BusinessIdentity business={auth?.business} collapsed={collapsed} onToggleCollapse={toggleCollapsed} />
                 <NavLinks items={items} currentUrl={currentUrl} collapsed={collapsed} />
                 <div className="flex-grow" />

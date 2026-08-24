@@ -11,7 +11,12 @@ const WINDOW_START_MINUTES = 9 * 60;
 const WINDOW_END_MINUTES = 18 * 60;
 const WINDOW_MINUTES = WINDOW_END_MINUTES - WINDOW_START_MINUTES;
 const TRACK_WIDTH = 1120;
-const PX_PER_MINUTE = TRACK_WIDTH / WINDOW_MINUTES; // 2,074 px/min sobre 1120px.
+// Posiciones en porcentaje del contenedor, no en píxeles: el contenedor usa
+// `maxWidth: 100%` para no desbordar en viewports angostos (1024 y por
+// debajo), así que un hijo posicionado en píxeles fijos sobre una base de
+// 1120 se saldría del borde real cuando el contenedor termina siendo más
+// angosto que eso.
+const PCT_PER_MINUTE = 100 / WINDOW_MINUTES;
 
 const HOURS = Array.from({ length: 10 }, (_, index) => 9 + index);
 
@@ -76,15 +81,15 @@ function DayTrack({ timeline }) {
                     style={{ height: 60, width: TRACK_WIDTH, maxWidth: '100%' }}
                 >
                     {segments.map((segment, index) => {
-                        const left = (segment.start - WINDOW_START_MINUTES) * PX_PER_MINUTE;
-                        const width = (segment.end - segment.start) * PX_PER_MINUTE;
+                        const left = (segment.start - WINDOW_START_MINUTES) * PCT_PER_MINUTE;
+                        const width = (segment.end - segment.start) * PCT_PER_MINUTE;
 
                         if (segment.kind === 'occupied') {
                             return (
                                 <div
                                     key={index}
                                     className="absolute inset-y-0 flex items-center justify-center bg-slot-taken px-2 text-center text-[12px] text-fg-body"
-                                    style={{ left, width }}
+                                    style={{ left: `${left}%`, width: `${width}%` }}
                                 >
                                     {segment.service_name} · {segment.duration_minutes}′
                                 </div>
@@ -96,8 +101,8 @@ function DayTrack({ timeline }) {
                                 key={index}
                                 className="absolute flex items-center justify-center rounded border border-dashed border-track-empty-border text-[12px] text-muted"
                                 style={{
-                                    left: left + 4,
-                                    width: Math.max(width - 8, 0),
+                                    left: `calc(${left}% + 4px)`,
+                                    width: `calc(${Math.max(width, 0)}% - 8px)`,
                                     top: 8,
                                     bottom: 8,
                                 }}
@@ -113,7 +118,7 @@ function DayTrack({ timeline }) {
                         <span
                             key={hour}
                             className="tnum absolute text-[12px] text-muted"
-                            style={{ left: (hour * 60 - WINDOW_START_MINUTES) * PX_PER_MINUTE }}
+                            style={{ left: `${(hour * 60 - WINDOW_START_MINUTES) * PCT_PER_MINUTE}%` }}
                         >
                             {String(hour).padStart(2, '0')}
                         </span>

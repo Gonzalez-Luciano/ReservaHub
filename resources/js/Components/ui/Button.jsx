@@ -11,7 +11,7 @@ const SIZES = { sm: 'h-[30px] px-3 text-[13px]', md: 'h-[34px] px-3.5 text-[13px
 
 const Button = React.forwardRef(function Button({ variant = 'secondary', size = 'md', as, className = '', ...props }, ref) {
     const Tag = as ?? (props.href ? Link : 'button');
-    const classes = `inline-flex items-center justify-center gap-1.5 rounded border font-medium disabled:opacity-50 ${VARIANTS[variant]} ${SIZES[size]} ${className}`;
+    const classes = `inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded border font-medium disabled:opacity-50 ${VARIANTS[variant]} ${SIZES[size]} ${className}`;
     return <Tag ref={ref} className={classes} {...props} />;
 });
 

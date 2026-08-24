@@ -1,22 +1,25 @@
+import { useState } from 'react';
 import { Link, router, usePage } from '@inertiajs/react';
 import Button from './ui/Button';
-import { MailIcon } from './ui/icons';
+import IconButton from './ui/IconButton';
+import Drawer from './ui/Drawer';
+import { MailIcon, MenuIcon } from './ui/icons';
 
-function HeaderNav({ user }) {
+function HeaderNav({ user, className = '', onNavigate }) {
     return (
-        <nav aria-label="Principal" className="ml-auto flex items-center gap-5 text-[14px]">
-            <Link href="/negocios" className="hover:text-fg">Negocios</Link>
-            <Link href="/como-funciona" className="hover:text-fg">Cómo funciona la demo</Link>
+        <nav aria-label="Principal" className={`items-center gap-5 text-[14px] ${className}`}>
+            <Link href="/negocios" className="hover:text-fg" onClick={onNavigate}>Negocios</Link>
+            <Link href="/como-funciona" className="hover:text-fg" onClick={onNavigate}>Cómo funciona la demo</Link>
             {user ? (
                 <>
-                    <Link href="/mis-reservas" className="hover:text-fg">Mis reservas</Link>
-                    <Link href="/account" className="hover:text-fg">{user.name}</Link>
+                    <Link href="/mis-reservas" className="hover:text-fg" onClick={onNavigate}>Mis reservas</Link>
+                    <Link href="/account" className="hover:text-fg" onClick={onNavigate}>{user.name}</Link>
                     <Button variant="secondary" onClick={() => router.post('/logout')}>Salir</Button>
                 </>
             ) : (
                 <>
-                    <Link href="/login" className="hover:text-fg">Ingresar</Link>
-                    <Button href="/register" variant="primary">Crear cuenta</Button>
+                    <Link href="/login" className="hover:text-fg" onClick={onNavigate}>Ingresar</Link>
+                    <Button href="/register" variant="primary" onClick={onNavigate}>Crear cuenta</Button>
                 </>
             )}
         </nav>
@@ -25,6 +28,7 @@ function HeaderNav({ user }) {
 
 export default function PublicLayout({ children }) {
     const { auth } = usePage().props;
+    const [navOpen, setNavOpen] = useState(false);
 
     return (
         <div className="flex min-h-screen flex-col bg-bg">
@@ -34,9 +38,19 @@ export default function PublicLayout({ children }) {
                         <span className="text-[17px] font-semibold tracking-[-0.02em]">ReservaHub</span>
                         <span className="micro">Demo pública</span>
                     </Link>
-                    <HeaderNav user={auth?.user} />
+                    <HeaderNav user={auth?.user} className="ml-auto hidden lg:flex" />
+                    <IconButton
+                        label="Abrir navegación"
+                        icon={MenuIcon}
+                        onClick={() => setNavOpen(true)}
+                        className="ml-auto lg:hidden"
+                    />
                 </div>
             </header>
+
+            <Drawer open={navOpen} onClose={() => setNavOpen(false)} title="Navegación">
+                <HeaderNav user={auth?.user} className="flex flex-col items-start gap-4" onNavigate={() => setNavOpen(false)} />
+            </Drawer>
 
             <main className="flex-1">{children}</main>
 

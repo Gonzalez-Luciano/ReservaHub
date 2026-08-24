@@ -145,7 +145,7 @@ function FilterBar({ filters, employees, hasFilters, total, onChange, onClear })
                 <select
                     value={filters.status ?? ''}
                     onChange={(event) => onChange('status', event.target.value)}
-                    className="bg-transparent font-medium focus:outline-none"
+                    className="bg-transparent font-medium"
                 >
                     {STATUS_OPTIONS.map((option) => (
                         <option key={option.value} value={option.value}>{option.label}</option>
@@ -158,7 +158,7 @@ function FilterBar({ filters, employees, hasFilters, total, onChange, onClear })
                 <select
                     value={filters.employee_id ?? ''}
                     onChange={(event) => onChange('employee_id', event.target.value)}
-                    className="bg-transparent font-medium focus:outline-none"
+                    className="bg-transparent font-medium"
                 >
                     <option value="">Todos</option>
                     {employees.map((employee) => (
@@ -173,7 +173,7 @@ function FilterBar({ filters, employees, hasFilters, total, onChange, onClear })
                     type="date"
                     value={filters.from ?? ''}
                     onChange={(event) => onChange('from', event.target.value)}
-                    className="bg-transparent font-medium focus:outline-none"
+                    className="bg-transparent font-medium"
                 />
             </label>
 
