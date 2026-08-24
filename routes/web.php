@@ -1,12 +1,10 @@
 <?php
 
+use App\Http\Controllers\HomeController;
 use App\Services\Payments\Contracts\PaymentGateway;
 use Illuminate\Support\Facades\Route;
-use Inertia\Inertia;
 
-Route::get('/', function () {
-    return Inertia::render('Home');
-});
+Route::get('/', HomeController::class)->name('home');
 
 require __DIR__.'/account.php';
 require __DIR__.'/auth.php';
