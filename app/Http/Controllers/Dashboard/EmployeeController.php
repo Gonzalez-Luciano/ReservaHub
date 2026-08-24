@@ -33,9 +33,20 @@ class EmployeeController extends Controller
                 'service_ids' => $employee->services->pluck('id'),
             ]);
 
+        // La fecha de vencimiento se manda ya formateada en la zona del negocio
+        // (mismo criterio que `BookingController::presentBooking`): sin esto
+        // la tabla mostraba el timestamp ISO crudo del cast `datetime`.
+        $invitations = EmployeeInvitation::pending()->orderBy('created_at', 'desc')->get(['id', 'email', 'name', 'expires_at'])
+            ->map(fn (EmployeeInvitation $invitation) => [
+                'id' => $invitation->id,
+                'email' => $invitation->email,
+                'name' => $invitation->name,
+                'expires_at_display' => $invitation->expires_at->copy()->setTimezone($business->timezone)->format('d/m/Y H:i'),
+            ]);
+
         return Inertia::render('Dashboard/Employees/Index', [
             'employees' => $employees,
-            'invitations' => EmployeeInvitation::pending()->orderBy('created_at', 'desc')->get(['id', 'email', 'name', 'expires_at']),
+            'invitations' => $invitations,
             'services' => Service::where('is_active', true)->orderBy('name')->get(['id', 'name']),
             'status' => session('status'),
             'future_bookings_count' => session('future_bookings_count'),

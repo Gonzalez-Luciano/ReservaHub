@@ -14,6 +14,7 @@ use App\Http\Requests\Dashboard\ScheduleRequest;
 use App\Models\Business;
 use App\Models\Schedule;
 use App\Models\ScheduleBreak;
+use App\Models\TimeOff;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
@@ -26,11 +27,29 @@ class ScheduleController extends Controller
         $this->authorizeEmployee($employee);
         $this->authorize('viewAny', Schedule::class);
 
+        $business = Business::current();
+
         return Inertia::render('Dashboard/Employees/Schedule', [
             'employee' => $employee->only(['id', 'name', 'email']),
             'schedules' => $employee->schedules()->with('breaks')->orderBy('day_of_week')->get(),
-            'timeOffs' => $employee->timeOffs()->orderBy('starts_at')->get(),
+            'timeOffs' => $employee->timeOffs()->orderBy('starts_at')->get()
+                ->map(fn (TimeOff $timeOff) => $this->presentTimeOff($timeOff, $business)),
         ]);
+    }
+
+    /**
+     * Igual criterio que `BookingController::presentBooking`: la fecha se manda
+     * ya formateada en la zona del negocio, no como instante ISO crudo — el
+     * cliente no arma ningún `Date` a partir de este campo.
+     */
+    private function presentTimeOff(TimeOff $timeOff, Business $business): array
+    {
+        return [
+            'id' => $timeOff->id,
+            'starts_at_display' => $timeOff->starts_at->copy()->setTimezone($business->timezone)->format('d/m/Y H:i'),
+            'ends_at_display' => $timeOff->ends_at->copy()->setTimezone($business->timezone)->format('d/m/Y H:i'),
+            'reason' => $timeOff->reason,
+        ];
     }
 
     public function store(ScheduleRequest $request, User $employee, CreateSchedule $action): RedirectResponse
