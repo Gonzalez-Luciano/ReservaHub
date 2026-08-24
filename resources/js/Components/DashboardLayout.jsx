@@ -12,7 +12,7 @@ import {
     MenuIcon,
     MailIcon,
     ChevronLeftIcon,
-    ArrowRightIcon,
+    LogoutIcon,
 } from './ui/icons';
 
 const SIDEBAR_STORAGE_KEY = 'reservahub.sidebar';
@@ -69,7 +69,7 @@ function NavLinks({ items, currentUrl, collapsed, onNavigate }) {
                             isActive ? 'bg-chrome-active font-semibold text-fg' : 'text-fg hover:bg-chrome-active/60'
                         }`}
                     >
-                        <Icon size={18} className="shrink-0" />
+                        <Icon size={20} className="shrink-0" />
                         <span className={collapsed ? 'lg:hidden xl:inline' : ''}>{item.label}</span>
                     </Link>
                 );
@@ -115,9 +115,9 @@ function UserFooter({ user, collapsed }) {
             </Link>
             <IconButton
                 label="Cerrar sesión"
-                icon={ArrowRightIcon}
+                icon={LogoutIcon}
                 onClick={() => router.post('/logout')}
-                className="shrink-0"
+                className="shrink-0 hover:bg-chrome-active/60 hover:text-fg"
             />
         </div>
     );

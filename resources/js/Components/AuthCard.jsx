@@ -1,7 +1,12 @@
+import { useState } from 'react';
 import { Link } from '@inertiajs/react';
-import { MailIcon } from './ui/icons';
+import IconButton from './ui/IconButton';
+import Drawer from './ui/Drawer';
+import { MailIcon, MenuIcon } from './ui/icons';
 
 export default function AuthCard({ title, children }) {
+    const [navOpen, setNavOpen] = useState(false);
+
     return (
         <div className="flex min-h-screen flex-col bg-bg">
             <header className="border-b border-border">
@@ -10,12 +15,25 @@ export default function AuthCard({ title, children }) {
                         <span className="text-[17px] font-semibold tracking-[-0.02em]">ReservaHub</span>
                         <span className="micro">Demo pública</span>
                     </Link>
-                    <nav aria-label="Principal" className="ml-auto flex items-center gap-5 text-[14px]">
+                    <nav aria-label="Principal" className="ml-auto hidden items-center gap-5 text-[14px] lg:flex">
                         <Link href="/como-funciona" className="hover:text-fg">Cómo funciona la demo</Link>
                         <Link href="/login" className="hover:text-fg">Ingresar</Link>
                     </nav>
+                    <IconButton
+                        label="Abrir navegación"
+                        icon={MenuIcon}
+                        onClick={() => setNavOpen(true)}
+                        className="ml-auto lg:hidden"
+                    />
                 </div>
             </header>
+
+            <Drawer open={navOpen} onClose={() => setNavOpen(false)} title="Navegación">
+                <nav aria-label="Principal" className="flex flex-col items-start gap-4 text-[14px]">
+                    <Link href="/como-funciona" className="hover:text-fg" onClick={() => setNavOpen(false)}>Cómo funciona la demo</Link>
+                    <Link href="/login" className="hover:text-fg" onClick={() => setNavOpen(false)}>Ingresar</Link>
+                </nav>
+            </Drawer>
 
             <main className="flex flex-1 justify-center px-6 py-11">
                 <div className="w-full max-w-[460px]">

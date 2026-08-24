@@ -35,5 +35,6 @@ export const ServiceIcon = (p) => <Icon {...p}><rect x="3" y="3" width="10" heig
 export const PeopleIcon = (p) => <Icon {...p}><circle cx="5.2" cy="5" r="1.6" /><path d="M2.4 10.4a1.6 1.6 0 011.6-1.6h3.2a1.6 1.6 0 011.6 1.6v2.4M10.8 5a1.6 1.6 0 100-3.2 1.6 1.6 0 000 3.2zM10.8 9.6a2 2 0 012 2" /></Icon>;
 export const HolidayIcon = (p) => <Icon {...p}><path d="M8 2.4L6.4 5.2h3.2L8 2.4zM4 12.4h8a1 1 0 001-1V5.2H3v6.2a1 1 0 001 1z" /></Icon>;
 export const SettingsIcon = (p) => <Icon {...p}><circle cx="8" cy="8" r="2" /><path d="M8 1.2v2.4M8 12.4v2.4M14.8 8h-2.4M3.6 8H1.2M11.8 4.2l-1.7 1.7M5.9 10.1l-1.7 1.7M4.2 4.2l1.7 1.7M10.1 10.1l1.7 1.7" /></Icon>;
-export const GridIcon = (p) => <Icon {...p}><rect x="2.4" y="2.4" width="2.8" height="2.8" /><rect x="6.8" y="2.4" width="2.8" height="2.8" /><rect x="2.4" y="6.8" width="2.8" height="2.8" /><rect x="6.8" y="6.8" width="2.8" height="2.8" /></Icon>;
+export const GridIcon = (p) => <Icon {...p}><rect x="2.4" y="2.4" width="4.6" height="4.6" /><rect x="9" y="2.4" width="4.6" height="4.6" /><rect x="2.4" y="9" width="4.6" height="4.6" /><rect x="9" y="9" width="4.6" height="4.6" /></Icon>;
 export const ExternalIcon = (p) => <Icon {...p}><path d="M11.2 4.8V2.4h-2.4M13.6 2.4l-7.2 7.2M11.2 13.6H2.4V4.8" /></Icon>;
+export const LogoutIcon = (p) => <Icon {...p}><path d="M6.8 2.4H3.6a1.2 1.2 0 00-1.2 1.2v8.8a1.2 1.2 0 001.2 1.2h3.2" /><path d="M6.8 8h6.8M11.2 5.2L14 8l-2.8 2.8" /></Icon>;
