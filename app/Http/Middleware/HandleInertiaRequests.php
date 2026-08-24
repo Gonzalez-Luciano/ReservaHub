@@ -47,6 +47,7 @@ class HandleInertiaRequests extends Middleware
                 'business' => $request->user()?->business ? [
                     'id' => $request->user()->business->id,
                     'name' => $request->user()->business->name,
+                    'currency' => $request->user()->business->currency,
                 ] : null,
             ],
         ];
