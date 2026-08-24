@@ -30,9 +30,12 @@ function formatLongDate(timezone) {
     return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
-function formatTime(isoOrHhmm) {
-    const date = new Date(isoOrHhmm);
-    return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+// Igual que en DayRail.jsx: starts_at/payment_expires_at llegan del servidor
+// ya formateados como "HH:mm" en la zona del negocio
+// (DashboardController::presentAttention), no como instantes ISO — así que no
+// hay ningún `Date` que construir ni zona horaria de navegador que se cuele.
+function formatTime(hhmm) {
+    return hhmm ?? '';
 }
 
 function formatMoney(amount) {

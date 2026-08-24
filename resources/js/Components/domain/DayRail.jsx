@@ -5,9 +5,15 @@ import { BOOKING_SPINE } from './BookingStatusBadge';
 // prop. Un solo número para que ninguna reserva sembrada quede recortada.
 const PX_PER_MINUTE = 1.1;
 
-function toMinutes(isoOrHhmm) {
-    const date = new Date(isoOrHhmm);
-    return date.getHours() * 60 + date.getMinutes();
+// El servidor manda starts_at/ends_at/payment_expires_at ya formateados como
+// "HH:mm" en la zona del negocio (DashboardController::presentToday /
+// presentAttention) — mismo patrón que Home.jsx. Parsear el string
+// directamente evita el bug de construir un `Date` y leerlo con
+// `.getHours()`, que interpretaría la hora en la zona del NAVEGADOR, no la
+// del negocio.
+function toMinutes(hhmm) {
+    const [hours, minutes] = hhmm.split(':').map(Number);
+    return hours * 60 + minutes;
 }
 
 // Racimos de solapes → asignación voraz de carril → ancho = 100% / carriles.
@@ -60,9 +66,10 @@ function windowToMinutes(hhmm) {
     return hours * 60 + minutes;
 }
 
-function formatTime(isoOrHhmm) {
-    const date = new Date(isoOrHhmm);
-    return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+// Ya llega formateado como "HH:mm" en la zona del negocio — nada que
+// reformatear ni ningún `Date` que construir.
+function formatTime(hhmm) {
+    return hhmm ?? '';
 }
 
 function formatMoney(amount) {

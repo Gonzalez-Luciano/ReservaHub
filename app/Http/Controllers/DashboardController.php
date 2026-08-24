@@ -79,8 +79,8 @@ class DashboardController extends Controller
         // once mapped, and Eloquent Collection::merge() expects Model
         // instances (it keys by getKey()) — these items are plain arrays.
         $attention = array_merge(
-            $expiringSoon->map(fn (Booking $booking) => $this->presentAttention($booking, 'expiring_soon'))->all(),
-            $awaitingDepositOnly->map(fn (Booking $booking) => $this->presentAttention($booking, 'awaiting_deposit'))->all(),
+            $expiringSoon->map(fn (Booking $booking) => $this->presentAttention($booking, 'expiring_soon', $business))->all(),
+            $awaitingDepositOnly->map(fn (Booking $booking) => $this->presentAttention($booking, 'awaiting_deposit', $business))->all(),
         );
 
         return Inertia::render('Dashboard/Index', [
@@ -97,39 +97,49 @@ class DashboardController extends Controller
                 'expiring_soon' => $expiringSoon->count(),
                 'upcoming_7d' => $upcoming7d,
             ],
-            'today' => $today->map(fn (Booking $booking) => $this->presentToday($booking))->values(),
+            'today' => $today->map(fn (Booking $booking) => $this->presentToday($booking, $business))->values(),
             'attention' => $attention,
         ]);
     }
 
-    private function presentToday(Booking $booking): array
+    /**
+     * `starts_at`/`ends_at`/`payment_expires_at` van como `H:i` en la zona
+     * del negocio, no como instantes ISO en UTC: el cliente (DayRail) los
+     * parsea con un split de string, sin construir un `Date`, así que no hay
+     * ninguna conversión de zona horaria pendiente del lado del navegador.
+     * Mismo patrón que `HomeController::projectTimeline`.
+     */
+    private function presentToday(Booking $booking, Business $business): array
     {
+        $startsAt = $booking->starts_at;
+        $endsAt = $booking->ends_at;
+
         return [
             'id' => $booking->id,
-            'starts_at' => $booking->starts_at,
-            'ends_at' => $booking->ends_at,
-            'duration_minutes' => $booking->starts_at->diffInMinutes($booking->ends_at),
+            'starts_at' => $startsAt->copy()->setTimezone($business->timezone)->format('H:i'),
+            'ends_at' => $endsAt->copy()->setTimezone($business->timezone)->format('H:i'),
+            'duration_minutes' => $startsAt->diffInMinutes($endsAt),
             'status' => $booking->status->value,
             'service_name' => $booking->service->name,
             'employee_name' => $booking->employee->name,
             'customer_name' => $booking->customer->name,
             'deposit_amount' => $booking->deposit_amount,
-            'payment_expires_at' => $booking->payment_expires_at,
+            'payment_expires_at' => $booking->payment_expires_at?->copy()->setTimezone($business->timezone)->format('H:i'),
         ];
     }
 
-    private function presentAttention(Booking $booking, string $kind): array
+    private function presentAttention(Booking $booking, string $kind, Business $business): array
     {
         return [
             'id' => $booking->id,
             'kind' => $kind,
-            'starts_at' => $booking->starts_at,
+            'starts_at' => $booking->starts_at->copy()->setTimezone($business->timezone)->format('H:i'),
             'status' => $booking->status->value,
             'service_name' => $booking->service->name,
             'employee_name' => $booking->employee->name,
             'customer_name' => $booking->customer->name,
             'deposit_amount' => $booking->deposit_amount,
-            'payment_expires_at' => $booking->payment_expires_at,
+            'payment_expires_at' => $booking->payment_expires_at?->copy()->setTimezone($business->timezone)->format('H:i'),
         ];
     }
 }
