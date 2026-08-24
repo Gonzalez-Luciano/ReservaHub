@@ -253,4 +253,99 @@ class BookingsTest extends TestCase
                 ->where('businessId', $business->id)
             );
     }
+
+    public function test_it_filters_by_status(): void
+    {
+        $business = Business::factory()->create();
+        $staff = User::factory()->employee()->create(['business_id' => $business->id]);
+
+        Booking::factory()->create(['business_id' => $business->id, 'status' => BookingStatus::Pending]);
+        $confirmed = Booking::factory()->confirmed()->create(['business_id' => $business->id]);
+        Booking::factory()->cancelled()->create(['business_id' => $business->id]);
+
+        $this->actingAs($staff)
+            ->get('/dashboard/bookings?status=confirmed')
+            ->assertInertia(fn ($page) => $page
+                ->component('Dashboard/Bookings/Index')
+                ->has('bookings', 1)
+                ->where('bookings.0.id', $confirmed->id)
+            );
+    }
+
+    public function test_it_filters_by_employee(): void
+    {
+        $business = Business::factory()->create();
+        $staff = User::factory()->employee()->create(['business_id' => $business->id]);
+        $employeeA = User::factory()->employee()->create(['business_id' => $business->id]);
+        $employeeB = User::factory()->employee()->create(['business_id' => $business->id]);
+
+        $bookingA = Booking::factory()->create(['business_id' => $business->id, 'employee_id' => $employeeA->id]);
+        Booking::factory()->create(['business_id' => $business->id, 'employee_id' => $employeeB->id]);
+
+        $this->actingAs($staff)
+            ->get("/dashboard/bookings?employee_id={$employeeA->id}")
+            ->assertInertia(fn ($page) => $page
+                ->component('Dashboard/Bookings/Index')
+                ->has('bookings', 1)
+                ->where('bookings.0.id', $bookingA->id)
+            );
+    }
+
+    public function test_it_filters_from_a_date(): void
+    {
+        $business = Business::factory()->create(['timezone' => 'UTC']);
+        $staff = User::factory()->employee()->create(['business_id' => $business->id]);
+        $today = $this->nextMonday();
+
+        Booking::factory()->create([
+            'business_id' => $business->id,
+            'starts_at' => $today->subWeek()->setTime(10, 0),
+            'ends_at' => $today->subWeek()->setTime(10, 30),
+        ]);
+        $future = Booking::factory()->create([
+            'business_id' => $business->id,
+            'starts_at' => $today->setTime(10, 0),
+            'ends_at' => $today->setTime(10, 30),
+        ]);
+
+        $this->actingAs($staff)
+            ->get("/dashboard/bookings?from={$today->format('Y-m-d')}")
+            ->assertInertia(fn ($page) => $page
+                ->component('Dashboard/Bookings/Index')
+                ->has('bookings', 1)
+                ->where('bookings.0.id', $future->id)
+            );
+    }
+
+    public function test_an_employee_id_from_another_business_returns_nothing(): void
+    {
+        $business = Business::factory()->create();
+        $staff = User::factory()->employee()->create(['business_id' => $business->id]);
+        Booking::factory()->count(2)->create(['business_id' => $business->id]);
+
+        $otherBusiness = Business::factory()->create();
+        $outsiderEmployee = User::factory()->employee()->create(['business_id' => $otherBusiness->id]);
+
+        $this->actingAs($staff)
+            ->get("/dashboard/bookings?employee_id={$outsiderEmployee->id}")
+            ->assertInertia(fn ($page) => $page
+                ->component('Dashboard/Bookings/Index')
+                ->has('bookings', 0)
+            );
+    }
+
+    public function test_without_filters_it_returns_every_booking_of_the_business(): void
+    {
+        $business = Business::factory()->create();
+        $staff = User::factory()->employee()->create(['business_id' => $business->id]);
+        Booking::factory()->count(3)->create(['business_id' => $business->id]);
+        Booking::factory()->create();
+
+        $this->actingAs($staff)
+            ->get('/dashboard/bookings')
+            ->assertInertia(fn ($page) => $page
+                ->component('Dashboard/Bookings/Index')
+                ->has('bookings', 3)
+            );
+    }
 }

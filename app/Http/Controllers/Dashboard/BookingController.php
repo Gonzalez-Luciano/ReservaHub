@@ -8,6 +8,8 @@ use App\Actions\Bookings\ConfirmBooking;
 use App\Actions\Bookings\CreateBooking;
 use App\Actions\Bookings\MarkNoShow;
 use App\Actions\Bookings\RescheduleBooking;
+use App\Enums\BookingStatus;
+use App\Enums\DayOfWeek;
 use App\Enums\Role;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Dashboard\BookingRequest;
@@ -27,16 +29,103 @@ use Inertia\Response;
 
 class BookingController extends Controller
 {
-    public function index(): Response
+    /**
+     * Nombres de mes en español: sin dependencia del locale de Carbon (que
+     * este proyecto nunca configuró explícitamente), igual criterio que
+     * `DayOfWeek::label()` para los días.
+     */
+    private const MONTHS = [
+        1 => 'enero', 2 => 'febrero', 3 => 'marzo', 4 => 'abril', 5 => 'mayo', 6 => 'junio',
+        7 => 'julio', 8 => 'agosto', 9 => 'septiembre', 10 => 'octubre', 11 => 'noviembre', 12 => 'diciembre',
+    ];
+
+    public function index(Request $request): Response
     {
         $this->authorize('viewAny', [Booking::class, Business::current()]);
 
+        $business = Business::current();
+
+        $status = $request->query('status');
+        $status = is_string($status) && BookingStatus::tryFrom($status) ? $status : null;
+
+        $employeeId = $request->query('employee_id');
+        $employeeId = is_numeric($employeeId) ? (int) $employeeId : null;
+
+        $from = $request->query('from');
+        $from = is_string($from) ? $from : null;
+        $fromDate = null;
+        if ($from) {
+            try {
+                $fromDate = CarbonImmutable::parse($from, $business->timezone)->startOfDay();
+            } catch (\Exception) {
+                $from = null;
+            }
+        }
+
+        // Orden asc por starts_at, desempatado por ends_at y después por id:
+        // el agrupado por día lo hace el frontend sobre este mismo orden
+        // (hoy, futuras ascendentes tal cual, pasadas invertidas al final).
+        $bookings = Booking::with(['customer:id,name,email', 'employee:id,name', 'service:id,name'])
+            ->when($status, fn ($query) => $query->where('status', $status))
+            ->when($employeeId, fn ($query) => $query->where('employee_id', $employeeId))
+            ->when($fromDate, fn ($query) => $query->where('starts_at', '>=', $fromDate))
+            ->orderBy('starts_at')
+            ->orderBy('ends_at')
+            ->orderBy('id')
+            ->get();
+
+        $todayKey = CarbonImmutable::now($business->timezone)->format('Y-m-d');
+
         return Inertia::render('Dashboard/Bookings/Index', [
-            'bookings' => Booking::with(['customer:id,name,email', 'employee:id,name', 'service:id,name'])
-                ->orderByDesc('starts_at')
-                ->get(),
-            'businessId' => Business::current()->id,
+            'bookings' => $bookings->map(fn (Booking $booking) => $this->presentBooking($booking, $business, $todayKey))->values(),
+            'employees' => User::where('business_id', $business->id)->where('role', Role::Employee)->orderBy('name')->get(['id', 'name']),
+            'businessId' => $business->id,
+            'filters' => [
+                'status' => $status,
+                'employee_id' => $employeeId,
+                'from' => $from,
+            ],
         ]);
+    }
+
+    /**
+     * Toda hora y toda fecha se manda ya formateada en la zona del negocio
+     * (`H:i`, nombre de día, nombre de mes), no como instante ISO: mismo
+     * criterio que `DashboardController::presentToday` — el cliente no
+     * construye ningún `Date` a partir de estos campos, así que no hay
+     * ninguna conversión de zona horaria pendiente del lado del navegador.
+     */
+    private function presentBooking(Booking $booking, Business $business, string $todayKey): array
+    {
+        $startsAt = $booking->starts_at->copy()->setTimezone($business->timezone);
+        $dateKey = $startsAt->format('Y-m-d');
+
+        return [
+            'id' => $booking->id,
+            'status' => $booking->status->value,
+            'starts_at_time' => $startsAt->format('H:i'),
+            'duration_minutes' => $booking->starts_at->diffInMinutes($booking->ends_at),
+            'date_key' => $dateKey,
+            'weekday' => DayOfWeek::from($startsAt->dayOfWeek)->label(),
+            'day_month' => $startsAt->day.' de '.self::MONTHS[(int) $startsAt->format('n')],
+            'day_bucket' => match (true) {
+                $dateKey === $todayKey => 'today',
+                $dateKey > $todayKey => 'future',
+                default => 'past',
+            },
+            // `?->`: en fixtures de test (y en datos demo poco prolijos) el
+            // empleado/cliente por defecto de la factory de Booking no
+            // necesariamente comparte negocio con la reserva, así que el
+            // scope global de negocio en `User` puede dejar la relación en
+            // null al hacer eager load. El mismo criterio de tolerancia que
+            // ya usaba el JSX anterior (`booking.employee?.name`).
+            'service_name' => $booking->service?->name,
+            'employee_name' => $booking->employee?->name,
+            'customer_name' => $booking->customer?->name,
+            'price' => $booking->price,
+            'deposit_amount' => $booking->deposit_amount,
+            'payment_expires_at_time' => $booking->payment_expires_at?->copy()->setTimezone($business->timezone)->format('H:i'),
+        ];
     }
 
     public function create(AvailabilityService $availabilityService, Request $request): Response
