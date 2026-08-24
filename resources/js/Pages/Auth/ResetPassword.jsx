@@ -1,6 +1,7 @@
 import { useForm } from '@inertiajs/react';
 import AuthCard from '../../Components/AuthCard';
-import InputError from '../../Components/InputError';
+import Button from '../../Components/ui/Button';
+import { Input, FormField } from '../../Components/ui/Field';
 
 export default function ResetPassword({ token, email }) {
     const { data, setData, post, processing, errors } = useForm({
@@ -17,54 +18,44 @@ export default function ResetPassword({ token, email }) {
 
     return (
         <AuthCard title="Restablecer contraseña">
-            <form onSubmit={submit} className="space-y-4">
-                <div>
-                    <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                        Correo electrónico
-                    </label>
-                    <input
-                        id="email"
-                        type="email"
-                        value={data.email}
-                        onChange={(e) => setData('email', e.target.value)}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
-                    />
-                    <InputError message={errors.email} />
-                </div>
-                <div>
-                    <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                        Nueva contraseña
-                    </label>
-                    <input
-                        id="password"
-                        type="password"
-                        value={data.password}
-                        onChange={(e) => setData('password', e.target.value)}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
-                        autoFocus
-                    />
-                    <InputError message={errors.password} />
-                </div>
-                <div>
-                    <label htmlFor="password_confirmation" className="block text-sm font-medium text-gray-700">
-                        Confirmar contraseña
-                    </label>
-                    <input
-                        id="password_confirmation"
-                        type="password"
-                        value={data.password_confirmation}
-                        onChange={(e) => setData('password_confirmation', e.target.value)}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
-                    />
-                    <InputError message={errors.password_confirmation} />
-                </div>
-                <button
-                    type="submit"
-                    disabled={processing}
-                    className="w-full rounded-md bg-gray-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-                >
+            <form onSubmit={submit} className="flex flex-col gap-5">
+                <FormField id="email" label="Correo electrónico" error={errors.email}>
+                    {(fieldProps) => (
+                        <Input
+                            {...fieldProps}
+                            type="email"
+                            value={data.email}
+                            onChange={(e) => setData('email', e.target.value)}
+                        />
+                    )}
+                </FormField>
+
+                <FormField id="password" label="Nueva contraseña" error={errors.password}>
+                    {(fieldProps) => (
+                        <Input
+                            {...fieldProps}
+                            type="password"
+                            value={data.password}
+                            onChange={(e) => setData('password', e.target.value)}
+                            autoFocus
+                        />
+                    )}
+                </FormField>
+
+                <FormField id="password_confirmation" label="Confirmar contraseña" error={errors.password_confirmation}>
+                    {(fieldProps) => (
+                        <Input
+                            {...fieldProps}
+                            type="password"
+                            value={data.password_confirmation}
+                            onChange={(e) => setData('password_confirmation', e.target.value)}
+                        />
+                    )}
+                </FormField>
+
+                <Button type="submit" variant="primary" size="lg" disabled={processing} className="w-full">
                     Restablecer contraseña
-                </button>
+                </Button>
             </form>
         </AuthCard>
     );

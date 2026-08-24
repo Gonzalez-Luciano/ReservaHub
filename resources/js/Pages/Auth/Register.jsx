@@ -1,6 +1,21 @@
 import { Link, useForm } from '@inertiajs/react';
 import AuthCard from '../../Components/AuthCard';
+import Button from '../../Components/ui/Button';
+import Alert from '../../Components/ui/Alert';
 import InputError from '../../Components/InputError';
+import { Input, FormField } from '../../Components/ui/Field';
+
+function AccountTypeOption({ label, hint, checked, onChange }) {
+    return (
+        <label className={`flex cursor-pointer flex-col rounded-md border bg-surface p-3.5 ${checked ? 'border-fg' : 'border-border'}`}>
+            <span className="flex items-center gap-2.5">
+                <input type="radio" name="account_type" checked={checked} onChange={onChange} className="h-4 w-4 accent-fg" />
+                <span className="text-[15px] font-medium">{label}</span>
+            </span>
+            <span className="mt-1.5 ml-[26px] text-xs leading-[18px] text-muted">{hint}</span>
+        </label>
+    );
+}
 
 export default function Register() {
     const { data, setData, post, processing, errors, reset } = useForm({
@@ -21,113 +36,103 @@ export default function Register() {
 
     return (
         <AuthCard title="Crear cuenta">
-            <form onSubmit={submit} className="space-y-4">
+            <p className="-mt-2 mb-5 text-[15px] leading-6 text-muted">
+                Elegí desde qué lado querés recorrer ReservaHub.
+            </p>
+
+            <Alert tone="warning" title="Datos ficticios">
+                Es una demo pública y compartida. Usá un nombre y un correo inventados, y una contraseña
+                descartable que <strong>no uses en ningún otro servicio</strong>. Todo esto se borra en el
+                próximo reinicio diario.
+            </Alert>
+
+            <form onSubmit={submit} className="mt-5 flex flex-col gap-5">
                 <div>
-                    <label className="block text-sm font-medium text-gray-700">Tipo de cuenta</label>
-                    <div className="mt-1 flex gap-4">
-                        <label className="flex items-center gap-2 text-sm">
-                            <input
-                                type="radio"
-                                name="account_type"
-                                value="business"
-                                checked={data.account_type === 'business'}
-                                onChange={() => setData('account_type', 'business')}
-                            />
-                            Tengo un negocio
-                        </label>
-                        <label className="flex items-center gap-2 text-sm">
-                            <input
-                                type="radio"
-                                name="account_type"
-                                value="customer"
-                                checked={data.account_type === 'customer'}
-                                onChange={() => setData('account_type', 'customer')}
-                            />
-                            Quiero reservar turnos
-                        </label>
+                    <div className="mb-2 text-[13px] font-medium">Tipo de cuenta</div>
+                    <div role="radiogroup" aria-label="Tipo de cuenta" className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                        <AccountTypeOption
+                            label="Tengo un negocio"
+                            hint="Panel, servicios, personal y agenda"
+                            checked={data.account_type === 'business'}
+                            onChange={() => setData('account_type', 'business')}
+                        />
+                        <AccountTypeOption
+                            label="Quiero reservar turnos"
+                            hint="Buscar un negocio y sacar un turno"
+                            checked={data.account_type === 'customer'}
+                            onChange={() => setData('account_type', 'customer')}
+                        />
                     </div>
                     <InputError message={errors.account_type} />
                 </div>
+
                 {data.account_type === 'business' && (
-                    <div>
-                        <label htmlFor="business_name" className="block text-sm font-medium text-gray-700">
-                            Nombre del negocio
-                        </label>
-                        <input
-                            id="business_name"
-                            type="text"
-                            value={data.business_name}
-                            onChange={(e) => setData('business_name', e.target.value)}
-                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
-                        />
-                        <InputError message={errors.business_name} />
-                    </div>
+                    <FormField id="business_name" label="Nombre del negocio" error={errors.business_name}>
+                        {(fieldProps) => (
+                            <Input
+                                {...fieldProps}
+                                value={data.business_name}
+                                onChange={(e) => setData('business_name', e.target.value)}
+                            />
+                        )}
+                    </FormField>
                 )}
-                <div>
-                    <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-                        Nombre
-                    </label>
-                    <input
-                        id="name"
-                        type="text"
-                        value={data.name}
-                        onChange={(e) => setData('name', e.target.value)}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
-                        autoFocus
-                    />
-                    <InputError message={errors.name} />
-                </div>
-                <div>
-                    <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                        Correo electrónico
-                    </label>
-                    <input
-                        id="email"
-                        type="email"
-                        value={data.email}
-                        onChange={(e) => setData('email', e.target.value)}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
-                    />
-                    <InputError message={errors.email} />
-                </div>
-                <div>
-                    <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                        Contraseña
-                    </label>
-                    <input
-                        id="password"
-                        type="password"
-                        value={data.password}
-                        onChange={(e) => setData('password', e.target.value)}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
-                    />
-                    <InputError message={errors.password} />
-                </div>
-                <div>
-                    <label htmlFor="password_confirmation" className="block text-sm font-medium text-gray-700">
-                        Confirmar contraseña
-                    </label>
-                    <input
-                        id="password_confirmation"
-                        type="password"
-                        value={data.password_confirmation}
-                        onChange={(e) => setData('password_confirmation', e.target.value)}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
-                    />
-                    <InputError message={errors.password_confirmation} />
-                </div>
-                <button
-                    type="submit"
-                    disabled={processing}
-                    className="w-full rounded-md bg-gray-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+
+                <FormField id="name" label="Tu nombre" error={errors.name}>
+                    {(fieldProps) => (
+                        <Input
+                            {...fieldProps}
+                            value={data.name}
+                            onChange={(e) => setData('name', e.target.value)}
+                            autoFocus
+                        />
+                    )}
+                </FormField>
+
+                <FormField
+                    id="email"
+                    label="Correo electrónico"
+                    error={errors.email}
+                    hint="Los correos de la demo llegan a un buzón compartido que cualquiera puede abrir."
                 >
-                    Registrarme
-                </button>
-                <p className="text-center text-sm text-gray-600">
-                    ¿Ya tenés cuenta?{' '}
-                    <Link href="/login" className="underline">
-                        Iniciar sesión
-                    </Link>
+                    {(fieldProps) => (
+                        <Input
+                            {...fieldProps}
+                            type="email"
+                            value={data.email}
+                            onChange={(e) => setData('email', e.target.value)}
+                        />
+                    )}
+                </FormField>
+
+                <FormField id="password" label="Contraseña" error={errors.password}>
+                    {(fieldProps) => (
+                        <Input
+                            {...fieldProps}
+                            type="password"
+                            value={data.password}
+                            onChange={(e) => setData('password', e.target.value)}
+                        />
+                    )}
+                </FormField>
+
+                <FormField id="password_confirmation" label="Repetir contraseña" error={errors.password_confirmation}>
+                    {(fieldProps) => (
+                        <Input
+                            {...fieldProps}
+                            type="password"
+                            value={data.password_confirmation}
+                            onChange={(e) => setData('password_confirmation', e.target.value)}
+                        />
+                    )}
+                </FormField>
+
+                <Button type="submit" variant="primary" size="lg" disabled={processing} className="w-full">
+                    Crear cuenta
+                </Button>
+
+                <p className="text-center text-[14px] text-muted">
+                    ¿Ya tenés cuenta? <Link href="/login" className="font-medium text-fg hover:text-fg">Iniciar sesión</Link>
                 </p>
             </form>
         </AuthCard>
