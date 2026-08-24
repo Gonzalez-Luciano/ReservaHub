@@ -97,6 +97,27 @@ class BusinessIndexTest extends TestCase
                 ->where('businesses.0.name', 'Negocio Activo'));
     }
 
+    public function test_each_business_shows_only_its_own_aggregates(): void
+    {
+        $businessA = Business::factory()->create(['name' => 'Negocio A']);
+        Service::factory()->for($businessA)->create(['is_active' => true, 'price' => 100]);
+        Service::factory()->for($businessA)->create(['is_active' => true, 'price' => 200]);
+
+        $businessB = Business::factory()->create(['name' => 'Negocio B']);
+        Service::factory()->for($businessB)->create(['is_active' => true, 'price' => 5]);
+
+        $this->get('/negocios')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->has('businesses', 2)
+                ->where('businesses.0.name', 'Negocio A')
+                ->where('businesses.0.services_count', 2)
+                ->where('businesses.0.lowest_price', fn ($price) => (float) $price === 100.0)
+                ->where('businesses.1.name', 'Negocio B')
+                ->where('businesses.1.services_count', 1)
+                ->where('businesses.1.lowest_price', fn ($price) => (float) $price === 5.0));
+    }
+
     public function test_the_listing_query_count_does_not_grow_with_more_businesses(): void
     {
         Business::factory()->count(2)->create()->each(function (Business $business) {
