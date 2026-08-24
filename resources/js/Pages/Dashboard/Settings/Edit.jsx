@@ -1,9 +1,19 @@
+import { useEffect, useState } from 'react';
 import { useForm, usePage } from '@inertiajs/react';
 import DashboardLayout from '../../../Components/DashboardLayout';
-import InputError from '../../../Components/InputError';
+import PageHeader from '../../../Components/ui/PageHeader';
+import Button from '../../../Components/ui/Button';
+import Surface from '../../../Components/ui/Surface';
+import Toast from '../../../Components/ui/Toast';
+import { FormField, Input, Select } from '../../../Components/ui/Field';
 
 export default function Edit({ business, currencies, timezones }) {
     const { status } = usePage().props;
+    const [toastMessage, setToastMessage] = useState(status ?? null);
+
+    useEffect(() => {
+        if (status) setToastMessage(status);
+    }, [status]);
 
     const form = useForm({
         name: business.name,
@@ -21,89 +31,108 @@ export default function Edit({ business, currencies, timezones }) {
 
     return (
         <DashboardLayout>
-            <div className="mx-auto max-w-2xl p-8">
-                <h1 className="mb-6 text-2xl font-bold">Ajustes del negocio</h1>
+            <div className="mx-auto max-w-2xl space-y-8">
+                <PageHeader title="Ajustes del negocio" />
 
-                {status && <p className="mb-4 text-sm text-green-700">{status}</p>}
+                <form onSubmit={submit} className="space-y-6">
+                    {/* Bloque de identidad */}
+                    <Surface>
+                        <div className="space-y-4 p-6">
+                            <h2 className="text-[15px] font-semibold">Identidad</h2>
 
-                <form onSubmit={submit} className="space-y-4">
-                    <div>
-                        <label className="block text-sm font-medium" htmlFor="name">Nombre</label>
-                        <input
-                            id="name"
-                            className="mt-1 w-full rounded-md border px-3 py-2"
-                            value={form.data.name}
-                            onChange={(event) => form.setData('name', event.target.value)}
-                        />
-                        <InputError message={form.errors.name} />
-                    </div>
+                            <FormField id="name" label="Nombre" error={form.errors.name}>
+                                {(props) => (
+                                    <Input
+                                        {...props}
+                                        value={form.data.name}
+                                        onChange={(event) => form.setData('name', event.target.value)}
+                                    />
+                                )}
+                            </FormField>
 
-                    <div>
-                        <label className="block text-sm font-medium" htmlFor="timezone">Zona horaria</label>
-                        <select
-                            id="timezone"
-                            className="mt-1 w-full rounded-md border px-3 py-2"
-                            value={form.data.timezone}
-                            onChange={(event) => form.setData('timezone', event.target.value)}
-                        >
-                            {timezones.map((timezone) => (
-                                <option key={timezone} value={timezone}>{timezone}</option>
-                            ))}
-                        </select>
-                        <InputError message={form.errors.timezone} />
-                        {timezoneChanged && (
-                            <p className="mt-1 text-sm text-amber-700">
-                                Las reservas ya creadas no se mueven, pero los horarios semanales de tus
-                                empleados pasan a interpretarse en la zona nueva. Revisalos después de guardar.
+                            <p className="text-[13px] leading-5 text-muted">
+                                La dirección pública de tu negocio (<code>/negocios/{business.slug}</code>) no se
+                                puede cambiar: los enlaces ya compartidos dejarían de funcionar.
                             </p>
-                        )}
+                        </div>
+                    </Surface>
+
+                    {/* Bloque de operación */}
+                    <Surface>
+                        <div className="space-y-4 p-6">
+                            <h2 className="text-[15px] font-semibold">Operación</h2>
+
+                            <FormField id="timezone" label="Zona horaria" error={form.errors.timezone}>
+                                {(props) => (
+                                    <Select
+                                        {...props}
+                                        value={form.data.timezone}
+                                        onChange={(event) => form.setData('timezone', event.target.value)}
+                                    >
+                                        {timezones.map((timezone) => (
+                                            <option key={timezone} value={timezone}>{timezone}</option>
+                                        ))}
+                                    </Select>
+                                )}
+                            </FormField>
+                            {timezoneChanged && (
+                                <p className="text-[13px] leading-5 text-pending-fg">
+                                    Las reservas ya creadas no se mueven, pero los horarios semanales de tus
+                                    empleados pasan a interpretarse en la zona nueva. Revisalos después de guardar.
+                                </p>
+                            )}
+
+                            <FormField id="currency" label="Moneda" error={form.errors.currency}>
+                                {(props) => (
+                                    <Select
+                                        {...props}
+                                        value={form.data.currency}
+                                        onChange={(event) => form.setData('currency', event.target.value)}
+                                    >
+                                        {currencies.map((currency) => (
+                                            <option key={currency} value={currency}>{currency}</option>
+                                        ))}
+                                    </Select>
+                                )}
+                            </FormField>
+                        </div>
+                    </Surface>
+
+                    {/* Bloque de reservas */}
+                    <Surface>
+                        <div className="space-y-4 p-6">
+                            <h2 className="text-[15px] font-semibold">Reservas</h2>
+
+                            <FormField
+                                id="cancellation_hours"
+                                label="Horas mínimas para cancelar"
+                                error={form.errors.cancellation_hours}
+                                hint="Los clientes no pueden cancelar una reserva dentro de esta ventana antes del turno."
+                            >
+                                {(props) => (
+                                    <Input
+                                        {...props}
+                                        type="number"
+                                        min="0"
+                                        max="168"
+                                        value={form.data.cancellation_hours}
+                                        onChange={(event) => form.setData('cancellation_hours', event.target.value)}
+                                    />
+                                )}
+                            </FormField>
+                        </div>
+                    </Surface>
+
+                    {/* Acciones */}
+                    <div className="flex items-center justify-end gap-3 pt-2">
+                        <Button variant="primary" type="submit" disabled={form.processing}>
+                            Guardar ajustes
+                        </Button>
                     </div>
-
-                    <div>
-                        <label className="block text-sm font-medium" htmlFor="currency">Moneda</label>
-                        <select
-                            id="currency"
-                            className="mt-1 w-full rounded-md border px-3 py-2"
-                            value={form.data.currency}
-                            onChange={(event) => form.setData('currency', event.target.value)}
-                        >
-                            {currencies.map((currency) => (
-                                <option key={currency} value={currency}>{currency}</option>
-                            ))}
-                        </select>
-                        <InputError message={form.errors.currency} />
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium" htmlFor="cancellation_hours">
-                            Horas mínimas para cancelar
-                        </label>
-                        <input
-                            id="cancellation_hours"
-                            type="number"
-                            min="0"
-                            max="168"
-                            className="mt-1 w-full rounded-md border px-3 py-2"
-                            value={form.data.cancellation_hours}
-                            onChange={(event) => form.setData('cancellation_hours', event.target.value)}
-                        />
-                        <InputError message={form.errors.cancellation_hours} />
-                    </div>
-
-                    <p className="text-sm text-gray-600">
-                        La dirección pública de tu negocio (<code>/businesses/{business.slug}</code>) no se
-                        puede cambiar: los enlaces ya compartidos dejarían de funcionar.
-                    </p>
-
-                    <button
-                        type="submit"
-                        disabled={form.processing}
-                        className="rounded-md bg-gray-900 px-4 py-2 text-sm font-semibold text-white"
-                    >
-                        Guardar ajustes
-                    </button>
                 </form>
             </div>
+
+            <Toast message={toastMessage} onDismiss={() => setToastMessage(null)} />
         </DashboardLayout>
     );
 }
