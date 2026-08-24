@@ -30,4 +30,16 @@ class HandleInertiaRequestsTest extends TestCase
 
         $response->assertInertia(fn ($page) => $page->where('auth.user', null));
     }
+
+    public function test_it_shares_the_business_for_staff(): void
+    {
+        $business = Business::factory()->create(['name' => 'Peluquería Demo']);
+        $owner = User::factory()->owner()->create(['business_id' => $business->id]);
+
+        $this->actingAs($owner)
+            ->get('/dashboard')
+            ->assertInertia(fn ($page) => $page
+                ->where('auth.business.name', 'Peluquería Demo')
+                ->has('auth.user.email'));
+    }
 }
