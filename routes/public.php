@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\ComoFuncionaController;
 use App\Http\Controllers\Public\BookingController;
 use App\Http\Controllers\Public\BookingPaymentController;
 use App\Http\Controllers\Public\BusinessController;
@@ -9,6 +10,10 @@ use Illuminate\Support\Facades\Route;
 
 // Fuera del grupo con prefijo de slug: ese lleva BindPublicBusiness, que exige un slug.
 Route::get('negocios', [BusinessController::class, 'index'])->name('public.business.index');
+
+// Guía permanente de la demo compartida — no depende del proveedor de pagos,
+// por eso vive acá y no en routes/demo.php.
+Route::get('como-funciona', ComoFuncionaController::class)->name('public.guide');
 
 Route::prefix('negocios/{business:slug}')->middleware(BindPublicBusiness::class)->name('public.business.')->group(function () {
     Route::get('/', [BusinessController::class, 'show'])->name('show');

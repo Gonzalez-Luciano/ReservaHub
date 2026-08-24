@@ -123,4 +123,16 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Buzón público de la demo
+    |--------------------------------------------------------------------------
+    |
+    | Espejo de VITE_DEMO_MAIL_URL: pública por definición, nunca un secreto.
+    | Sin definir, ninguna pantalla ofrece el CTA del buzón.
+    |
+    */
+
+    'demo_mail_url' => env('VITE_DEMO_MAIL_URL'),
+
 ];
