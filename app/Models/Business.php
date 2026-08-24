@@ -27,6 +27,11 @@ class Business extends Model
         return $this->hasMany(User::class);
     }
 
+    public function services(): HasMany
+    {
+        return $this->hasMany(Service::class);
+    }
+
     public static function current(): ?self
     {
         return app()->bound(self::class) ? app(self::class) : null;

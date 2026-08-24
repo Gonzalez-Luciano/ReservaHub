@@ -1,30 +1,33 @@
-import { Link } from '@inertiajs/react';
 import PublicLayout from '../../../Components/PublicLayout';
+import PageHeader from '../../../Components/ui/PageHeader';
+import EmptyState from '../../../Components/ui/EmptyState';
+import ServiceCard from '../../../Components/domain/ServiceCard';
+import { ServiceIcon } from '../../../Components/ui/icons';
 
 export default function Show({ business, services }) {
     return (
         <PublicLayout>
-            <div className="p-8">
-                <h1 className="mb-6 text-2xl font-bold">{business.name}</h1>
-                <ul className="space-y-4">
-                    {services.map((service) => (
-                        <li key={service.id} className="rounded-md border bg-white p-4">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="font-semibold">{service.name}</p>
-                                    <p className="text-sm text-gray-500">{service.description}</p>
-                                    <p className="text-sm text-gray-500">{service.duration_minutes} min — ${service.price}</p>
-                                </div>
-                                <Link
-                                    href={`/negocios/${business.slug}/reservar?service_id=${service.id}`}
-                                    className="rounded-md bg-gray-900 px-4 py-2 text-sm font-semibold text-white"
-                                >
-                                    Reservar
-                                </Link>
-                            </div>
-                        </li>
-                    ))}
-                </ul>
+            <div className="mx-auto max-w-[1440px] px-6 py-10 lg:px-10 lg:py-14">
+                <PageHeader title={business.name} subtitle="Elegí un servicio para reservar un turno." />
+
+                {services.length === 0 ? (
+                    <EmptyState
+                        icon={ServiceIcon}
+                        title="Todavía no hay servicios publicados"
+                        description="Volvé a intentarlo más tarde."
+                    />
+                ) : (
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        {services.map((service) => (
+                            <ServiceCard
+                                key={service.id}
+                                service={service}
+                                currency={business.currency}
+                                href={`/negocios/${business.slug}/reservar?service_id=${service.id}`}
+                            />
+                        ))}
+                    </div>
+                )}
             </div>
         </PublicLayout>
     );

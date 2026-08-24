@@ -1,29 +1,63 @@
-import { Link } from '@inertiajs/react';
 import PublicLayout from '../../../Components/PublicLayout';
+import PageHeader from '../../../Components/ui/PageHeader';
+import Surface from '../../../Components/ui/Surface';
+import Button from '../../../Components/ui/Button';
+import EmptyState from '../../../Components/ui/EmptyState';
+import { ServiceIcon } from '../../../Components/ui/icons';
+
+function formatCurrency(value, currency) {
+    return new Intl.NumberFormat('es-AR', { style: 'currency', currency }).format(value);
+}
+
+function BusinessCard({ business }) {
+    const hasServices = business.services_count > 0;
+
+    return (
+        <Surface className="flex flex-col justify-between p-5">
+            <div>
+                <h3 className="text-[18px] font-semibold leading-6 tracking-[-0.01em]">{business.name}</h3>
+                <p className="mt-1.5 text-[13px] leading-5 text-muted">
+                    {hasServices
+                        ? `${business.services_count} ${business.services_count === 1 ? 'servicio' : 'servicios'} disponibles`
+                        : 'Todavía no publicó servicios'}
+                </p>
+                {hasServices && (
+                    <p className="mt-3 text-[15px]">
+                        <span className="text-muted">Desde </span>
+                        <span className="tnum font-semibold">
+                            {formatCurrency(business.lowest_price, business.currency)}
+                        </span>
+                    </p>
+                )}
+            </div>
+            <Button href={`/negocios/${business.slug}`} variant="primary" className="mt-4 self-start">
+                Ver servicios
+            </Button>
+        </Surface>
+    );
+}
 
 export default function Index({ businesses }) {
     return (
         <PublicLayout>
-            <div className="p-8">
-                <h1 className="mb-6 text-2xl font-bold">Negocios</h1>
+            <div className="mx-auto max-w-[1440px] px-6 py-10 lg:px-10 lg:py-14">
+                <PageHeader
+                    title="Negocios"
+                    subtitle="Elegí un negocio para ver sus servicios y reservar un turno."
+                />
+
                 {businesses.length === 0 ? (
-                    <p className="text-sm text-gray-500">Todavía no hay negocios disponibles.</p>
+                    <EmptyState
+                        icon={ServiceIcon}
+                        title="Todavía no hay negocios disponibles"
+                        description="Volvé a intentarlo más tarde."
+                    />
                 ) : (
-                    <ul className="space-y-4">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                         {businesses.map((business) => (
-                            <li key={business.id} className="rounded-md border bg-white p-4">
-                                <div className="flex items-center justify-between">
-                                    <p className="font-semibold">{business.name}</p>
-                                    <Link
-                                        href={`/negocios/${business.slug}`}
-                                        className="rounded-md bg-gray-900 px-4 py-2 text-sm font-semibold text-white"
-                                    >
-                                        Ver servicios
-                                    </Link>
-                                </div>
-                            </li>
+                            <BusinessCard key={business.id} business={business} />
                         ))}
-                    </ul>
+                    </div>
                 )}
             </div>
         </PublicLayout>
