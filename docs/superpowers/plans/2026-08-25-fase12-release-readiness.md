@@ -146,6 +146,7 @@ build arg de Vite, porque las variables `VITE_*` se compilan dentro del bundle. 
 | `tests/Feature/Console/DemoRestoreAccessCommandTest.php` | Tests de `demo:restore-access` |
 | `tests/Unit/Support/DemoEnvironmentTest.php` | Tests de las guardas |
 | `tests/Unit/Support/DemoConfigTest.php` | Contraseña canónica y anti-deriva entre config y seeder |
+| `tests/Feature/TrustedProxiesTest.php` | Prueba que `TRUSTED_PROXIES` cambia el comportamiento solo cuando está configurada |
 | `docs/audits/2026-08-25-git-history-audit.md` | Conclusión explícita de la auditoría previa a publicar |
 | `docs/audits/2026-08-25-dependency-audit.md` | `composer audit` / `pnpm audit` y la decisión por advisory |
 | `docs/screenshots/*.webp` | Capturas post-Fase 11 para el README |
@@ -161,6 +162,8 @@ build arg de Vite, porque las variables `VITE_*` se compilan dentro del bundle. 
 | `app/Http/Controllers/ComoFuncionaController.php` | Expone la contraseña demo y las cuentas como props |
 | `.env.example` | Agrega el bloque de modo demo y las variables que faltaban |
 | `composer.json` | Metadatos del proyecto, constraint de PHP, `scripts` sin `npm` ni `artisan serve` |
+| `package.json` | Pin de `packageManager` a la versión de pnpm real del proyecto |
+| `bootstrap/app.php` | Cablea `trustProxies()` a `TRUSTED_PROXIES`; sin valor, comportamiento idéntico al actual |
 | `README.md` | Reemplazo completo del boilerplate de Laravel |
 | `docs/DEPLOYMENT_HANDOFF.md` | Reescritura al modelo VPS multiproyecto |
 | `01-reservahub.md` | Tabla de estado y referencias al reset diario |
@@ -1351,7 +1354,6 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
 
 class DemoResetCommandTest extends TestCase
@@ -1441,17 +1443,20 @@ class DemoResetCommandTest extends TestCase
         $this->assertTrue($owner->is_active);
     }
 
-    public function test_it_clears_the_queue_so_no_job_points_at_the_old_dataset(): void
-    {
-        Queue::fake();
-
-        $this->artisan('demo:reset --force')->assertExitCode(0);
-
-        // El comando delega en `queue:clear`, que es el único mecanismo que
-        // alcanza a Redis: migrate:fresh solo vacía la tabla `jobs`, que este
-        // proyecto no usa.
-        $this->assertSame(0, DB::table('jobs')->count());
-    }
+    // No hay un test acá para "demo:reset limpia la cola real de Redis".
+    // phpunit.xml fuerza QUEUE_CONNECTION=sync, y Laravel's SyncQueue no
+    // implementa ClearableQueue (verificado leyendo
+    // vendor/laravel/framework/src/Illuminate/Queue/SyncQueue.php): bajo
+    // sync, `queue:clear` nunca toca una cola real, así que ningún test aquí
+    // puede probar honestamente que se vacía Redis sin Redis de verdad.
+    // Un primer intento con `Queue::fake()` + `assertSame(0,
+    // DB::table('jobs')->count())` habría pasado exactamente igual con
+    // `clearQueue()` borrado del código: fake() intercepta la cola entera
+    // (nada llega a Redis NI a la tabla `jobs` sea cual sea el resultado), y
+    // la tabla `jobs` ni siquiera es el store que usa este proyecto
+    // (QUEUE_CONNECTION=redis) — doblemente la aserción equivocada. La
+    // verificación real, con Redis de verdad, es la Tarea 12 (Paso 14),
+    // contra el stack productivo.
 
     public function test_two_runs_cannot_overlap(): void
     {
@@ -1655,7 +1660,7 @@ class DemoResetCommand extends Command
 - [ ] **Step 5: Correr el test y verificar que pasa**
 
 Run: `docker compose exec -T laravel.test php artisan test --filter=DemoResetCommandTest`
-Expected: PASS, 10 tests.
+Expected: PASS, 9 tests.
 
 Si `test_it_reseeds_exactly_the_canonical_dataset` falla por el conteo de usuarios, el número correcto
 es el que devuelva `User::withoutGlobalScopes()->count()` tras un seed limpio — ajustar la aserción a
@@ -2233,14 +2238,39 @@ verificarlo antes de definir el proxy, no asumirlo):
 De ahí sale el enrutamiento: `/app` y `/apps` van a Reverb, `/broadcasting/auth` **no** (es una
 petición HTTP autenticada por sesión, de la aplicación Laravel, y cae en el bloque general).
 
+**Esta tarea también resuelve la cadena de proxy de confianza completa**, no solo el enrutamiento:
+`Host`, `X-Forwarded-For`, `X-Forwarded-Proto` y cómo Laravel decide si una petición fue HTTPS, porque
+el destino real es un proxy futuro (host o Cloudflare) que termina TLS y reenvía **HTTP simple** hacia
+este contenedor — dentro del VPS, no hay una segunda terminación TLS. Dos gaps concretos, verificados
+antes de escribir una sola línea:
+
+1. **`bootstrap/app.php` no llama a `trustProxies()` en ningún lado** (confirmado leyendo el archivo
+   completo). Aunque el contrato de entorno declare `TRUSTED_PROXIES=*`, hoy esa variable no hace
+   absolutamente nada: Laravel ignora todo `X-Forwarded-*` sin importar su valor. Sin esto, cookies
+   seguras, redirecciones a HTTPS y la firma de URLs firmadas se rompen en cuanto exista un proxy real
+   delante — y no antes, porque en desarrollo/CI no hay proxy y el síntoma nunca aparece.
+2. **Nginx solo fijaba `X-Forwarded-Proto`/`X-Forwarded-For` para Reverb, nunca para PHP-FPM** — el
+   bloque que atiende login, redirecciones y URLs firmadas no mandaba ninguno de los dos. Y el que sí
+   los fijaba usaba `$scheme` a secas (la conexión de nginx consigo mismo), que en el destino real sería
+   siempre `http` — exactamente lo contrario de lo que hace falta cuando el proxy de enfrente ya terminó
+   TLS.
+
+La solución no depende de conocer al proxy real (prohibido en esta fase): el default de
+`compose.production.yaml` (`WEB_BIND=127.0.0.1`, Tarea 11) es la frontera de confianza real — nada en
+internet puede conectarse directamente a `web`; solo un proceso corriendo **en el mismo VPS** (un proxy
+de host, o `cloudflared`) puede alcanzarlo. Eso es lo que hace seguro relayar lo que sea que llegue.
+
 **Files:**
 - Create: `docker/production/web.Dockerfile`, `docker/production/nginx/nginx.conf`,
   `docker/production/nginx/default.conf`
+- Modify: `bootstrap/app.php`
+- Test: `tests/Feature/TrustedProxiesTest.php`
 
 **Interfaces:**
-- Consumes: la imagen de la Tarea 8 (para copiar `public/`)
+- Consumes: la imagen de la Tarea 8 (para copiar `public/`), `TRUSTED_PROXIES` de la Tarea 10
 - Produces: imagen `reservahub-web` que escucha en `8080/tcp`, habla con `app:9000` (FastCGI) y con
-  `reverb:8080` (HTTP/WS). Sirve `GET /up` atravesando Nginx → PHP-FPM → Laravel.
+  `reverb:8080` (HTTP/WS). Sirve `GET /up` atravesando Nginx → PHP-FPM → Laravel, con
+  `X-Forwarded-Proto`/`For`/`Host` consistentes en las tres rutas (PHP, `/app`, `/apps`).
 
 - [ ] **Step 1: Config global de Nginx**
 
@@ -2291,6 +2321,20 @@ map $http_upgrade $connection_upgrade {
     ''      close;
 }
 
+# Fuente única del esquema para TODO lo que este contenedor reenvía (PHP-FPM
+# y Reverb): si algo que ya llegó a `web` declaró X-Forwarded-Proto, se
+# conserva ese valor (viene de un proxy real que ya terminó TLS más afuera);
+# si no hay nada declarado, se usa el esquema de la conexión que nginx mismo
+# recibió ($scheme) porque este contenedor es el borde real. Con
+# WEB_BIND=127.0.0.1 (default de compose.production.yaml), lo único que puede
+# conectarse acá es un proceso del mismo VPS — el proxy de host o
+# `cloudflared` — así que confiar en lo que ya venga declarado es seguro
+# mientras ese binding se mantenga.
+map $http_x_forwarded_proto $reservahub_forwarded_proto {
+    default $http_x_forwarded_proto;
+    ''      $scheme;
+}
+
 upstream php-fpm {
     server app:9000;
 }
@@ -2320,7 +2364,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Proto $reservahub_forwarded_proto;
 
         # Una conexión de tiempo real está inactiva la mayor parte del tiempo.
         proxy_read_timeout 3600s;
@@ -2336,7 +2380,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Proto $reservahub_forwarded_proto;
     }
 
     # `/broadcasting/auth` NO está acá a propósito: es una petición de la
@@ -2365,6 +2409,17 @@ server {
         fastcgi_param PATH_INFO $fastcgi_path_info;
         fastcgi_hide_header X-Powered-By;
         fastcgi_read_timeout 30s;
+
+        # Sin esto, Laravel nunca ve X-Forwarded-Proto/For/Host de forma
+        # consistente: `fastcgi_params` no los agrega por nombre, y
+        # `fastcgi_pass_request_headers on` (el default) reenviaría el valor
+        # que haya mandado quien conectó a `web` tal cual, sin normalizar. Acá
+        # se fija explícitamente con la misma fuente que ya usan los bloques
+        # de Reverb arriba, para una sola decisión de confianza en las tres
+        # rutas.
+        fastcgi_param HTTP_X_FORWARDED_PROTO $reservahub_forwarded_proto;
+        fastcgi_param HTTP_X_FORWARDED_FOR $proxy_add_x_forwarded_for;
+        fastcgi_param HTTP_X_FORWARDED_HOST $host;
     }
 
     # Nada de archivos ocultos, y en particular nunca un .env servido como
@@ -2375,7 +2430,107 @@ server {
 }
 ```
 
-- [ ] **Step 3: Imagen de Nginx**
+- [ ] **Step 3: Cablear `TRUSTED_PROXIES` en `bootstrap/app.php`**
+
+Hoy `bootstrap/app.php` no llama a `trustProxies()` en ningún lado — confirmado leyendo el archivo
+completo. `TRUSTED_PROXIES` (Tarea 10) es, sin este cambio, una variable muerta: Laravel seguiría
+ignorando todo `X-Forwarded-*` sin importar su valor, y las cookies seguras, las redirecciones a HTTPS
+y la firma de URLs se romperían en cuanto exista un proxy real delante.
+
+API verificada contra la documentación actual de Laravel 12/13 (`$middleware->trustProxies(at:,
+headers:)`, con `at: '*'` como caso especial para "confiar en cualquier proxy"). Agregar, dentro del
+`->withMiddleware(function (Middleware $middleware): void { ... })` ya existente en `bootstrap/app.php`
+(no crear una nueva llamada a `withMiddleware`, es una sola por archivo):
+
+```php
+use Illuminate\Http\Request;
+
+// ...
+
+        $trustedProxies = env('TRUSTED_PROXIES');
+
+        // Sin TRUSTED_PROXIES (desarrollo, CI, tests): no confiar en nadie,
+        // idéntico al comportamiento de hoy sin esta llamada. `*` es el caso
+        // especial de Laravel para "cualquier proxy" — correcto acá porque
+        // `app` no tiene otro llamante posible que `web` en la red interna
+        // (puerto 9000 nunca publicado). Ver config/demo.php y
+        // .env.production.example para el resto del razonamiento.
+        $middleware->trustProxies(
+            at: $trustedProxies === '*' ? '*' : array_filter(explode(',', (string) $trustedProxies)),
+            headers: Request::HEADER_X_FORWARDED_FOR
+                | Request::HEADER_X_FORWARDED_HOST
+                | Request::HEADER_X_FORWARDED_PORT
+                | Request::HEADER_X_FORWARDED_PROTO,
+        );
+```
+
+`TRUSTED_PROXIES` sin definir (el caso de desarrollo, CI y `phpunit.xml`, que no lo fija) da
+`array_filter(explode(',', ''))` → `[]`, que es "no confiar en nadie" — el comportamiento de hoy, sin
+cambios para ningún entorno que no sea producción.
+
+- [ ] **Step 4: Test de la cadena de confianza**
+
+`tests/Feature/TrustedProxiesTest.php`:
+
+```php
+<?php
+
+namespace Tests\Feature;
+
+use Illuminate\Support\Facades\Route;
+use Tests\TestCase;
+
+class TrustedProxiesTest extends TestCase
+{
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        Route::get('/__trusted-proxy-probe', fn () => response()->json([
+            'secure' => request()->isSecure(),
+            'url' => request()->url(),
+        ]));
+    }
+
+    public function test_forwarded_proto_is_ignored_without_trusted_proxies(): void
+    {
+        config(['app.url' => 'http://localhost']);
+
+        $response = $this->withHeaders(['X-Forwarded-Proto' => 'https'])
+            ->get('/__trusted-proxy-probe');
+
+        $response->assertJson(['secure' => false]);
+    }
+
+    public function test_forwarded_proto_is_honored_once_trusted(): void
+    {
+        config(['app.url' => 'http://localhost']);
+        $this->app->make(\Illuminate\Foundation\Http\Kernel::class);
+
+        // Repite la config real de bootstrap/app.php con TRUSTED_PROXIES=*:
+        // no hay forma de re-ejecutar el bootstrap dentro de un test, así que
+        // se aplica el mismo trustProxies() que el código de producción usaría.
+        request()->setTrustedProxies(['0.0.0.0/0'], \Illuminate\Http\Request::HEADER_X_FORWARDED_PROTO);
+
+        $response = $this->withHeaders(['X-Forwarded-Proto' => 'https'])
+            ->get('/__trusted-proxy-probe');
+
+        $response->assertJson(['secure' => true]);
+    }
+}
+```
+
+El segundo test no puede invocar el `trustProxies()` real de `bootstrap/app.php` (el kernel ya está
+construido cuando el test corre), así que aplica el mismo mecanismo (`setTrustedProxies`) que esa
+llamada termina usando por debajo — prueba el comportamiento de Symfony/Laravel que `bootstrap/app.php`
+activa, no una reimplementación paralela.
+
+Run: `docker compose exec -T laravel.test php artisan test --filter=TrustedProxiesTest`
+Expected: PASS, 2 tests. El primero prueba que hoy (sin `TRUSTED_PROXIES`, como en desarrollo/CI) un
+header falsificado no cambia nada — es la garantía de que este cambio no afecta ningún entorno
+existente. El segundo prueba que, una vez confiado, sí funciona.
+
+- [ ] **Step 5: Imagen de Nginx**
 
 `docker/production/web.Dockerfile`. Copia `public/` desde la imagen de aplicación para poder servir
 los estáticos sin compartir un volumen con `app`, que es lo que haría al stack dependiente del orden
@@ -2416,7 +2571,7 @@ CMD ["nginx", "-g", "daemon off;"]
 pasa esa referencia exacta, para que las dos imágenes de una release contengan literalmente el mismo
 `public/build`.
 
-- [ ] **Step 4: Construir y validar la sintaxis**
+- [ ] **Step 6: Construir y validar la sintaxis**
 
 ```bash
 docker build -f docker/production/web.Dockerfile -t reservahub-web:local .
@@ -2425,7 +2580,7 @@ docker run --rm reservahub-web:local nginx -t
 
 Expected: build exitoso y `syntax is ok` / `test is successful`.
 
-- [ ] **Step 5: Verificar el contenido**
+- [ ] **Step 7: Verificar el contenido**
 
 ```bash
 docker run --rm reservahub-web:local sh -c "ls /var/www/html/public/build/manifest.json"
@@ -2434,11 +2589,20 @@ docker run --rm reservahub-web:local sh -c "ls /var/www/html/app 2>&1; ls /var/w
 
 Expected: el manifest existe; las otras dos dicen "No such file or directory".
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 8: Verificar la suite completa y commitear**
 
 ```bash
-git add docker/production/web.Dockerfile docker/production/nginx
-git commit -m "build: front the app with nginx and gateway reverb through it"
+docker compose exec -T laravel.test php artisan test
+docker compose exec -T laravel.test vendor/bin/pint --test
+```
+
+Expected: la suite completa sigue en 0 fallos (el cambio en `bootstrap/app.php` no debe romper ningún
+test existente, ya que sin `TRUSTED_PROXIES` el comportamiento es idéntico al de hoy) más los 2 tests
+nuevos de `TrustedProxiesTest`.
+
+```bash
+git add docker/production/web.Dockerfile docker/production/nginx bootstrap/app.php tests/Feature/TrustedProxiesTest.php
+git commit -m "build: front the app with nginx, gateway reverb through it, and wire trusted proxies"
 ```
 
 ---
@@ -2478,6 +2642,14 @@ Las cinco categorías de §12.11: `secret` · `runtime public` · `build-time pu
 #   [dev-only]      no va en producción
 # =============================================================================
 
+# Se declara a sí mismo: `compose.production.yaml` lee `env_file:
+# ${COMPOSE_ENV_FILE:-.env}`. Pasar este archivo con `docker compose --env-file
+# .env.production.example` (o su copia real) hace que la MISMA bandera controle
+# tanto la interpolación de ${...} en el compose como el contenido real que
+# reciben los contenedores — así los dos mecanismos no pueden desincronizarse.
+# Al copiar este archivo a un `.env` real, cambiar el valor a ese nombre.
+COMPOSE_ENV_FILE=.env.production.example  # [internal]
+
 # ---- Aplicación ----
 APP_NAME=ReservaHub                       # [runtime]
 APP_ENV=production                        # [runtime]
@@ -2510,7 +2682,13 @@ SESSION_SECURE_COOKIE=true                # [runtime] true detrás de HTTPS
 FILESYSTEM_DISK=local                     # [runtime]
 
 # ---- Proxy ----
-TRUSTED_PROXIES=*                         # [runtime] necesario detrás de proxy/tunnel que termina TLS
+# `*` es correcto y no un descuido: `app` (PHP-FPM) no tiene otro llamante
+# posible que `web` en la red interna del stack (el puerto 9000 nunca se
+# publica), así que "confiar en el único que puede llamarme" es lo que
+# significa `*` acá, no "confiar en internet". La sanitización real de
+# X-Forwarded-* ocurre en `web` (Nginx, Tarea 9), que es la única superficie
+# que un cliente externo puede alcanzar.
+TRUSTED_PROXIES=*                         # [runtime]
 
 # ---- Logs ----
 LOG_CHANNEL=stack                         # [runtime]
@@ -2585,8 +2763,11 @@ DEMO_ACCOUNT_PASSWORD=                    # [runtime] PÚBLICA por definición: 
 - [ ] **Step 2: Verificar que no se filtró ningún valor real**
 
 ```bash
-grep -nE '=(.+)$' .env.production.example | grep -viE '=(production|false|true|pgsql|redis|database|local|reverb|mailpit|smtp|stack|single|warning|es|en|phpredis|ReservaHub|reservahub|0\.0\.0\.0|[0-9]+|\*|"\$\{APP_NAME\}")\s*(#.*)?$'
+grep -nE '=(.+)$' .env.production.example | grep -viE '=(production|false|true|pgsql|redis|database|local|reverb|mailpit|smtp|stack|single|warning|es|en|phpredis|ReservaHub|reservahub|0\.0\.0\.0|[0-9]+|\*|"\$\{APP_NAME\}"|\.env\.production\.\w+)\s*(#.*)?$'
 ```
+
+`\.env\.production\.\w+` cubre la propia línea `COMPOSE_ENV_FILE=.env.production.example`: es un nombre
+de archivo del propio repositorio, no un secreto.
 
 Expected: sin resultados. Todo lo que tiene valor es un default no sensible; los secretos están
 vacíos.
@@ -2616,13 +2797,24 @@ git commit -m "docs: declare the production environment contract"
 Ocho servicios. **Portable**: sin hostname final, sin IP pública, sin puertos públicos adivinados, sin
 rutas `/srv`, sin Cloudflare, sin systemd, sin nada específico de OVH (§12.9).
 
-Dos decisiones que se ven en el archivo:
+Tres decisiones que se ven en el archivo:
 
 - **`web` y `mailpit` publican por variable con default de loopback** (`127.0.0.1`). Publicar en
   `0.0.0.0` desde el repositorio decidiría la exposición pública, que es de operaciones; publicar nada
   haría el stack inarrancable sin override. El default en loopback deja que el operador ponga su proxy
   o su tunnel delante y cambie el binding con un override chico.
 - **PostgreSQL y Redis no publican ningún puerto.** §12.9 lo exige.
+- **`env_file` es una variable, no un nombre fijo.** `docker compose --env-file X` controla la
+  **interpolación** de `${VAR}` dentro del propio YAML; no reescribe un `env_file: .env` literal. Si
+  ese literal quedara hardcodeado, `--env-file .env.production.local` (verificación de la Tarea 12)
+  interpolaría con los valores correctos pero cada contenedor **seguiría cargando el `.env` de
+  desarrollo del repo** — verificado con un compose de prueba descartable: los dos mecanismos son
+  independientes y no se sincronizan solos. `env_file: ${COMPOSE_ENV_FILE:-.env}` sí funciona, también
+  verificado: el propio archivo pasado a `--env-file` puede declararse a sí mismo
+  (`COMPOSE_ENV_FILE=<su propio nombre>` como primera línea), así que interpolación y contenido del
+  contenedor terminan apuntando, por construcción, al mismo archivo. El default `.env` sin variable
+  queda para el deployment real, donde el `.env` del operador vive junto a este compose y no hay ningún
+  `.env` de desarrollo en el mismo directorio con el que confundirse.
 
 **Files:**
 - Create: `compose.production.yaml`
@@ -2649,7 +2841,12 @@ name: reservahub
 
 x-app: &app
   image: ${APP_IMAGE:-ghcr.io/gonzalez-luciano/reservahub-app:latest}
-  env_file: .env
+  # Variable, no un nombre fijo: --env-file en la CLI interpola ${...} en este
+  # YAML pero NO reescribe un `env_file: .env` literal — son dos mecanismos
+  # independientes. Con la variable, el mismo --env-file que interpola el resto
+  # del archivo también decide qué carga el contenedor, siempre que ese propio
+  # archivo declare COMPOSE_ENV_FILE=<su nombre> (ver .env.production.example).
+  env_file: ${COMPOSE_ENV_FILE:-.env}
   restart: unless-stopped
   networks: [reservahub]
   depends_on:
@@ -2883,6 +3080,7 @@ cp .env.production.example .env.production.local
 Completar en `.env.production.local`:
 
 ```dotenv
+COMPOSE_ENV_FILE=.env.production.local
 APP_URL=http://localhost:8280
 DB_PASSWORD=una-clave-local-cualquiera
 PAYMENTS_SIMULATED_WEBHOOK_SECRET=un-secreto-local-cualquiera
@@ -2924,7 +3122,22 @@ llegando a `healthy` en menos de un minuto. Si alguno reinicia en bucle, leer su
 `docker compose -f compose.production.yaml --env-file .env.production.local logs <servicio>` antes de
 cambiar nada.
 
-- [ ] **Step 4: Migrar y sembrar**
+- [ ] **Step 4: Verificar que el contenedor recibió el `.env` productivo, no el de desarrollo**
+
+Esta comprobación existe porque `docker compose --env-file` interpola el YAML pero no reescribe por sí
+sola un `env_file:` literal — es exactamente el bug que la Tarea 11 evitó usando
+`env_file: ${COMPOSE_ENV_FILE:-.env}`. Confirmar que de verdad funciona, no solo que la sintaxis valida:
+
+```bash
+docker compose -f compose.production.yaml --env-file .env.production.local exec -T app sh -c "echo APP_ENV=\$APP_ENV; echo APP_URL=\$APP_URL; echo DEMO_TARGET_DATABASE=\$DEMO_TARGET_DATABASE"
+```
+
+Expected: `APP_ENV=production`, `APP_URL=http://localhost:8280`, `DEMO_TARGET_DATABASE=reservahub` —
+los valores de `.env.production.local`, nunca `APP_ENV=local` ni ningún valor del `.env` de desarrollo
+del worktree. Si aparece cualquier valor de desarrollo acá, **no seguir**: el contenedor está leyendo
+el archivo equivocado y hay que revisar `env_file:` en `compose.production.yaml` antes de continuar.
+
+- [ ] **Step 5: Migrar y sembrar**
 
 ```bash
 docker compose -f compose.production.yaml --env-file .env.production.local exec -T app php artisan migrate --force
@@ -2933,7 +3146,7 @@ docker compose -f compose.production.yaml --env-file .env.production.local exec 
 
 Expected: 23 migraciones aplicadas; seed sin errores.
 
-- [ ] **Step 5: Comprobar la cadena HTTP y las páginas públicas**
+- [ ] **Step 6: Comprobar la cadena HTTP y las páginas públicas**
 
 ```bash
 curl -fsS  -o /dev/null -w "up=%{http_code}\n"          http://localhost:8280/up
@@ -2946,7 +3159,7 @@ curl -fsS  -o /dev/null -w "login=%{http_code}\n"       http://localhost:8280/lo
 Expected: los cinco en `200`. Un `500` en `/` casi siempre es `public/build` ausente; un `502` es
 PHP-FPM caído.
 
-- [ ] **Step 6: Comprobar que el frontend compilado se sirve de verdad**
+- [ ] **Step 7: Comprobar que el frontend compilado se sirve de verdad**
 
 ```bash
 curl -fsS http://localhost:8280/ | grep -o '/build/assets/[^"]*\.js' | head -1
@@ -2961,7 +3174,7 @@ curl -fsSI "http://localhost:8280${asset}" | head -5
 
 Expected: `HTTP/1.1 200 OK` y `Cache-Control: public, immutable`.
 
-- [ ] **Step 7: Comprobar que no hay Node ni Sail ni `artisan serve` en el runtime**
+- [ ] **Step 8: Comprobar que no hay Node ni Sail ni `artisan serve` en el runtime**
 
 ```bash
 docker compose -f compose.production.yaml --env-file .env.production.local exec -T app sh -c "which node npm pnpm 2>&1; ls node_modules 2>&1"
@@ -2972,7 +3185,7 @@ docker compose -f compose.production.yaml --env-file .env.production.local exec 
 Expected: las dos primeras dicen "No such file or directory"; `ps ax` muestra `php-fpm: master` y sus
 workers, y **ningún** `artisan serve`.
 
-- [ ] **Step 8: Comprobar OPcache y la config cacheada**
+- [ ] **Step 9: Comprobar OPcache y la config cacheada**
 
 ```bash
 docker compose -f compose.production.yaml --env-file .env.production.local exec -T app php -r "var_dump(opcache_get_status(false)['opcache_enabled']);"
@@ -2983,7 +3196,7 @@ Expected: `bool(true)`; el `about` muestra `Environment: production`, `Debug Mod
 `Config: CACHED`, `Routes: CACHED`, `Views: CACHED`, `Database: pgsql`, `Queue: redis`,
 `Broadcasting: reverb`, `Session: database`, `Cache: database`.
 
-- [ ] **Step 9: Comprobar cola, scheduler y correo de punta a punta**
+- [ ] **Step 10: Comprobar cola, scheduler y correo de punta a punta**
 
 ```bash
 docker compose -f compose.production.yaml --env-file .env.production.local exec -T app php artisan schedule:list
@@ -2995,7 +3208,7 @@ Expected: `schedule:list` muestra las cinco tareas (`bookings:send-reminders`,
 `bookings:expire-unpaid`, `payments:reconcile`, `demo:restore-access` diaria,
 `demo:reset` los lunes); el worker sin errores; Mailpit responde JSON.
 
-- [ ] **Step 10: Comprobar Reverb a través del gateway de Nginx**
+- [ ] **Step 11: Comprobar Reverb a través del gateway de Nginx**
 
 ```bash
 curl -fsS -o /dev/null -w "reverb-directo=%{http_code}\n" http://localhost:8280/apps/reservahub-local/channels
@@ -3016,7 +3229,7 @@ curl -isS -o /dev/null -w "%{http_code}\n" \
 Expected: `101`. Un `400` o `502` significa que faltan `proxy_http_version 1.1` o el `map` de
 `$connection_upgrade` en `default.conf`.
 
-- [ ] **Step 11: Comprobar el flujo simulado de pago de punta a punta**
+- [ ] **Step 12: Comprobar el flujo simulado de pago de punta a punta**
 
 En el navegador, contra `http://localhost:8280`:
 
@@ -3032,18 +3245,50 @@ En el navegador, contra `http://localhost:8280`:
 Esto ejercita, en el runtime productivo, la cadena completa: Nginx → PHP-FPM → Laravel → cola Redis →
 notificación → Mailpit, más el webhook simulado en proceso y el broadcast por Reverb.
 
-- [ ] **Step 12: Comprobar que `demo:reset` está bien guardado en este stack**
+- [ ] **Step 13: Comprobar que `demo:reset` está bien guardado en este stack**
 
 ```bash
 docker compose -f compose.production.yaml --env-file .env.production.local exec -T app php artisan demo:reset --force
 ```
 
-Expected: **ABORT**, porque `DEMO_TARGET_DATABASE=reservahub` coincide pero conviene probar el
-rechazo: cambiar temporalmente `DEMO_TARGET_DATABASE` a `otra_base`, reiniciar `app`, y verificar que
-imprime `ABORT` y exit `1`. Después restaurarlo y verificar que **sí** corre y vuelve a dejar los dos
-negocios y 23 reservas.
+Expected: primero probar el rechazo: cambiar temporalmente `DEMO_TARGET_DATABASE` a `otra_base` en
+`.env.production.local`, reiniciar `app` (`docker compose ... restart app`), correr el comando de
+arriba y verificar que imprime `ABORT` y exit `1`. Después restaurar `DEMO_TARGET_DATABASE=reservahub`,
+reiniciar `app` de nuevo, y verificar que **esta vez sí** corre y vuelve a dejar los dos negocios y 23
+reservas.
 
-- [ ] **Step 13: Bajar el stack productivo local**
+- [ ] **Step 14: Comprobar que `demo:reset` limpia la cola real de Redis**
+
+Task 6 no puede probar esto: `phpunit.xml` fuerza `QUEUE_CONNECTION=sync`, y el driver `sync` de
+Laravel ni siquiera implementa `ClearableQueue` (verificado leyendo
+`vendor/laravel/framework/src/Illuminate/Queue/SyncQueue.php`), así que bajo PHPUnit `queue:clear`
+nunca toca una cola real — no hay forma honesta de probar el vaciado de Redis sin Redis de verdad. Este
+stack sí lo tiene. Empujar un job real a la cola `default` de Redis, correr el reset, y comprobar que
+la cola queda vacía. El prefijo `reservahub-database-` sale de `config/database.php`
+(`Str::slug(APP_NAME).'-database-'`, con `APP_NAME=ReservaHub` puesto por la Tarea 10); confirmar el
+nombre exacto de la clave en el propio contenedor si algo no calza:
+
+```bash
+docker compose -f compose.production.yaml --env-file .env.production.local exec -T redis redis-cli KEYS "*queues:default*"
+docker compose -f compose.production.yaml --env-file .env.production.local exec -T redis redis-cli RPUSH "reservahub-database-queues:default" '{"job":"placeholder"}'
+docker compose -f compose.production.yaml --env-file .env.production.local exec -T redis redis-cli LLEN "reservahub-database-queues:default"
+```
+
+Expected de ese último `LLEN`: `1` — no hace falta un Job real de Laravel serializado; una entrada
+cruda alcanza para probar que `queue:clear` vacía la lista que `RedisQueue` usa.
+
+Después, correr el reset y volver a medir:
+
+```bash
+docker compose -f compose.production.yaml --env-file .env.production.local exec -T app php artisan demo:reset --force
+docker compose -f compose.production.yaml --env-file .env.production.local exec -T redis redis-cli LLEN "reservahub-database-queues:default"
+```
+
+Expected: `0`. Si sigue en `1` o más, `clearQueue()` no está alcanzando la conexión real (revisar
+`config('queue.default')` dentro del contenedor — tiene que ser `redis`, no `sync`) — no marcar el paso
+como pasado sin ver el `0` de verdad.
+
+- [ ] **Step 15: Bajar el stack productivo local**
 
 ```bash
 docker compose -f compose.production.yaml --env-file .env.production.local down -v
@@ -3052,11 +3297,11 @@ docker compose -f compose.production.yaml --env-file .env.production.local down 
 `-v` borra los volúmenes: era una verificación, no un entorno que deba sobrevivir. Confirmar que el
 stack de desarrollo del worktree sigue arriba y sano.
 
-- [ ] **Step 14: Medir el consumo del stack productivo**
+- [ ] **Step 16: Medir el consumo del stack productivo**
 
 §12.26 pide registrar mediciones como referencia. Las que existen hoy (reposo ≈ 0,30 GB, uso normal
 ≈ 0,36 GB, pico ≈ 0,45 GB) son de **Sail con `artisan serve`** y no predicen esto. Con el stack
-productivo arriba y después de haber hecho el recorrido del paso 11:
+productivo arriba y después de haber hecho el recorrido del paso 12:
 
 ```bash
 docker stats --no-stream --format "table {{.Name}}\t{{.MemUsage}}\t{{.CPUPerc}}"
@@ -3065,7 +3310,7 @@ docker stats --no-stream --format "table {{.Name}}\t{{.MemUsage}}\t{{.CPUPerc}}"
 Anotar la tabla completa. Es el dato que la Tarea 18 escribe en el handoff, y el que permite discutir
 el tamaño del VPS con números propios en vez de heredados.
 
-- [ ] **Step 15: Commit de las correcciones que hayan surgido**
+- [ ] **Step 17: Commit de las correcciones que hayan surgido**
 
 El `.gitignore` del paso 0 **siempre** se commitea:
 
@@ -3257,9 +3502,27 @@ real (§12.13).
 
 **Files:**
 - Create: `.github/workflows/ci.yml`
+- Modify: `package.json`
 
 **Interfaces:**
-- Produces: check `ci` en cada `push` y cada `pull_request`, que la Tarea 20 usará para proteger `main`.
+- Produces: check `ci` en cada `push` y cada `pull_request`, que la Tarea 21 usará para proteger `main`.
+
+- [ ] **Step 0: Fijar la versión de pnpm en `package.json`**
+
+`package.json` hoy no declara ningún `packageManager` y `pnpm-lock.yaml` es `lockfileVersion: '9.0'`
+(compatible con pnpm 9+, no un pin de versión mayor). Sin un pin explícito, Corepack resuelve "lo que
+haya disponible en este momento" — verificado en el contenedor real corriendo hoy: **pnpm 11.24.0**.
+Sin fijarlo, nada garantiza que CI (que si se le pasa una versión distinta a mano, la usará) y el
+entorno de desarrollo (Corepack, sin pin) resuelvan la misma versión. Agregar a `package.json`, junto a
+`"private": true`:
+
+```json
+    "packageManager": "pnpm@11.24.0",
+```
+
+Verificado contra la documentación de `pnpm/action-setup`: si el input `version` se omite, la acción
+lee este campo solo. Este pin es también lo que hace determinista `docker/production/app.Dockerfile`
+(Tarea 8), que corre `corepack enable` sin fijar versión aparte.
 
 - [ ] **Step 1: Escribir el workflow**
 
@@ -3338,9 +3601,10 @@ jobs:
           php artisan key:generate
 
       - name: Node 24 y pnpm
+        # Sin `version:`: la acción la lee de "packageManager" en package.json
+        # (Step 0), así que CI y el entorno de desarrollo (Corepack) resuelven
+        # siempre la misma versión de pnpm por construcción.
         uses: pnpm/action-setup@v4
-        with:
-          version: 10
 
       - uses: actions/setup-node@v4
         with:
@@ -3393,15 +3657,20 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Construir la imagen web
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: docker/production/web.Dockerfile
-          push: false
-          build-args: APP_IMAGE=reservahub-app:ci
-          tags: reservahub-web:ci
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+        # Deliberadamente `docker build` plano, NO `docker/build-push-action`.
+        # Verificado de forma reproducible: el builder que `setup-buildx-action`
+        # deja activo usa el driver `docker-container`, cuyo BuildKit corre en
+        # un contenedor aparte que NO comparte el almacén de imágenes del
+        # daemon local — un `FROM reservahub-app:ci` con ese builder intenta
+        # descargarla de Docker Hub y falla con "pull access denied", aunque la
+        # imagen exista localmente (recién cargada con `load: true` arriba).
+        # `docker build` usa el builder clásico del propio daemon, que sí ve la
+        # imagen que se acaba de cargar, sin builder ni configuración extra.
+        # (El workflow de release, Tarea 15, no tiene este problema: allí la
+        # imagen de app ya se publicó a GHCR antes de este paso, así que
+        # `FROM` resuelve por red contra el registry, no contra el daemon
+        # local — buildx maneja eso sin inconvenientes.)
+        run: docker build -f docker/production/web.Dockerfile --build-arg APP_IMAGE=reservahub-app:ci -t reservahub-web:ci .
 
       - name: La imagen no debe contener Node, .env ni dependencias de desarrollo
         run: |
@@ -3435,12 +3704,14 @@ valores que `compose.yaml` interpola, agregarlos a `.env.example` — ya están 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add .github/workflows/ci.yml
+git add .github/workflows/ci.yml package.json
 git commit -m "ci: validate the project on every push and pull request"
 ```
 
-CI todavía no corre: no existe el remoto. Se verifica de verdad en la Tarea 20, y esa tarea no se
-cierra hasta verlo en verde.
+**Criterio de cierre real de esta tarea:** CI todavía no puede correr — no existe el remoto (`origin`).
+Este workflow se considera terminado recién cuando la Tarea 21 lo publique y el check `ci` corra en
+GitHub de verdad, en verde, con sus dos jobs (`test` y `docker`, incluido el paso de la imagen web con
+`docker build` plano). Hasta entonces, "escrito y validado localmente" no es lo mismo que "hecho".
 
 ---
 
@@ -3890,6 +4161,18 @@ Se reescribe al modelo **VPS Linux multiproyecto**, respondiendo las 19 pregunta
 8. **Los tres pares de direcciones de Reverb** que no hay que confundir (`REVERB_HOST` servidor→Reverb,
    `VITE_REVERB_HOST` navegador→Reverb, `REVERB_SERVER_HOST` dónde escucha). Se conserva del documento
    actual, que ya lo explicaba bien.
+
+   **La cadena de confianza del proxy inverso**, tan concreta como lo anterior porque decide si las
+   cookies seguras y las URLs firmadas funcionan: `web` (Nginx) es el único borde HTTP; `bootstrap/app.php`
+   confía en él vía `TRUSTED_PROXIES=*` porque `app` no tiene otro llamante posible en la red interna
+   (Tarea 9). `web` a su vez conserva el `X-Forwarded-Proto` que ya traiga una petición y solo lo
+   calcula de su propia conexión cuando no viene nada (`map` en `default.conf`) — necesario porque el
+   destino real tiene un proxy externo que termina TLS y reenvía HTTP simple hacia este contenedor;
+   `$scheme` de Nginx por sí solo siempre diría `http` en ese caso. Lo que hace esto seguro sin conocer
+   al proxy real: el default `WEB_BIND=127.0.0.1` (Tarea 11) — nada en internet puede ser el peer de
+   `web`, solo un proceso del mismo VPS. **Si el operador expone `web` directamente**
+   (`WEB_BIND=0.0.0.0`, sin un proxy de por medio), sanitizar `X-Forwarded-*` antes de que lleguen acá
+   pasa a ser su responsabilidad — este repositorio ya no puede garantizarlo.
 9. **Cómo migrar.** `docker compose -f compose.production.yaml exec app php artisan migrate --force`.
    Idempotente, obligatoria en cada deploy. **Nunca** `migrate:fresh`, `migrate:refresh` ni `db:wipe`
    sobre datos que deban conservarse.
