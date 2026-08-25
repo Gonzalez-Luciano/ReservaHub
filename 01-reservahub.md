@@ -613,7 +613,7 @@ Verificar el entorno real antes de documentar: si Mailpit está presente, cuál 
 
 El flujo local documentable es del estilo: registrarse / reservar / pedir reset → abrir la interfaz de Mailpit → inspeccionar el mensaje capturado → seguir el enlace o verificar la notificación.
 
-Mailpit es herramienta local de desarrollo/demo y no debe exponerse públicamente: no diseñar la web pública como si lo estuviera. Mantener separado lo que es tooling local de lo que es funcionalidad de la demo pública; la exposición real de tooling operativo la decide el workflow externo de operaciones.
+En el modelo de demo pública que aprobó esta fase, el buzón de Mailpit **se expone públicamente a propósito**: es superficie de producto, no solo tooling local. Localmente en este worktree vive en `http://localhost:8026`; en producción se sirve en un hostname público separado, enlazado como CTA desde `/como-funciona` a través de la variable de build pública `VITE_DEMO_MAIL_URL` (ver `docs/DEPLOYMENT_HANDOFF.md` §3, §9, §10). Lo que sigue siendo responsabilidad del workflow externo de operaciones es la decisión concreta de hostname/subdominio y su exposición real en el servidor — no si Mailpit debe ser público, que ya está decidido aquí.
 
 #### 11.6 Demo multi-rol y multi-tenant
 
