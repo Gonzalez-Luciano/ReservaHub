@@ -132,7 +132,7 @@ WhatsApp queda **fuera del alcance de este proyecto** (ni real ni simulado).
 - Servicios más solicitados.
 - Empleados con más reservas.
 
-Todavía no implementado: `Pages/Dashboard/Index.jsx` es un placeholder. Qué métricas se construyen, con qué datos reales y para qué rol se decide en la **Fase 11** (§7).
+Implementado en la **Fase 11** (§7): `Pages/Dashboard/Index.jsx` muestra turnos de hoy (con desglose por estado), reservas esperando seña, reservas por vencer en los próximos 15 minutos, confirmadas de los próximos 7 días, el riel de la jornada y una cola de "requieren atención" — todo servido por `App\Http\Controllers\DashboardController` con consultas reales de Eloquent, sin ninguna cifra hardcodeada en el frontend.
 
 ## 3. Modelo de datos
 
@@ -399,8 +399,8 @@ contexto obligatorio y anidar reutiliza la resolución de scope de reservas.
 | 9 — Pagos | Hecha | `app/Services/Payments/*`, `app/Actions/Payments/*`, `payments`/`webhook_events`, `tests/Feature/Payments/*` (incluye concurrencia), `payments:reconcile` y `bookings:expire-unpaid` en el scheduler |
 | 10 — Tiempo real | Hecha | `laravel/reverb`, `app/Events/Broadcasting/BookingChanged.php`, `app/Listeners/BroadcastBookingChange.php`, `routes/channels.php`, servicio `reverb` en `compose.yaml`, `tests/Feature/Realtime/*` |
 | 10.5 — Listado público de negocios | Hecha | `Public\BusinessController::index()` + `GET /negocios`, `Api\BusinessController::index()` + `GET /api/businesses`, `Pages/Public/Business/Index.jsx`, link desde `Home.jsx`, `tests/Feature/Public/BusinessIndexTest`, `tests/Feature/Api/BusinessesIndexTest`, `DemoSeeder` con dos negocios |
-| 11 — Rediseño y experiencia frontend | Pendiente | Frontend actual mínimo: 17 páginas Inertia y 4 componentes, `Pages/Home.jsx` es un `<h1>`, `Pages/Dashboard/Index.jsx` es un placeholder |
-| 12 — Release readiness y handoff | En curso | `docs/DEPLOYMENT_HANDOFF.md` escrito. Pendientes: workflow de CI, README propio, seeder de demo con clientes y reservas, proxies de confianza para operar detrás de un proxy/tunnel |
+| 11 — Rediseño y experiencia frontend | Hecha | Rediseño completo de landing/pública/dashboard, sistema de diseño propio, `DemoSeeder` expandido a clientes y reservas (23 reservas, cuatro estados estables, tres pagos de seña aprobados — cerrado por esta fase, ya no queda pendiente de la Fase 12), buzón público de Mailpit documentado y enlazado (`VITE_DEMO_MAIL_URL`), aviso de demo y guía de uso, `docs/DEPLOYMENT_HANDOFF.md` actualizado al modelo de demo pública |
+| 12 — Release readiness y handoff | En curso | `docs/DEPLOYMENT_HANDOFF.md` escrito y actualizado. Pendientes: workflow de CI, README propio, proxies de confianza para operar detrás de un proxy/tunnel, candidato `php artisan demo:reset` |
 
 ### Fase 0 — Preparación
 
@@ -550,7 +550,7 @@ negocio, y cualquier diseño visual — eso es Fase 11.
 
 El frontend dejó de ser aceptable como "la interfaz mínima para ejercitar los CRUD". Esta fase no define todavía el diseño final: define el alcance y las preguntas que el brainstorming posterior tiene que resolver.
 
-**Esta fase no está implementada ni diseñada.** Lo que sigue es alcance, no especificación visual.
+**Estado: Hecha** (ver la tabla de estado más arriba). Lo que sigue quedó como registro del alcance y las preguntas que guiaron el brainstorming y la planificación —no como especificación visual final—; el diseño aprobado, el plan de ejecución y el resultado real viven en `docs/superpowers/plans/2026-08-23-fase11-redesign-frontend.md`, `docs/superpowers/specs/2026-08-23-fase11-redesign-frontend-design.md` y en el propio frontend (`resources/js/`). El **Punto de partida real** de la subsección siguiente describe el frontend **antes** de esta fase, a propósito: es la línea de base contra la que se auditó, no el estado actual del repositorio.
 
 #### Punto de partida real (verificado en el repositorio)
 
@@ -900,7 +900,9 @@ owner@reservahub.test
 password
 ```
 
-Implementado parcialmente en `database/seeders/DemoSeeder.php`: siembra dos negocios — `peluqueria-demo` (un owner, dos empleados, cinco servicios) y `estudio-demo` (un owner, un empleado, dos servicios) — con horarios semanales en ambos; **faltan clientes y reservas futuras/pasadas**. Es idempotente por negocio (guard por slug: vuelve a correrlo no duplica nada y siembra solo los negocios de demo que falten) y no contiene datos reales de clientes ni de pagos. `DatabaseSeeder` además crea un usuario `test@example.com` de conveniencia: **en un entorno público hay que sembrar con `db:seed --class=DemoSeeder`, no con el seeder por defecto**, y la contraseña de demo debe poder rotarse desde el entorno. Nunca correr `migrate:fresh --seed` sobre datos que deban persistir.
+Implementado en `database/seeders/DemoSeeder.php`, expandido a su forma final por la Fase 11: siembra dos negocios — `peluqueria-demo` (un owner, dos empleados, cinco servicios, cuatro clientes) y `estudio-demo` (un owner, un empleado, dos servicios, dos clientes) — con horarios semanales en ambos y un dataset completo de reservas (23 en total: de hoy, pasadas y futuras, en los cuatro estados estables `confirmed`/`cancelled`/`completed`/`no_show`, más tres pagos de seña ya aprobados con su fila correspondiente en `simulated_provider_payments`). Nunca siembra el estado `pending` — ni de reserva ni de pago — porque `bookings:expire-unpaid` lo cancelaría solo minutos después de cada reinicio. Es idempotente por negocio (guard por slug: vuelve a correrlo no duplica nada y siembra solo los negocios de demo que falten) y no contiene datos reales de clientes ni de pagos. `DatabaseSeeder` además crea un usuario `test@example.com` de conveniencia: **en un entorno público hay que sembrar con `db:seed --class=DemoSeeder`, no con el seeder por defecto**, y la contraseña de demo debe poder rotarse desde el entorno. Nunca correr `migrate:fresh --seed` sobre datos que deban persistir.
+
+El reinicio diario del despliegue público (00:00 `America/Argentina/Buenos_Aires`) re-siembra este dataset y vacía el buzón de Mailpit; el contrato completo —incluida la limitación aceptada del restablecimiento de contraseña de `owner@reservahub.test` sobre el buzón compartido— vive en `docs/DEPLOYMENT_HANDOFF.md` §10–§11.
 
 ## 11. Capturas recomendadas
 

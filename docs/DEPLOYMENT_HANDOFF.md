@@ -36,7 +36,7 @@ Reverb, igual que el worker, mantiene el código en memoria: hay que reiniciarlo
 en cada deploy. `php artisan reverb:restart` corta las conexiones con gracia y
 deja que el gestor de procesos lo vuelva a levantar.
 
-Referencia de desarrollo: `compose.yaml` del repo (Sail) ya define `laravel.test`, `queue`, `scheduler`, `reverb`, `pgsql`, `redis` y `mailpit`. Sirve como descripción de la topología; **no es un compose de producción** (publica puertos al host, monta el código como volumen e incluye Mailpit).
+Referencia de desarrollo: `compose.yaml` del repo (Sail) ya define `laravel.test`, `queue`, `scheduler`, `reverb`, `pgsql`, `redis` y `mailpit`. Sirve como descripción de la topología; **no es un compose de producción** (publica puertos al host y monta el código como volumen) — no porque incluya Mailpit, que sigue siendo parte legítima de la topología en el modelo de demo pública (§3, §9, §10).
 
 ## 3. Servicios de datos
 
@@ -54,9 +54,11 @@ Uso único: transporte de la cola (`QUEUE_CONNECTION=redis`). Sesiones, cache y 
 - Perder Redis pierde solo los trabajos encolados y no ejecutados (emails pendientes). No corrompe datos de negocio.
 - Persistencia (AOF/RDB) es deseable pero no crítica; no es candidato a backup.
 
-### Correo saliente — obligatorio para el flujo funcional
+### Correo saliente — obligatorio para el flujo funcional, Mailpit incluido
 
-SMTP real en producción (`MAIL_*`). Mailpit es solo de desarrollo y no debe desplegarse.
+En un despliegue de portfolio público (el modelo que aprobó la Fase 11), **Mailpit es el destino SMTP previsto**, no un sustituto temporal de un proveedor real: `MAIL_HOST=mailpit` en producción es la configuración correcta, no una salvedad de desarrollo. Su interfaz web (bandeja de la demo) es **superficie de producto**, expuesta públicamente a propósito, para que quien prueba la demo pueda inspeccionar los emails de verificación, reset de contraseña, confirmación de reserva e invitaciones sin necesitar una casilla real — ver §10 y `01-reservahub.md` §11.5.
+
+Un SMTP real (`MAIL_MAILER=smtp` contra un proveedor externo) sigue siendo una opción válida si el operador prefiere entregar correo de verdad; ninguna de las dos opciones es "la de desarrollo" en este contrato — la elección depende de si la instancia se sigue presentando como demo pública (Mailpit) o pasa a ser un despliegue con destinatarios reales (SMTP real).
 
 ## 4. Contrato de entorno
 
@@ -87,6 +89,7 @@ Nombres de variables, no valores. **Este repositorio no contiene ni debe contene
 | `REVERB_SERVER_HOST` / `REVERB_SERVER_PORT` | operador | no | Dónde **escucha** Reverb: `0.0.0.0` y el puerto interno |
 | `REVERB_ALLOWED_ORIGINS` | operador | no | Hosts separados por coma. Solo host, sin esquema ni puerto; admite comodines `*` de `Str::is()`. Sin valor, acepta solo `localhost`: falla cerrado |
 | `VITE_REVERB_APP_KEY` / `VITE_REVERB_HOST` / `VITE_REVERB_PORT` / `VITE_REVERB_SCHEME` | operador | no | Dónde encuentra el **navegador** a Reverb. **Se compilan dentro del bundle**: cambiarlos exige `pnpm build` y volver a desplegar `public/build`, no alcanza con reiniciar procesos |
+| `VITE_DEMO_MAIL_URL` | operador | no | URL pública del buzón de la demo (Mailpit). **Pública por diseño, no un secreto** — misma categoría que las `VITE_REVERB_*`: se compila dentro del bundle, así que cambiarla exige `pnpm build` y volver a desplegar `public/build`. Si queda sin definir, el CTA del buzón en `/como-funciona` simplemente no se renderiza; el resto de la aplicación funciona igual (sin polling ni verificación de disponibilidad) |
 | `FILESYSTEM_DISK` | app | no | `local` |
 | `MAIL_MAILER` / `MAIL_HOST` / `MAIL_PORT` / `MAIL_FROM_ADDRESS` / `MAIL_FROM_NAME` | operador | no | SMTP real |
 | `MAIL_USERNAME` / `MAIL_PASSWORD` | operador | **sí** | |
@@ -141,7 +144,7 @@ php artisan db:seed --class=DemoSeeder         # datos de demo, opcional, idempo
 
 - Las migraciones no destruyen datos; no hay migraciones `down` pensadas para rollback en caliente.
 - **Nunca** `migrate:fresh`, `migrate:refresh` ni `db:wipe` sobre datos que deban persistir.
-- `DemoSeeder` es seguro y repetible: siembra solo los negocios de demo que falten (guard por slug), así que volver a correrlo no duplica nada. Hoy crea dos negocios — `peluqueria-demo` (un owner, dos empleados, cinco servicios) y `estudio-demo` (un owner, un empleado, dos servicios) — con horarios de lunes a viernes en ambos (todavía no siembra clientes ni reservas). Sin datos reales de clientes ni de pagos.
+- `DemoSeeder` es seguro y repetible: siembra solo los negocios de demo que falten (guard por slug), así que volver a correrlo no duplica nada. Hoy crea dos negocios — `peluqueria-demo` (un owner, dos empleados, cinco servicios, cuatro clientes) y `estudio-demo` (un owner, un empleado, dos servicios, dos clientes) — con horarios semanales en ambos y un dataset completo de reservas (23 en total, en los cuatro estados estables `confirmed`/`cancelled`/`completed`/`no_show`, nunca `pending`, más tres pagos de seña ya aprobados). Sin datos reales de clientes ni de pagos: todos los clientes, reservas y pagos son ficticios y deterministas.
 - **No usar `db:seed` sin `--class`**: el `DatabaseSeeder` por defecto crea además un usuario de prueba `test@example.com`.
 - Las credenciales de demo (`owner@reservahub.test`) son públicas por diseño. Si la instancia es accesible desde internet, la contraseña de demo debe cambiarse tras el seed o gestionarse desde el entorno.
 
@@ -187,7 +190,6 @@ Información relevante para rollback: volver a un commit anterior es seguro mien
 ## 9. Qué no debe exponerse nunca
 
 - PostgreSQL y Redis: solo en la red interna del stack, sin puertos publicados.
-- Mailpit: no desplegar en producción.
 - El puerto del dev server de Vite (5173): no existe en producción.
 - `/docs/api` (OpenAPI de Scramble): dependencia de desarrollo, restringida a `local`; con `composer install --no-dev` ni siquiera se registra.
 - `APP_DEBUG=true` en un entorno accesible: filtra entorno y stack traces.
@@ -196,6 +198,15 @@ Información relevante para rollback: volver a un commit anterior es seguro mien
 - `/demo/*` (checkout simulado) existe mientras el proveedor sea el simulado; es superficie de demostración, nunca un cobro real.
 - `REVERB_APP_SECRET` y cualquier credencial de Reverb que no sea la *key*: la
   key es pública por el protocolo, el secreto no.
+
+**Excepción deliberada: Mailpit sí se expone.** A diferencia de PostgreSQL, Redis y el puerto de Vite,
+el dashboard de Mailpit (`FORWARD_MAILPIT_DASHBOARD_PORT`) se publica intencionalmente en el despliegue
+de portfolio — es la bandeja pública de la demo (§10 y `01-reservahub.md` §11.5), no un tooling operativo
+olvidado. No tiene autenticación propia ni aislamiento por usuario: cualquiera con la URL ve **todos**
+los correos capturados, de cualquier visitante de la demo. Es una limitación aceptada del modelo de demo
+compartida (mismo espíritu que la cuenta `owner@reservahub.test` compartida, ver §10) y no un defecto a
+corregir; el operador decide el hostname/subdominio público de Mailpit igual que decide el de la
+aplicación principal.
 
 ## 10. Asunciones de la aplicación que el operador debe cubrir
 
@@ -231,3 +242,58 @@ Información relevante para rollback: volver a un commit anterior es seguro mien
 
 - **Escala de Reverb:** una sola instancia. `REVERB_SCALING_ENABLED` queda en
   `false`; Redis sigue siendo únicamente el transporte de la cola.
+- **Buzón público de la demo.** Mailpit (§3, §9) es parte del producto, no solo tooling de desarrollo:
+  el frontend enlaza a él desde `/como-funciona`, el resumen de reserva y el registro (ver
+  `VITE_DEMO_MAIL_URL` en §4). Topología registrada por la Fase 11 (no configurada por este repositorio):
+  un hostname separado para el buzón (p. ej. `mail.reservahub.<dominio>`) en vez de una ruta bajo la
+  aplicación, para mantener separados el enrutamiento de Laravel, sus assets y la API HTTP de Mailpit —
+  coherente con la frontera pública única que ya se pide para Reverb. El operador decide el hostname,
+  el tunnel y el TLS reales; este repositorio solo registra la intención.
+- **Reinicio diario y su acoplamiento con el contador del frontend.** Ver la sección nueva **11.
+  Contrato de reinicio diario** más abajo para el procedimiento completo. Un punto de deriva concreto:
+  `resources/js/Components/domain/DemoResetCountdown.jsx` tiene el horario de reinicio (00:00
+  `America/Argentina/Buenos_Aires`) hardcodeado en una constante de módulo (`RESET_HOUR = 0`,
+  `DEMO_TIMEZONE`), no en una variable de entorno — una env var no elimina el acoplamiento con la
+  programación real del reinicio, solo lo reubica, y hoy hay un solo despliegue. Si el horario del
+  reinicio real cambia alguna vez, ese archivo también tiene que cambiar; **no hay forma de configurarlo
+  sin recompilar el frontend**.
+- **Limitaciones de seguridad aceptadas del modelo de demo compartida** (no defectos a corregir):
+  - Un visitante puede borrar o marcar como leídos mensajes ajenos en el buzón compartido de Mailpit.
+  - Los correos capturados contienen enlaces accionables (verificación de email, restablecimiento de
+    contraseña, invitaciones de empleado) y cualquier visitante con acceso al buzón puede abrirlos.
+  - **Concretamente:** un visitante puede iniciar el restablecimiento de contraseña de la cuenta
+    compartida `owner@reservahub.test`, encontrar el correo en el buzón público y tomar esa cuenta hasta
+    el próximo reinicio diario. Esto es aceptado a propósito: toda la instancia es descartable, ninguna
+    contraseña de demo es secreta, y el reinicio diario restaura las credenciales sembradas. La Fase 11
+    **no rediseñó** autenticación, restablecimiento, invitaciones ni verificación de email para cerrar
+    esto — la frontera de seguridad real es "todo es demo, se avisa, no se cargan datos reales,
+    contraseñas descartables, reinicio diario", no el aislamiento del buzón.
+
+## 11. Contrato de reinicio diario de la demo
+
+Este repositorio define **qué** se reinicia y **cómo** — la programación real (cron, systemd timer o
+equivalente que dispare esto a la hora exacta) la implementa el workflow externo de operaciones que
+consume este handoff; aquí no se crea ningún cron ni unidad systemd.
+
+- **Cuándo:** todos los días a las **00:00 `America/Argentina/Buenos_Aires`**. Ese horario ya está
+  comunicado al visitante por `DemoResetCountdown` (Home y `/como-funciona`), así que la programación
+  real tiene que coincidir con él — un desfase entre lo que el contador promete y lo que el operador
+  ejecuta rompe la confianza del visitante en la demo, aunque no rompa ninguna regla de negocio.
+- **Qué se re-siembra:** `php artisan db:seed --class=DemoSeeder` — **nunca** `php artisan db:seed` a
+  secas ni `DatabaseSeeder`, que además crea un usuario de conveniencia `test@example.com` ajeno al
+  dataset de demo (ver §6). El seeder es idempotente por negocio (guard por slug): volver a correrlo sin
+  vaciar antes la base no duplica los dos negocios de demo, pero tampoco es la operación pensada para
+  "reiniciar" — el reinicio diario asume que la base vuelve primero a un estado conocido (restaurar desde
+  el estado sembrado o `migrate:fresh` seguido del seed, decisión del operador) y luego se siembra.
+- **Qué se vacía:** el buzón de Mailpit (todos los correos capturados desde el reinicio anterior). Sin
+  esto, el buzón compartido crecería indefinidamente y acumularía enlaces de verificación/reset viejos
+  de sesiones de demo ya descartadas.
+- **Qué NO se toca:** el código desplegado, la configuración de entorno, los certificados TLS, y
+  cualquier credencial real del operador — el reinicio es exclusivamente de datos de demo (base de datos
+  + buzón), no un redeploy.
+- **Candidato de Fase 12, fuera de alcance aquí:** `php artisan demo:reset`, un comando único que
+  envuelva el reset de base + vaciado de buzón + cualquier guarda adicional (p. ej. rechazar correr
+  contra una base que no tenga el guard de negocios de demo, o confirmar que `APP_ENV` no sea
+  `production` sin la bandera explícita de entorno de demo). Este repositorio no lo construye en la
+  Fase 11; queda anotado como trabajo futuro para que la Fase 12 (o el propio workflow de operaciones) lo
+  implemente si aporta valor sobre encadenar los comandos existentes a mano.
