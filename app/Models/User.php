@@ -27,6 +27,18 @@ class User extends Authenticatable implements MustVerifyEmail
      *
      * @return array<string, string>
      */
+    /**
+     * `is_active` tiene default en la base, no en el modelo: sin esto,
+     * un modelo recién creado con create() devuelve el atributo en null
+     * hasta que se lo relee, y cualquier chequeo de estado lo lee como
+     * inactivo.
+     *
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'is_active' => true,
+    ];
+
     protected function casts(): array
     {
         return [

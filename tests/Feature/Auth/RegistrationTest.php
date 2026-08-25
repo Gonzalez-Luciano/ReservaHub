@@ -32,7 +32,7 @@ class RegistrationTest extends TestCase
         ]);
 
         $this->assertAuthenticated();
-        $response->assertRedirect('/');
+        $response->assertRedirect('/dashboard');
 
         $user = User::firstWhere('email', 'ana@example.com');
         $this->assertNotNull($user);
@@ -53,7 +53,7 @@ class RegistrationTest extends TestCase
         ]);
 
         $this->assertAuthenticated();
-        $response->assertRedirect('/');
+        $response->assertRedirect('/mis-reservas');
 
         $user = User::firstWhere('email', 'carla@example.com');
         $this->assertNotNull($user);
@@ -73,7 +73,7 @@ class RegistrationTest extends TestCase
         ]);
 
         $this->assertAuthenticated();
-        $response->assertRedirect('/');
+        $response->assertRedirect('/mis-reservas');
 
         $user = User::firstWhere('email', 'carla2@example.com');
         $this->assertNotNull($user);

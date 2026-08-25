@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\AcceptInvitationRequest;
 use App\Models\EmployeeInvitation;
 use App\Models\Scopes\BusinessScope;
+use App\Support\HomeRoute;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
@@ -41,7 +42,7 @@ class InvitationAcceptController extends Controller
 
         Auth::login($user);
 
-        return redirect('/dashboard');
+        return redirect(HomeRoute::for($user));
     }
 
     private function findAcceptable(string $token): ?EmployeeInvitation

@@ -27,7 +27,7 @@ class AuthenticationTest extends TestCase
         ]);
 
         $this->assertAuthenticatedAs($user);
-        $response->assertRedirect('/');
+        $response->assertRedirect('/mis-reservas');
     }
 
     public function test_users_can_not_authenticate_with_invalid_password(): void

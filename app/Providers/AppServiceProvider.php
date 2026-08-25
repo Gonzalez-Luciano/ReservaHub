@@ -5,6 +5,8 @@ namespace App\Providers;
 use App\Services\Payments\Contracts\PaymentGateway;
 use App\Services\Payments\Exceptions\MissingWebhookSecretException;
 use App\Services\Payments\Simulated\SimulatedPaymentGateway;
+use App\Support\HomeRoute;
+use Illuminate\Auth\Middleware\RedirectIfAuthenticated;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
@@ -60,5 +62,14 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('payment-webhooks', function (Request $request) {
             return Limit::perMinute(120)->by($request->ip());
         });
+
+        // Sin esto, el middleware `guest` usa el descarte del framework, que
+        // elige la ruta llamada "dashboard" si existe. Para un cliente eso no
+        // es un destino sino un 403 de EnsureBusinessContext, y el link
+        // "Ingresar" del pie de PublicLayout se muestra también a quien ya
+        // inició sesión.
+        RedirectIfAuthenticated::redirectUsing(
+            fn (Request $request) => HomeRoute::for($request->user()),
+        );
     }
 }

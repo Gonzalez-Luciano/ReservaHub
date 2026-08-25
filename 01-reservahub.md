@@ -698,248 +698,1867 @@ Producir o actualizar: decisiones de diseño frontend, flujos de usuario/demo, u
 - Ningún comportamiento de backend se rompió con el rediseño.
 - El proyecto sigue demostrando fuerza en Laravel/backend y no se presenta como una vidriera de frontend.
 
-### Fase 12 — Release readiness y handoff operativo
+### Fase 12 — Release readiness, GitHub y preparación para producción
 
-**Objetivo:** dejar un repositorio verificado y listo para release, con un contrato de runtime y de handoff de despliegue explícito, manteniendo el despliegue físico y las operaciones de host (Linux, Cloudflare, backups) fuera del workflow de desarrollo de la aplicación.
+**Objetivo:** cerrar ReservaHub como una release pública, reproducible y desplegable, dejando dentro del repositorio todo lo que pertenece a la aplicación y reduciendo al mínimo las decisiones que tendrá que tomar posteriormente el agente de operaciones sobre el VPS real.
 
-#### Frontera de responsabilidad
-
-El despliegue real ocurre después, mediante un workflow externo y dedicado de operaciones de home server que corre sobre la máquina Linux real (paquete operativo `home_server_ops_claude`). Ese servidor es intencionalmente multiproyecto (`/srv/apps/`, `/srv/backups/`, Docker Engine y `cloudflared` compartidos): ReservaHub es solo uno de sus proyectos.
+El destino previsto es un **VPS Linux de OVHcloud**, administrado por el autor y compartido entre distintos proyectos Docker:
 
 ```text
-REPOSITORIO RESERVAHUB              EXTERNO: OPERACIONES DE HOME SERVER
-──────────────────────────          ──────────────────────────────────
-aplicación Laravel/Inertia          descubrimiento del Linux real
-límites Docker de la app            /srv/apps y /srv/backups
-requisitos PostgreSQL               registro central de puertos
-requisitos Redis                    adaptación del compose de producción
-requisitos cola/scheduler           secretos de producción
-tests                               volúmenes reales de PostgreSQL/Redis
-CI                                  cloudflared compartido
-build                               hostname de Cloudflare
-contrato de entorno                 firewall del host
-migraciones                         backups y restore
-demo/bootstrap seguro               reinicio y recuperación
-health checks         ── clone →    despliegue y rollback
-documentación de runtime            operación multiproyecto
-handoff de despliegue
+VPS Linux
+│
+├── ReservaHub
+├── Portfolio
+├── proyectos futuros
+└── infraestructura común del host
 ```
 
-Ese agente externo hace su propio descubrimiento (distro, CPU/RAM/discos, estado de Docker, puertos ocupados, estado del tunnel, repo clonado) y recién después decide y ejecuta la configuración productiva real. **Esta fase no adivina esas decisiones ni las documenta como si fueran fijas.**
+ReservaHub debe funcionar como **un proyecto Docker aislado** dentro de ese servidor.
 
-**Fuera del alcance de este repositorio** (lo hace el workflow externo): detectar la distro Linux, inspeccionar hardware, crear `/srv/apps` y `/srv/backups`, elegir la ubicación física de los datos persistentes, instalar/configurar Docker en el host, asignar el puerto de loopback y mantener el registro central de puertos, instalar y configurar `cloudflared`, crear o modificar el tunnel compartido, configurar el hostname DNS de Cloudflare, manejar tokens del tunnel, configurar Cloudflare Access, firewall del host y exposición del router, clonar el repo en el servidor, crear el `.env` de producción y elegir el mecanismo de secretos, escribir el compose de producción específico del host, ejecutar el deploy y las migraciones reales, configurar backups/restore/reboot y unidades `systemd`, elegir el transporte de despliegue (runner self-hosted, SSH, Cloudflare Access) y hacer rollback en el host.
+La Fase 12 prepara:
 
-**No pre-construir** en este repo: `compose.prod.yaml`, overrides específicos del host, configuración de Cloudflare, unidades systemd, scripts de firewall, cron de backups, `.env` de producción, archivos/tokens de tunnel, scripts que provisionen `/srv`, ni puertos de producción adivinados. La regla es: *hacer que ReservaHub sea fácil de desplegar después, sin ejecutar ese despliegue ahora.* Lo que ya existe y es portable (el `compose.yaml` de desarrollo basado en Sail, `.env.example`, seeders) se preserva: es insumo del agente externo, no lastre.
+- repositorio público en GitHub;
+- CI con GitHub Actions;
+- imágenes Docker productivas;
+- publicación de imágenes en GitHub Container Registry;
+- runtime productivo con Nginx + PHP-FPM;
+- Compose productivo portable;
+- contrato de variables de entorno;
+- healthchecks;
+- comandos seguros para mantener la demo;
+- reset semanal de datos funcionales;
+- restauración diaria de credenciales demo;
+- limpieza diaria de Mailpit documentada;
+- actualización del countdown de la demo;
+- README propio;
+- documentación de deployment;
+- procedimiento portable de deployment y rollback;
+- release `v1.0.0`.
 
-**Aclaración sobre el frontend:** este proyecto no tiene frontend separado ni proceso Node en runtime. Usa Inertia + React compilado por `laravel-vite-plugin` (`pnpm build` → `public/build`) y servido por el mismo contenedor de la app. No crear un runtime React/Next independiente.
+La Fase 12 **no compra ni configura todavía el VPS real ni Cloudflare**.
 
-#### 12.1 Verificación final de la aplicación
+---
 
-Todo se ejecuta dentro de los contenedores (ver `CLAUDE.md`):
+#### 12.1 Decisiones cerradas
 
-1. Suite completa: `docker compose exec laravel.test php artisan test`.
-2. Concurrencia: `tests/Feature/Bookings/BookingConcurrencyTest.php` en verde (dos solicitudes al mismo slot, una sola gana).
-3. Aislamiento y autorización: `tests/Feature/Tenancy/*`, `tests/Feature/Policies/*`, `tests/Unit/Policies/*`.
-4. API: `tests/Feature/Api/*` (envelope, auth, disponibilidad, reservas).
-5. Notificaciones y scheduler: `tests/Feature/Notifications/*` (incluye no duplicar recordatorios) y `php artisan schedule:list`.
-6. Cola: worker consumiendo de Redis; verificar que los mails encolados salen (Mailpit en desarrollo).
-7. Formato: `vendor/bin/pint --test`.
-8. Build de frontend: `pnpm install --frozen-lockfile && pnpm build` sin errores y con `public/build` generado.
-9. Dependencias: `composer validate --strict`, `composer audit`, lockfile de pnpm congelado (`--frozen-lockfile`), `pnpm audit`.
-10. Docker: `docker compose config -q` sobre el `compose.yaml` del repo.
-11. Smoke de aplicación: `/up` (health de Laravel), login web, y el flujo de API `login → availability → booking`.
-12. Cuando existan las Fases 9 y 10: tests de pagos/webhooks idempotentes y de reconciliación, y del canal privado de broadcasting. **No inventar checks para tecnologías que el repo todavía no usa.**
+Estas decisiones ya están aprobadas y no deben volver a debatirse salvo que la inspección del repositorio encuentre una contradicción técnica real.
 
-#### 12.2 CI y readiness de release
+##### Hosting previsto
 
-Ver la sección **9. CI/CD**, sincronizada con el proyecto real (PHP 8.5, Node 24, pnpm, PostgreSQL 18, Redis). CI valida el repositorio en GitHub: tests, Pint, build de frontend, validación de dependencias y del compose. **CI no debe requerir acceso entrante al servidor privado ni administrar el host**; cualquier automatización futura de despliegue la elige el workflow externo de operaciones después de inspeccionar la máquina real.
+VPS Linux de OVHcloud.
 
-#### 12.3 Contrato de runtime
+El VPS será multiproyecto y cada aplicación tendrá su propio proyecto Docker aislado.
 
-Documentar de forma explícita (destino: `docs/DEPLOYMENT_HANDOFF.md`):
+La ubicación física, estructura `/srv`, volúmenes, firewall, SSH y configuración general del host se deciden posteriormente sobre la máquina real.
 
-- Procesos/servicios de la aplicación (app HTTP, worker de cola, scheduler) y su entrypoint HTTP.
-- Requisitos de PostgreSQL y de Redis, y para qué se usa cada uno.
-- Requisitos de cola y de tareas programadas.
-- Nombres de variables de entorno, quién es dueño de cada una y cuáles son secretas (**nunca valores reales de producción**).
-- Procedimiento de build, de migración y de bootstrap/seed seguro.
-- Health y smoke checks, logs, datos persistentes y necesidades de storage.
-- Qué datos hay que respaldar y qué no debe exponerse públicamente jamás.
-
-#### 12.4 Handoff de despliegue
-
-Mantener `docs/DEPLOYMENT_HANDOFF.md` como contrato de aplicación —no como manual de administración de Linux—: qué necesita saber el agente externo sobre ReservaHub (proyecto Docker aislado, persistencia de PostgreSQL y de storage, si Redis necesita persistencia, cola y scheduler, comando de migración, bootstrap/demo seguro, smoke tests, señales de salud, información relevante para rollback, qué respaldar, exposiciones prohibidas) sin prescribirle lo que debe descubrir por su cuenta.
-
-#### 12.5 Preparación de demo y release
-
-- `DemoSeeder` determinista e idempotente, sin datos reales de clientes ni de pagos.
-- Credenciales de demo documentadas como credenciales de demo, con contraseña rotable desde el entorno; `DatabaseSeeder` no debe usarse en producción (crea un usuario de prueba).
-- README propio del proyecto (hoy sigue siendo el README stock de Laravel): qué es, stack, cómo levantarlo, cómo correr tests, enlaces a `docs/api.md` y `docs/DEPLOYMENT_HANDOFF.md`.
-- Documentación de API vigente (`docs/api.md` + OpenAPI de Scramble, que solo se expone en local).
-- Capturas y material de demo listos.
-- Repositorio limpio (sin archivos generados ni secretos versionados).
-- Tag `v1.0.0` solo cuando se cumplan sus criterios reales: Fases 0–11 completas, suite verde, README y documentación al día y handoff publicado.
-
-## 8. Tests imprescindibles
-
-### Unitarios
-
-- Cálculo de duración.
-- Cálculo de slots.
-- Regla de cancelación.
-- Conversión de zona horaria.
-
-### Feature
-
-- Owner crea servicio.
-- Employee no modifica otra empresa.
-- Cliente crea reserva válida.
-- Reserva fuera de horario falla.
-- Reserva solapada falla.
-- Reserva durante licencia falla.
-- Cancelación tardía falla.
-- Webhook repetido no duplica pago.
-- Recordatorio se envía una sola vez.
-
-### Concurrencia
-
-Simular dos solicitudes para el mismo turno y verificar que solamente una se confirme.
-
-## 9. CI/CD
-
-CI valida el repositorio en GitHub. **No administra el servidor privado ni necesita acceso entrante a él**: el despliegue real lo decide y ejecuta el workflow externo de operaciones de home server (ver Fase 12).
-
-Versiones reales del proyecto, verificadas contra el repo y la imagen de Sail:
-
-| Pieza | Versión real | Dónde se define |
-|---|---|---|
-| PHP | 8.5 en runtime (`composer.json` exige `^8.3`) | imagen `sail-8.5/app` |
-| Laravel | 13.x | `composer.json` |
-| Node | 24.x | imagen de Sail |
-| Gestor de paquetes JS | **pnpm** (11.x); no hay `package-lock.json` | `pnpm-lock.yaml` |
-| Base de datos | PostgreSQL 18 | `compose.yaml`, `.env.example` (`DB_CONNECTION=pgsql`) |
-| Redis | `redis:alpine`, solo para la cola en runtime | `compose.yaml`, `QUEUE_CONNECTION=redis` |
-| Tests | PHPUnit 12; `phpunit.xml` fuerza `DB_DATABASE=testing`, `QUEUE_CONNECTION=sync`, `CACHE_STORE=array`, `MAIL_MAILER=array` | `phpunit.xml` |
-
-Como la suite corre con `QUEUE_CONNECTION=sync` y `CACHE_STORE=array`, **CI necesita PostgreSQL pero no Redis**. Sí necesita el build de frontend: sin `public/build`, las páginas Inertia fallan y la suite reporta errores falsos (`Not a valid Inertia response`).
-
-Workflow mínimo:
-
-```yaml
-name: ci
-
-on:
-  push:
-  pull_request:
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:18-alpine
-        env:
-          POSTGRES_DB: testing
-          POSTGRES_USER: sail
-          POSTGRES_PASSWORD: password
-        ports: ['5432:5432']
-        options: >-
-          --health-cmd "pg_isready -U sail -d testing"
-          --health-interval 10s --health-timeout 5s --health-retries 5
-    env:
-      DB_CONNECTION: pgsql
-      DB_HOST: 127.0.0.1
-      DB_PORT: 5432
-      DB_DATABASE: testing
-      DB_USERNAME: sail
-      DB_PASSWORD: password
-    steps:
-      - uses: actions/checkout@v4
-      - uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.5'
-          extensions: pdo_pgsql, redis
-          coverage: none
-      - run: composer validate --strict
-      - run: composer install --no-interaction --prefer-dist
-      - run: cp .env.example .env
-      - run: php artisan key:generate
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm build
-      - run: php artisan test
-      - run: vendor/bin/pint --test
-      - run: docker compose config -q
-        env:
-          WWWUSER: '1000'
-          WWWGROUP: '1000'
-```
-
-`composer audit` / `pnpm audit` pueden agregarse como job aparte (no bloqueante) para validación de dependencias.
-
-## 10. Datos demo
-
-Crear seeders para:
-
-- Una empresa demo.
-- Un owner.
-- Dos empleados.
-- Cinco servicios.
-- Horarios semanales.
-- Clientes.
-- Reservas futuras y pasadas.
-
-Usuario sugerido:
+##### Dominio previsto
 
 ```text
-owner@reservahub.test
-password
+lucianogonzalez.dev
+reservahub.lucianogonzalez.dev
+mail.reservahub.lucianogonzalez.dev
 ```
 
-Implementado en `database/seeders/DemoSeeder.php`, expandido a su forma final por la Fase 11: siembra dos negocios — `peluqueria-demo` (un owner, dos empleados, cinco servicios, cuatro clientes) y `estudio-demo` (un owner, un empleado, dos servicios, dos clientes) — con horarios semanales en ambos y un dataset completo de reservas (23 en total: de hoy, pasadas y futuras, en los cuatro estados estables `confirmed`/`cancelled`/`completed`/`no_show`, más tres pagos de seña ya aprobados con su fila correspondiente en `simulated_provider_payments`). Nunca siembra el estado `pending` — ni de reserva ni de pago — porque `bookings:expire-unpaid` lo cancelaría solo minutos después de cada reinicio. Es idempotente por negocio (guard por slug: vuelve a correrlo no duplica nada y siembra solo los negocios de demo que falten) y no contiene datos reales de clientes ni de pagos. `DatabaseSeeder` además crea un usuario `test@example.com` de conveniencia: **en un entorno público hay que sembrar con `db:seed --class=DemoSeeder`, no con el seeder por defecto**, y la contraseña de demo debe poder rotarse desde el entorno. Nunca correr `migrate:fresh --seed` sobre datos que deban persistir.
+- `lucianogonzalez.dev`: portfolio futuro.
+- `reservahub.lucianogonzalez.dev`: ReservaHub.
+- `mail.reservahub.lucianogonzalez.dev`: Mailpit público de la demo.
 
-El reinicio diario del despliegue público (00:00 `America/Argentina/Buenos_Aires`) re-siembra este dataset y vacía el buzón de Mailpit; el contrato completo —incluida la limitación aceptada del restablecimiento de contraseña de `owner@reservahub.test` sobre el buzón compartido— vive en `docs/DEPLOYMENT_HANDOFF.md` §10–§11.
+El dominio se administrará mediante Cloudflare.
 
-## 11. Capturas recomendadas
+##### Repositorio
 
-Tomarlas **después** del rediseño de la Fase 11; capturar el frontend actual sería material de portfolio engañoso.
+ReservaHub será un repositorio público en GitHub.
 
-- Landing pública / aviso de demo.
-- Login.
-- Dashboard.
-- Calendario.
-- Formulario de servicio.
-- Selector de disponibilidad.
-- Reserva confirmada.
-- Panel de colas.
-- Resultado de tests.
+Todavía no existe el repositorio remoto: esta fase debe crearlo y dejarlo correctamente configurado.
 
-## 12. Mejoras opcionales
+Las imágenes Docker de release publicadas en GHCR también serán públicas.
 
-- Suscripciones por plan.
-- Cupones.
-- Lista de espera.
-- Reservas recurrentes.
-- Integración con Google Calendar.
-- Exportación iCalendar.
-- Facturación.
-- Aplicación móvil consumiendo API.
-- Métricas con observabilidad.
+##### Frontend
 
-## 13. Entregables para GitHub
+ReservaHub sigue siendo:
 
-- Código.
-- README propio del proyecto (reemplazar el README stock de Laravel).
-- Diagrama ER.
-- Documentación de API: `docs/api.md` + OpenAPI (Scramble, expuesto solo en local). Colección Postman opcional.
-- `compose.yaml` de la aplicación (desarrollo, basado en Sail). El compose de producción específico del host lo escribe el workflow externo de operaciones.
-- Workflow GitHub Actions de validación (tests, Pint, build, dependencias). Sin jobs que administren el servidor privado.
-- `docs/DEPLOYMENT_HANDOFF.md`: contrato de runtime y handoff para el agente externo de operaciones.
-- Documentación de la Fase 11: decisiones de diseño frontend, guía de uso de la demo, workflow multi-rol y flujo local de email.
-- Capturas (posteriores al rediseño de la Fase 11).
-- Release `v1.0.0` cuando se cumplan los criterios de la Fase 12.
-- Issues cerrados que documenten el proceso.
+```text
+Laravel
++
+Inertia
++
+React
++
+Vite
+```
+
+Node y pnpm se utilizan solamente para compilar el frontend.
+
+**No existe un proceso Node en producción.**
+
+`public/build` forma parte del artefacto productivo.
+
+##### Runtime HTTP
+
+El runtime productivo será:
+
+```text
+Nginx
+   ↓
+PHP-FPM
+   ↓
+Laravel
+```
+
+`php artisan serve` queda exclusivamente para desarrollo.
+
+No introducir:
+
+- Laravel Octane;
+- FrankenPHP;
+- RoadRunner;
+
+salvo que exista una necesidad técnica concreta no conocida actualmente.
+
+##### Deployment
+
+El primer deployment al VPS será manual.
+
+La aplicación debe quedar preparada para que posteriormente el agente de operaciones pueda ejecutar:
+
+```text
+release
+→ pull de imágenes
+→ configuración
+→ migraciones
+→ arranque
+→ smoke
+```
+
+No implementar todavía deployment automático al VPS.
+
+Una vez demostrado el procedimiento manual podrá evaluarse CD automático.
+
+##### Entrada pública
+
+La Fase 12 no decide definitivamente entre:
+
+```text
+Cloudflare Proxy
+→ reverse proxy del VPS
+```
+
+y:
+
+```text
+Cloudflare Tunnel
+→ VPS
+```
+
+Esa decisión pertenece al agente de operaciones que inspeccione el VPS real.
+
+##### Observabilidad
+
+No agregar en esta fase:
+
+- Grafana;
+- Prometheus;
+- Uptime Kuma;
+- Coolify.
+
+ReservaHub debe entregar healthchecks, logs utilizables y smoke checks.
+
+La observabilidad global del servidor puede agregarse posteriormente a nivel del VPS.
+
+##### Tests E2E
+
+**No agregar:**
+
+- Playwright;
+- Cypress;
+- Vitest;
+- Jest.
+
+ReservaHub ya posee una suite Laravel extensa y la Fase 11 realizó revisión real en navegador.
+
+La Fase 12 utiliza:
+
+- PHPUnit;
+- tests Feature/Unit existentes;
+- tests de concurrencia;
+- tests de integración;
+- build frontend;
+- validación Docker;
+- smoke tests;
+- comprobación manual del runtime productivo.
+
+---
+
+#### 12.2 Auditoría antes de publicar GitHub
+
+Antes de hacer público el repositorio se debe revisar **el historial Git completo**, no solamente el working tree actual.
+
+Buscar específicamente:
+
+- `.env`;
+- passwords reales;
+- claves API;
+- tokens;
+- claves privadas;
+- secretos de Cloudflare;
+- credenciales de OVH;
+- claves SSH;
+- dumps de base de datos;
+- datos reales;
+- logs con información sensible;
+- archivos temporales;
+- credenciales externas;
+- secretos que hayan sido eliminados posteriormente del repositorio.
+
+Que un archivo esté actualmente en `.gitignore` no garantiza que nunca haya estado versionado.
+
+Si algún secreto estuvo versionado:
+
+1. considerarlo comprometido;
+2. eliminarlo del historial cuando realmente corresponda;
+3. rotarlo antes de publicar el repositorio.
+
+Verificar además que Git no incluya artefactos innecesarios:
+
+```text
+.env
+vendor/
+node_modules/
+storage/logs/*
+public/hot
+dumps
+backups
+archivos temporales
+builds locales no requeridos
+```
+
+No reescribir el historial sin motivo real.
+
+La auditoría debe producir una conclusión explícita:
+
+```text
+SAFE TO PUBLISH
+```
+
+o listar los bloqueos concretos que deban resolverse primero.
+
+---
+
+#### 12.3 Crear y organizar GitHub
+
+Crear un repositorio público.
+
+Nombre recomendado:
+
+```text
+reservahub
+```
+
+Configurar:
+
+- descripción;
+- README;
+- topics;
+- rama principal `main`;
+- GitHub Actions;
+- GitHub Packages / GHCR.
+
+Topics sugeridos:
+
+```text
+laravel
+php
+react
+inertia
+postgresql
+redis
+docker
+reverb
+websockets
+saas
+booking-system
+portfolio
+```
+
+Agregar el remote:
+
+```text
+origin
+```
+
+y subir el historial actual.
+
+No crear issues o PR históricos ficticios para simular actividad anterior.
+
+Las futuras issues deben representar trabajo real.
+
+Cuando CI esté funcionando, proteger `main` de forma liviana:
+
+- no permitir force push;
+- no permitir borrado accidental;
+- requerir checks de CI en Pull Requests cuando corresponda;
+- permitir administración del propietario.
+
+No agregar burocracia innecesaria para un proyecto personal mantenido por una sola persona.
+
+---
+
+#### 12.4 Runtime Docker de producción
+
+El `compose.yaml` actual basado en Laravel Sail continúa siendo exclusivamente el entorno de desarrollo.
+
+**No convertir Sail en producción.**
+
+Crear un runtime productivo independiente, portable y reutilizable.
+
+Arquitectura prevista:
+
+```text
+ReservaHub Docker project
+│
+├── web
+│   └── Nginx
+│
+├── app
+│   └── PHP-FPM + Laravel
+│
+├── queue
+│   └── queue:work
+│
+├── scheduler
+│   └── schedule:work
+│
+├── reverb
+│   └── reverb:start
+│
+├── pgsql
+│   └── PostgreSQL
+│
+├── redis
+│   └── Redis
+│
+└── mailpit
+    └── Mailpit
+```
+
+No compartir PostgreSQL, Redis o Mailpit con otros proyectos del futuro VPS.
+
+Cada aplicación futura debe poder tener su propio stack independiente.
+
+---
+
+#### 12.5 Imagen productiva Laravel
+
+Crear una imagen Docker específica de producción independiente de Sail.
+
+Debe contener:
+
+- PHP 8.5;
+- extensiones Laravel necesarias;
+- soporte PostgreSQL;
+- soporte Redis;
+- soporte requerido por Reverb;
+- Composer dependencies de producción;
+- código Laravel;
+- frontend compilado;
+- OPcache;
+- PHP-FPM.
+
+Debe utilizar multi-stage build.
+
+Conceptualmente:
+
+```text
+Composer stage
+       +
+Node 24 / pnpm stage
+       ↓
+PHP-FPM runtime final
+```
+
+La imagen final no debe contener:
+
+- Node runtime;
+- pnpm runtime;
+- `node_modules`;
+- dependencias Composer de desarrollo;
+- `.env`;
+- secretos;
+- claves privadas;
+- archivos temporales de build.
+
+`public/build` sí debe quedar incorporado.
+
+La misma imagen Laravel debe reutilizarse para:
+
+```text
+app
+queue
+scheduler
+reverb
+```
+
+cambiando únicamente el comando del contenedor.
+
+Evitar construir cuatro imágenes Laravel distintas.
+
+La imagen productiva debe poder identificarse por versión de release y por commit.
+
+---
+
+#### 12.6 Nginx + PHP-FPM
+
+##### Nginx
+
+Nginx es el entrypoint HTTP interno del proyecto.
+
+Debe:
+
+- servir assets estáticos;
+- enviar PHP a PHP-FPM;
+- soportar correctamente las rutas Laravel;
+- respetar `public/index.php` como front controller;
+- preservar WebSocket Upgrade cuando actúe como gateway para Reverb;
+- no exponer PostgreSQL;
+- no exponer Redis;
+- no hardcodear el hostname público cuando pueda evitarse.
+
+Cuando sea razonable, Nginx puede actuar como gateway interno tanto para Laravel como para Reverb, dejando una única superficie HTTP del proyecto hacia el host.
+
+La implementación debe verificar primero el contrato real de Laravel Reverb antes de definir el proxy.
+
+##### PHP-FPM
+
+Configurar un pool productivo explícito.
+
+Debe permitir controlar:
+
+- cantidad máxima de workers;
+- workers iniciales;
+- workers idle;
+- requests máximas por worker;
+- timeout;
+- límites razonables de memoria.
+
+No dimensionarlo según la máquina local de desarrollo.
+
+Los valores iniciales deben ser conservadores y posteriormente podrán ajustarse después de medir el VPS real.
+
+Habilitar OPcache apropiadamente.
+
+El objetivo es que el consumo de memoria y la concurrencia sean controlables y predecibles.
+
+---
+
+#### 12.7 Procesos Laravel productivos
+
+Los mismos artefactos de aplicación deben poder ejecutar:
+
+```text
+php-fpm
+php artisan queue:work
+php artisan schedule:work
+php artisan reverb:start
+```
+
+mediante comandos diferentes.
+
+No duplicar código ni imágenes.
+
+##### Queue
+
+Mantener Redis como backend de cola.
+
+Configurar el worker de forma explícita y apropiada para proceso de larga duración.
+
+Documentar:
+
+- queue usada;
+- `--tries`;
+- timeout;
+- estrategia de restart;
+- comportamiento ante deploy.
+
+##### Scheduler
+
+Mantener un proceso permanente para Laravel Scheduler.
+
+La aplicación debe seguir siendo dueña de:
+
+```text
+schedule:list
+```
+
+y de las tareas definidas dentro de Laravel.
+
+El host solamente es responsable de mantener vivo el proceso indicado por el runtime.
+
+##### Reverb
+
+Reverb continúa siendo el servidor de tiempo real.
+
+No cambiar:
+
+- arquitectura;
+- canales;
+- payloads;
+- autorización;
+- modelo staff-only aprobado en Fase 10.
+
+La Fase 12 solamente lo hace ejecutable de manera productiva.
+
+---
+
+#### 12.8 Persistencia
+
+##### PostgreSQL
+
+Requiere volumen persistente.
+
+Los datos deben sobrevivir:
+
+- restart;
+- recreación del contenedor;
+- actualización de imágenes.
+
+##### Redis
+
+Se utiliza como infraestructura de cola.
+
+Debe existir una estrategia explícita ante reinicios del contenedor.
+
+No exponerlo públicamente.
+
+Evaluar la configuración mínima necesaria para reducir pérdida innecesaria de jobs ante reinicios normales.
+
+No sobredimensionar Redis para un proyecto de demo.
+
+##### Mailpit
+
+Puede utilizar almacenamiento persistente para conservar mensajes entre reinicios normales del contenedor.
+
+La limpieza funcional diaria se gestiona aparte.
+
+##### Laravel
+
+Actualmente ReservaHub no permite uploads de usuario.
+
+Por lo tanto no necesita almacenamiento persistente de uploads.
+
+Los assets frontend viven dentro de la imagen.
+
+No crear un volumen persistente innecesario solo por costumbre.
+
+---
+
+#### 12.9 Compose productivo portable
+
+Crear un Compose productivo del proyecto, por ejemplo:
+
+```text
+compose.production.yaml
+```
+
+Debe ser portable.
+
+Puede definir:
+
+- servicios;
+- networks;
+- volumes lógicos;
+- healthchecks;
+- restart policies;
+- variables requeridas;
+- dependencias internas;
+- imágenes versionables.
+
+No debe definir:
+
+- hostname final obligatorio;
+- IP pública;
+- puertos públicos adivinados;
+- paths `/srv` específicos;
+- Cloudflare;
+- tokens;
+- secretos productivos;
+- firewall;
+- systemd;
+- configuración específica de OVH.
+
+El agente del VPS podrá crear posteriormente un pequeño override si necesita adaptar detalles del host.
+
+PostgreSQL y Redis deben quedar solamente en red interna.
+
+Mailpit debe ser alcanzable por el gateway elegido posteriormente, pero no debe exigir un puerto público hardcodeado.
+
+---
+
+#### 12.10 Healthchecks y restart policies
+
+Los procesos permanentes deben utilizar una política apropiada, preferentemente:
+
+```text
+restart: unless-stopped
+```
+
+cuando corresponda.
+
+Agregar healthchecks reales.
+
+Como mínimo:
+
+##### Aplicación
+
+```text
+GET /up
+```
+
+##### PostgreSQL
+
+```text
+pg_isready
+```
+
+##### Redis
+
+```text
+redis-cli ping
+```
+
+##### Mailpit
+
+Usar un endpoint HTTP real soportado por la versión instalada.
+
+##### Reverb
+
+Usar un check real de proceso, puerto o endpoint soportado.
+
+##### PHP-FPM / Nginx
+
+El healthcheck público de la aplicación debe confirmar que la cadena:
+
+```text
+Nginx
+→ PHP-FPM
+→ Laravel
+```
+
+está respondiendo.
+
+No crear healthchecks ficticios que siempre devuelvan éxito.
+
+Los healthchecks no sustituyen los smoke tests.
+
+---
+
+#### 12.11 Contrato de entorno
+
+Actualizar:
+
+```text
+docs/DEPLOYMENT_HANDOFF.md
+```
+
+con una tabla completa de variables.
+
+Clasificarlas como:
+
+```text
+secret
+runtime public
+build-time public
+internal
+development-only
+```
+
+Revisar como mínimo:
+
+```text
+APP_ENV
+APP_KEY
+APP_DEBUG
+APP_URL
+
+DB_CONNECTION
+DB_HOST
+DB_PORT
+DB_DATABASE
+DB_USERNAME
+DB_PASSWORD
+
+REDIS_HOST
+REDIS_PORT
+REDIS_PASSWORD
+
+QUEUE_CONNECTION
+
+MAIL_MAILER
+MAIL_HOST
+MAIL_PORT
+MAIL_USERNAME
+MAIL_PASSWORD
+MAIL_FROM_ADDRESS
+MAIL_FROM_NAME
+
+REVERB_APP_ID
+REVERB_APP_KEY
+REVERB_APP_SECRET
+REVERB_HOST
+REVERB_PORT
+REVERB_SCHEME
+
+VITE_REVERB_APP_KEY
+VITE_REVERB_HOST
+VITE_REVERB_PORT
+VITE_REVERB_SCHEME
+
+VITE_DEMO_MAIL_URL
+
+PAYMENTS_WINDOW_MINUTES
+PAYMENTS_RECONCILE_BATCH
+PAYMENTS_RECONCILE_CADENCE_MINUTES
+```
+
+Las variables `VITE_*` son públicas por definición.
+
+Nunca colocar secretos en una variable `VITE_*`.
+
+Actualizar `.env.example` para reflejar correctamente todo el contrato portable sin incluir ningún valor secreto real.
+
+---
+
+#### 12.12 Configuración del modo demo público
+
+Agregar una configuración explícita para identificar el deployment público de demo.
+
+Como mínimo:
+
+```text
+DEMO_PUBLIC_MODE=true
+```
+
+Los comandos destructivos de demo nunca deben depender únicamente de:
+
+```text
+APP_ENV=production
+```
+
+Debe existir una guarda específica.
+
+Agregar una segunda forma independiente de confirmar que se está apuntando al entorno demo correcto.
+
+El mecanismo exacto debe definirse después de inspeccionar la configuración real, pero no debe depender solamente de una única variable booleana fácil de activar accidentalmente.
+
+La contraseña publicada para las cuentas de demo debe tener una fuente canónica reutilizable.
+
+Debe evitarse mantener passwords diferentes hardcodeadas de forma independiente en:
+
+- `DemoSeeder`;
+- `/como-funciona`;
+- restauración diaria de credenciales.
+
+La contraseña demo es pública por definición y no debe confundirse con un secreto productivo real.
+
+---
+
+#### 12.13 CI — GitHub Actions
+
+Crear:
+
+```text
+.github/workflows/ci.yml
+```
+
+Debe ejecutarse en:
+
+```text
+push
+pull_request
+```
+
+Debe comprobar como mínimo:
+
+1. checkout;
+2. PHP 8.5;
+3. Composer;
+4. `composer validate --strict`;
+5. `composer install`;
+6. PostgreSQL 18;
+7. entorno de testing;
+8. `php artisan key:generate`;
+9. Node 24;
+10. pnpm;
+11. `pnpm install --frozen-lockfile`;
+12. `pnpm build`;
+13. `php artisan test`;
+14. `vendor/bin/pint --test`;
+15. `docker compose config -q`;
+16. validación del Compose productivo;
+17. build del Dockerfile productivo.
+
+La suite actual utiliza:
+
+```text
+QUEUE_CONNECTION=sync
+CACHE_STORE=array
+```
+
+por lo que CI no necesita obligatoriamente Redis para ejecutar PHPUnit.
+
+CI no debe:
+
+- conectarse al VPS;
+- usar SSH productivo;
+- modificar Cloudflare;
+- desplegar producción;
+- conocer secretos reales;
+- depender de que exista todavía el VPS.
+
+---
+
+#### 12.14 Auditoría de dependencias
+
+Ejecutar:
+
+```text
+composer audit
+pnpm audit
+```
+
+Analizar los resultados.
+
+Una vulnerabilidad alta o crítica que afecte runtime debe resolverse antes de `v1.0.0`.
+
+No bloquear automáticamente la release por cualquier advisory exclusivo de tooling de desarrollo sin analizar el impacto real.
+
+Documentar los advisories aceptados si los hubiera y explicar por qué no afectan runtime.
+
+---
+
+#### 12.15 GitHub Container Registry
+
+Crear workflow de release para publicar las imágenes productivas en:
+
+```text
+ghcr.io
+```
+
+Trigger previsto:
+
+```text
+tag v*
+```
+
+Ejemplo:
+
+```text
+v1.0.0
+```
+
+Publicar imágenes públicas.
+
+Preferir:
+
+```text
+reservahub-app
+reservahub-web
+```
+
+si Nginx necesita su propia imagen.
+
+La imagen Laravel debe reutilizarse para:
+
+```text
+app
+queue
+scheduler
+reverb
+```
+
+Etiquetas mínimas:
+
+```text
+1.0.0
+sha-<commit>
+```
+
+Puede existir:
+
+```text
+latest
+```
+
+como comodidad, pero producción nunca debe depender exclusivamente de `latest`.
+
+El deployment debe poder fijar una versión o digest concreto.
+
+Ninguna imagen puede contener secretos.
+
+El workflow de release debe usar permisos mínimos de GitHub necesarios para publicar Packages.
+
+---
+
+#### 12.16 Primer deployment
+
+La Fase 12 **no despliega todavía** ReservaHub al VPS.
+
+Sin embargo debe dejar documentado un procedimiento manual claro.
+
+Conceptualmente:
+
+```text
+1. elegir release
+2. obtener imágenes
+3. configurar entorno
+4. levantar infraestructura
+5. ejecutar migraciones
+6. iniciar runtime
+7. ejecutar bootstrap demo si corresponde
+8. ejecutar smoke
+9. verificar logs
+```
+
+Ese procedimiento será ejecutado posteriormente por el agente de operaciones sobre el VPS real.
+
+Solo después de que el deployment manual haya demostrado ser reproducible se evaluará CD automático.
+
+No agregar un GitHub Action que haga SSH al servidor en esta fase.
+
+---
+
+#### 12.17 Reset semanal de datos demo
+
+El reset completo de la demo deja de ser diario.
+
+Nuevo contrato:
+
+```text
+Lunes
+00:00
+America/Argentina/Buenos_Aires
+```
+
+El objetivo es permitir que los datos evolucionen naturalmente durante una semana.
+
+Así pueden demostrarse correctamente:
+
+- reservas que pasan al pasado;
+- reprogramaciones;
+- cancelaciones;
+- pagos;
+- recordatorios;
+- cambios temporales;
+- acciones de varios visitantes.
+
+El estado funcional de la demo puede cambiar durante la semana y eso es comportamiento esperado.
+
+El próximo lunes vuelve al dataset canónico.
+
+---
+
+#### 12.18 `php artisan demo:reset`
+
+Crear:
+
+```text
+php artisan demo:reset
+```
+
+Es un comando destructivo.
+
+Debe tener guardas fuertes.
+
+Como mínimo debe comprobar:
+
+```text
+DEMO_PUBLIC_MODE=true
+```
+
+más una segunda comprobación independiente que reduzca el riesgo de ejecutarlo sobre una base equivocada.
+
+En ejecución no interactiva debe requerir:
+
+```text
+--force
+```
+
+Si una guarda falla:
+
+```text
+ABORT
+```
+
+sin modificar ningún dato.
+
+El comando debe:
+
+1. impedir ejecuciones concurrentes;
+2. evitar que jobs pendientes operen sobre el dataset viejo;
+3. limpiar el estado funcional descartable de ReservaHub;
+4. aplicar migraciones necesarias;
+5. ejecutar exclusivamente `DemoSeeder`;
+6. nunca ejecutar `DatabaseSeeder`;
+7. limpiar caches o colas de ReservaHub que puedan referenciar IDs anteriores;
+8. dejar el sistema consistente;
+9. devolver exit code distinto de cero ante cualquier fallo.
+
+Para este deployment completamente descartable puede utilizarse:
+
+```text
+migrate:fresh --force
+```
+
+si, después de inspeccionar el proyecto, resulta ser la solución más pequeña, explícita y segura.
+
+Nunca utilizar ese mecanismo sobre datos que deban conservarse.
+
+Mailpit no forma parte de este comando porque es otro servicio.
+
+---
+
+#### 12.19 Tests de `demo:reset`
+
+Cubrir como mínimo:
+
+- se niega sin modo demo;
+- se niega con target incorrecto;
+- exige la confirmación destructiva correspondiente;
+- elimina datos creados posteriormente;
+- ejecuta el dataset esperado;
+- no ejecuta `DatabaseSeeder`;
+- devuelve las cuentas demo al estado esperado;
+- no deja jobs que apunten al dataset anterior;
+- dos ejecuciones no pueden correr simultáneamente;
+- un fallo no se reporta como éxito.
+
+El test debe verificar el resultado real del dataset, no solamente que el comando termine con exit code `0`.
+
+---
+
+#### 12.20 Restauración diaria del acceso demo
+
+El dataset completo se conserva durante una semana.
+
+Pero las credenciales públicas no pueden quedar inutilizadas durante toda una semana si un visitante utiliza el flujo público de recuperación de contraseña.
+
+Crear:
+
+```text
+php artisan demo:restore-access
+```
+
+Scheduling previsto:
+
+```text
+todos los días
+00:00
+America/Argentina/Buenos_Aires
+```
+
+Debe restaurar las cuentas de demo publicadas a su estado canónico.
+
+Revisar como mínimo:
+
+- password;
+- email canónico cuando corresponda;
+- `remember_token`;
+- sesiones;
+- tokens Sanctum;
+- tokens de password reset.
+
+Debe reutilizar la infraestructura de revocación de acceso ya existente cuando corresponda.
+
+No debe resetear:
+
+- reservas;
+- pagos;
+- servicios;
+- horarios;
+- historial funcional;
+- cambios funcionales no relacionados con el acceso.
+
+El resultado buscado es:
+
+```text
+historia funcional semanal
++
+credenciales públicas recuperables diariamente
+```
+
+Agregar tests específicos.
+
+---
+
+#### 12.21 Mailpit público
+
+Mailpit sigue formando parte intencional de la demo.
+
+URL prevista:
+
+```text
+mail.reservahub.lucianogonzalez.dev
+```
+
+La aplicación ReservaHub no debe depender de que la interfaz de Mailpit esté disponible.
+
+Mailpit se limpia:
+
+```text
+todos los días
+00:00
+America/Argentina/Buenos_Aires
+```
+
+Esto evita:
+
+- acumulación excesiva;
+- links viejos;
+- ruido;
+- mensajes de visitantes anteriores;
+- demasiados enlaces de recuperación o invitación todavía visibles.
+
+El vaciado de Mailpit es responsabilidad de operaciones.
+
+`demo:reset` no debe llamar directamente a Mailpit.
+
+El handoff debe declarar:
+
+```text
+SEMANAL
+lunes 00:00
+→ demo:reset
+
+DIARIO
+00:00
+→ demo:restore-access
+→ limpiar Mailpit
+```
+
+Configurar posteriormente límites razonables de retención y cantidad de mensajes cuando Mailpit los soporte.
+
+Si Mailpit permite ocultar `Delete all`, hacerlo posteriormente desde operaciones.
+
+La eliminación individual de mensajes continúa siendo una limitación aceptada de la demo compartida.
+
+---
+
+#### 12.22 Actualizar countdown y copy de la demo
+
+La Fase 11 implementó un contador al siguiente reset completo diario.
+
+Debe actualizarse al nuevo contrato semanal.
+
+El countdown representa:
+
+```text
+próximo lunes
+00:00
+America/Argentina/Buenos_Aires
+```
+
+Actualizar:
+
+- `DemoResetCountdown`;
+- Home;
+- `/como-funciona`;
+- textos relacionados;
+- documentación.
+
+Debe quedar claro:
+
+```text
+Los datos completos de la demo se restauran semanalmente.
+
+Las credenciales públicas y el buzón compartido se restauran diariamente.
+```
+
+No mostrar un segundo countdown para las credenciales.
+
+Conservar las decisiones de accesibilidad aprobadas en Fase 11:
+
+- sin segundos visibles;
+- sin `aria-live`;
+- sin pulso;
+- sin animación de oferta;
+- numerales tabulares;
+- sin layout shift;
+- sin afectar el foco;
+- sin provocar reload.
+
+El contador sigue siendo cliente puro e informativo.
+
+No agregar:
+
+- API de reset;
+- polling;
+- sincronización backend;
+- WebSocket para el countdown.
+
+La lógica debe calcular correctamente el próximo lunes 00:00 en:
+
+```text
+America/Argentina/Buenos_Aires
+```
+
+desde cualquier zona horaria del visitante.
+
+---
+
+#### 12.23 Actualización de documentación heredada de Fase 11
+
+Buscar todas las referencias que todavía indiquen:
+
+```text
+reset diario completo
+```
+
+y actualizarlas.
+
+Nuevo contrato:
+
+```text
+datos funcionales completos
+→ reset semanal
+
+credenciales demo
+→ restauración diaria
+
+Mailpit
+→ limpieza diaria
+```
+
+Revisar especialmente:
+
+- `01-reservahub.md`;
+- `docs/DEPLOYMENT_HANDOFF.md`;
+- especificaciones de Fase 11 si siguen siendo documentación vigente;
+- README;
+- `/como-funciona`;
+- Home;
+- comentarios de código relacionados con el countdown.
+
+No modificar documentos históricos que explícitamente estén conservados como registro de una decisión anterior si eso destruyera su valor histórico; en esos casos dejar claro que fueron superseded por Fase 12.
+
+---
+
+#### 12.24 Handoff para VPS Linux
+
+Reescribir:
+
+```text
+docs/DEPLOYMENT_HANDOFF.md
+```
+
+El documento deja de hablar de un home server como destino final.
+
+El destino conceptual es:
+
+```text
+VPS Linux multiproyecto
+```
+
+inicialmente previsto en OVHcloud.
+
+El documento explica **ReservaHub**, no cómo administrar Linux.
+
+Debe responder:
+
+- qué imágenes existen;
+- qué contenedores ejecutar;
+- qué procesos son obligatorios;
+- qué debe persistir;
+- qué puertos internos existen;
+- qué variables necesita;
+- cuáles son secretas;
+- cuáles son públicas;
+- cómo migrar;
+- cómo arrancar;
+- cómo ejecutar `DemoSeeder`;
+- cómo ejecutar `demo:reset`;
+- cómo ejecutar `demo:restore-access`;
+- cómo limpiar Mailpit;
+- cómo comprobar salud;
+- cómo ejecutar smoke;
+- cómo hacer rollback;
+- qué datos pueden destruirse;
+- qué datos deben persistir entre reinicios normales.
+
+---
+
+#### 12.25 Frontera entre repositorio y operaciones
+
+##### ReservaHub entrega
+
+```text
+Dockerfile productivo
+compose productivo portable
+imágenes GHCR
+Nginx
+PHP-FPM
+queue
+scheduler
+Reverb
+PostgreSQL
+Redis
+Mailpit
+healthchecks
+restart policies
+migraciones
+DemoSeeder
+demo:reset
+demo:restore-access
+contrato de entorno
+CI
+workflow de release
+smoke checks
+README
+DEPLOYMENT_HANDOFF
+procedimiento de rollback
+```
+
+##### El agente de operaciones del VPS decide y ejecuta
+
+```text
+distribución Linux
+usuario del servidor
+SSH
+firewall
+Docker del host
+estructura física /srv
+paths reales de volúmenes
+reverse proxy del host
+Cloudflare Proxy vs Tunnel
+DNS
+secretos reales
+hostname real
+certificados
+scheduling real
+limpieza real de Mailpit
+retención real de Mailpit
+reboot recovery
+snapshots/backups del host
+pull de release
+migraciones reales
+primer deployment
+smoke real
+rollback real
+```
+
+La Fase 12 no debe filtrar decisiones de host hacia el repositorio sin necesidad.
+
+---
+
+#### 12.26 Medición de recursos
+
+Registrar las mediciones locales disponibles como referencia.
+
+Medición actual del stack Docker:
+
+```text
+reposo       ≈ 0,30 GB
+uso normal   ≈ 0,36 GB
+pico medido  ≈ 0,45 GB
+```
+
+No tratarlas como garantía de producción.
+
+La medición local utiliza:
+
+- Laravel Sail;
+- `artisan serve`;
+- WSL2;
+- dataset pequeño;
+- un queue worker;
+- pocas conexiones Reverb;
+- PostgreSQL sin tuning de producción.
+
+Producción utilizará Nginx + PHP-FPM y tendrá una configuración distinta.
+
+Documentar que:
+
+- el pool PHP-FPM será una de las variables principales de RAM;
+- PostgreSQL debe dimensionarse explícitamente;
+- cada queue worker adicional agrega consumo;
+- Reverb debe observarse bajo uso real;
+- Linux y Docker necesitan RAM propia;
+- builds, logs y page cache también consumen recursos del host.
+
+Como referencia inicial:
+
+```text
+ReservaHub solo
+→ un VPS de 4 GB debería tener margen cómodo.
+
+Servidor multiproyecto
+→ 8 GB recomendado como punto de partida.
+```
+
+La aplicación no debe codificar ni depender de ese tamaño.
+
+---
+
+#### 12.27 Smoke checks portables
+
+Crear un procedimiento de smoke reproducible.
+
+Puede ser documentación o un script pequeño parametrizable.
+
+Debe comprobar al menos:
+
+```text
+/up
+/
+/negocios
+/como-funciona
+login
+dashboard
+availability
+creación de reserva
+```
+
+La verificación manual completa debe incluir además:
+
+```text
+queue
+emails
+Mailpit
+pago simulado
+webhook
+confirmación de booking
+Reverb con dos sesiones
+```
+
+No hardcodear:
+
+- secretos;
+- passwords productivos;
+- hostname si puede recibirse como argumento;
+- tokens.
+
+Las credenciales demo públicas sí pueden documentarse como tales.
+
+Un smoke automático no debe modificar destructivamente la demo salvo que esté diseñado explícitamente para ejecutarse contra un entorno descartable.
+
+---
+
+#### 12.28 Verificación del runtime productivo
+
+Levantar localmente el stack productivo antes de considerarlo terminado.
+
+Debe comprobarse que:
+
+- no usa Laravel Sail;
+- no usa `artisan serve`;
+- no necesita Node en runtime;
+- Nginx funciona;
+- PHP-FPM funciona;
+- OPcache está disponible;
+- frontend compilado funciona;
+- PostgreSQL funciona;
+- Redis funciona;
+- queue funciona;
+- scheduler funciona;
+- Reverb funciona;
+- Mailpit funciona;
+- las migraciones funcionan;
+- `DemoSeeder` funciona;
+- checkout simulado funciona;
+- webhook simulado funciona;
+- aplicación responde por `/up`.
+
+No considerar suficiente que las imágenes simplemente compilen.
+
+El stack tiene que arrancar y ser usable.
+
+---
+
+#### 12.29 Verificación final
+
+Antes de cerrar la fase ejecutar como mínimo:
+
+```text
+php artisan test
+vendor/bin/pint --test
+composer validate --strict
+composer audit
+
+pnpm install --frozen-lockfile
+pnpm build
+pnpm audit
+
+docker compose config -q
+docker compose -f compose.production.yaml config -q
+```
+
+Además:
+
+- build completo de imágenes productivas;
+- tests de `demo:reset`;
+- tests de `demo:restore-access`;
+- tests/configuración del runtime productivo cuando corresponda;
+- smoke del stack productivo;
+- revisión de logs.
+
+Ejecutar también las áreas críticas existentes:
+
+- concurrencia de bookings;
+- tenancy;
+- Policies;
+- API;
+- payments;
+- webhook idempotency;
+- reconciliation;
+- expiration;
+- notifications;
+- scheduler;
+- Reverb/channel authorization.
+
+Hacer smoke manual final.
+
+**No agregar Playwright ni ningún framework E2E adicional.**
+
+---
+
+#### 12.30 README de GitHub
+
+Reemplazar completamente el README stock de Laravel.
+
+Debe explicar:
+
+1. qué es ReservaHub;
+2. problema que resuelve;
+3. stack;
+4. arquitectura;
+5. roles;
+6. multi-tenancy;
+7. servicios;
+8. disponibilidad;
+9. prevención de solapamientos;
+10. concurrencia;
+11. reservas;
+12. pagos simulados;
+13. webhooks;
+14. queue;
+15. scheduler;
+16. Reverb;
+17. Docker;
+18. CI;
+19. API;
+20. demo pública;
+21. instalación de desarrollo;
+22. ejecución de tests;
+23. build frontend;
+24. documentación disponible.
+
+Agregar un diagrama de arquitectura.
+
+Preferir Mermaid o un formato versionable.
+
+Enlazar:
+
+```text
+docs/api.md
+docs/DEPLOYMENT_HANDOFF.md
+```
+
+No afirmar que existe una demo pública desplegada hasta que realmente haya ocurrido el deployment.
+
+Después del deployment real podrá agregarse:
+
+```text
+https://reservahub.lucianogonzalez.dev
+```
+
+al README y al About del repositorio.
+
+---
+
+#### 12.31 Capturas de portfolio
+
+Utilizar únicamente capturas posteriores a la Fase 11.
+
+Seleccionar pocas y fuertes:
+
+- Home;
+- Dashboard;
+- Reservas;
+- flujo público de booking;
+- checkout simulado;
+- Mailpit;
+- responsive representativo.
+
+No saturar el README.
+
+Optimizar los archivos.
+
+No incluir información real.
+
+Las capturas deben representar el producto actual, no versiones viejas del frontend.
+
+---
+
+#### 12.32 Estado del repositorio antes de release
+
+Antes de crear la release verificar:
+
+```text
+git status
+→ limpio
+```
+
+No deben existir:
+
+- cambios sin commit;
+- archivos temporales;
+- dumps;
+- screenshots no deseadas;
+- reports locales no destinados al repo;
+- `.env`;
+- secretos;
+- artifacts del build que no deban versionarse.
+
+Revisar también:
+
+```text
+git log
+git remote -v
+```
+
+y confirmar que `origin` apunta al repositorio público correcto.
+
+---
+
+#### 12.33 Release `v1.0.0`
+
+Crear `v1.0.0` solamente cuando:
+
+- Fases 0–12 estén cerradas;
+- GitHub público exista;
+- `main` esté limpio;
+- CI esté verde;
+- suite completa esté verde;
+- frontend build esté verde;
+- runtime Docker productivo compile;
+- stack productivo funcione localmente;
+- GHCR funcione;
+- paquetes GHCR sean públicos;
+- README esté finalizado;
+- documentación esté finalizada;
+- `demo:reset` esté probado;
+- `demo:restore-access` esté probado;
+- auditoría Git no detecte secretos;
+- smoke productivo local pase.
+
+El tag:
+
+```text
+v1.0.0
+```
+
+dispara el workflow de release.
+
+El futuro primer deployment a OVH debe desplegar exactamente esa release o sus digests.
+
+No desplegar desde un working tree sin versionar.
+
+No desplegar una imagen construida manualmente sin referencia a una release o commit conocido.
+
+---
+
+#### 12.34 Rollback
+
+Documentar rollback por versión de imagen.
+
+Ejemplo:
+
+```text
+actual:
+1.0.1
+
+rollback:
+1.0.0
+```
+
+Rollback no reconstruye el código.
+
+El operador selecciona la imagen o digest anterior y vuelve a levantar el stack.
+
+Las migraciones destructivas requieren análisis independiente.
+
+Las futuras migraciones deben considerar compatibilidad con rollback.
+
+Para la primera release documentar claramente qué schema corresponde a `v1.0.0`.
+
+Un rollback de imagen no debe asumir automáticamente que también puede revertirse el schema.
+
+---
+
+#### 12.35 Backups
+
+ReservaHub público es una demo descartable.
+
+No maneja datos comerciales reales.
+
+Por decisión de producto:
+
+**no se requiere backup histórico periódico de bookings de la demo.**
+
+El reset semanal los destruye intencionalmente.
+
+El VPS podrá utilizar snapshots antes de:
+
+- cambios importantes;
+- upgrades;
+- migraciones de riesgo;
+- modificaciones de infraestructura.
+
+Esa política pertenece a operaciones.
+
+El repositorio no incluye:
+
+- cron de backup;
+- rutas `/srv`;
+- credenciales;
+- buckets;
+- secretos;
+- configuración de proveedor de backup.
+
+Futuros proyectos con datos reales tendrán políticas de backup distintas.
+
+---
+
+#### 12.36 Material de documentación técnica
+
+Al cerrar la fase deben estar vigentes como mínimo:
+
+```text
+README.md
+docs/api.md
+docs/DEPLOYMENT_HANDOFF.md
+.env.example
+compose.yaml
+compose.production.yaml
+Dockerfile(s) productivos
+.github/workflows/ci.yml
+workflow de release GHCR
+```
+
+La documentación no debe contradecir:
+
+- el reset semanal;
+- la restauración diaria de credenciales;
+- Mailpit público;
+- el runtime Nginx + PHP-FPM;
+- el modelo de VPS multiproyecto;
+- la inexistencia de deployment automático.
+
+Buscar documentación vieja que todavía diga:
+
+```text
+home server
+reset diario completo
+Mailpit privado
+SMTP real obligatorio
+artisan serve en producción
+```
+
+y actualizarla cuando corresponda.
+
+---
+
+#### 12.37 Fuera de alcance
+
+La Fase 12 no:
+
+- compra el dominio;
+- compra el VPS;
+- configura OVH;
+- configura DNS;
+- configura Cloudflare;
+- configura Cloudflare Tunnel;
+- instala Docker en el VPS;
+- configura SSH;
+- configura firewall;
+- crea secretos productivos reales;
+- ejecuta deployment remoto;
+- configura systemd del host;
+- configura cron del host;
+- configura backups del host;
+- instala Coolify;
+- instala Grafana;
+- instala Prometheus;
+- instala Uptime Kuma;
+- agrega Playwright;
+- agrega Cypress;
+- agrega Vitest;
+- agrega Jest;
+- agrega proveedor de pagos real;
+- cambia la arquitectura de pagos;
+- cambia la arquitectura de Reverb;
+- agrega realtime para clientes;
+- cambia Laravel/Inertia/React;
+- agrega una segunda SPA;
+- agrega SSR;
+- convierte el portfolio en parte de ReservaHub.
+
+---
+
+#### 12.38 Criterios de aceptación
+
+La Fase 12 termina cuando un operador que recibe:
+
+```text
+un VPS Linux limpio
++
+acceso al dominio/Cloudflare
++
+repositorio GitHub público
++
+imágenes GHCR públicas
++
+docs/DEPLOYMENT_HANDOFF.md
++
+secretos de producción
+```
+
+puede desplegar ReservaHub sin tener que descubrir cómo funciona internamente la aplicación.
+
+El operador todavía decide cómo administrar el host.
+
+Pero no debe tener que inventar:
+
+```text
+qué imágenes ejecutar
+qué procesos existen
+qué persiste
+qué variables necesita ReservaHub
+qué puertos internos usa
+cómo migrar
+cómo sembrar
+cómo resetear la demo
+cómo restaurar las credenciales
+cómo limpiar Mailpit
+cómo comprobar salud
+cómo hacer smoke
+cómo hacer rollback
+```
+
+También debe cumplirse:
+
+- el repositorio público no contiene secretos;
+- CI valida el proyecto automáticamente;
+- las imágenes de producción son reproducibles;
+- el runtime productivo no depende de Sail;
+- `artisan serve` no se utiliza en producción;
+- Node no forma parte del runtime;
+- el stack productivo funciona localmente;
+- `demo:reset` no puede ejecutarse accidentalmente sobre un entorno no autorizado;
+- `demo:restore-access` no destruye los datos funcionales de la semana;
+- el countdown comunica correctamente el próximo reset semanal;
+- Mailpit continúa siendo opcional para el funcionamiento central de ReservaHub;
+- no se introdujo infraestructura E2E innecesaria;
+- Fase 9 de pagos continúa intacta;
+- Fase 10 de realtime continúa intacta;
+- `v1.0.0` representa exactamente el código e imágenes que posteriormente se desplegarán.
+
+Si alguna de estas respuestas exige estudiar el código y adivinar la arquitectura de ReservaHub, la Fase 12 todavía no está terminada.

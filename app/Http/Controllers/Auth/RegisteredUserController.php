@@ -6,6 +6,7 @@ use App\Actions\Auth\RegisterBusinessOwner;
 use App\Actions\Auth\RegisterCustomer;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\RegisterRequest;
+use App\Support\HomeRoute;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
@@ -38,6 +39,6 @@ class RegisteredUserController extends Controller
 
         Auth::login($user);
 
-        return redirect('/');
+        return redirect(HomeRoute::for($user));
     }
 }
