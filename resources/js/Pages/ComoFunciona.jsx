@@ -86,7 +86,7 @@ function JourneyCard({ label, title, note, steps }) {
     );
 }
 
-export default function ComoFunciona() {
+export default function ComoFunciona({ demoPassword }) {
     return (
         <PublicLayout>
             <div className="mx-auto max-w-[1440px] px-6 pb-4 pt-14 lg:px-10 lg:pt-19">
@@ -181,7 +181,7 @@ export default function ComoFunciona() {
                                     <div className="mt-1.5 flex flex-wrap items-baseline gap-2.5">
                                         <span className="tnum text-[14px] font-medium">owner@reservahub.test</span>
                                         <span className="text-[13px] text-muted">·</span>
-                                        <span className="tnum text-[14px] font-medium">password</span>
+                                        <span className="tnum text-[14px] font-medium">{demoPassword}</span>
                                     </div>
                                     <div className="mt-1 text-[12px] leading-[18px] text-muted">
                                         Cuenta ficticia, creada por el seeder. No es de nadie.
