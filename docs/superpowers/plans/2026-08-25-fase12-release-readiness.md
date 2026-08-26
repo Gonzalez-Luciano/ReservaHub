@@ -2335,13 +2335,17 @@ map $http_x_forwarded_proto $reservahub_forwarded_proto {
     ''      $scheme;
 }
 
-upstream php-fpm {
-    server app:9000;
-}
-
-upstream reverb {
-    server reverb:8080;
-}
+# DNS embebido de Docker. Un `upstream {}` estático resuelve el hostname UNA
+# sola vez, al cargar la config — si `app`/`reverb` todavía no son resolubles
+# en ese instante (orden de arranque de compose, un restart, un hipo de red),
+# `web` entero se niega a levantar. Con `resolver` + una variable en
+# `fastcgi_pass`/`proxy_pass`, la resolución se difiere a cada request: `web`
+# arranca igual, y solo esa request puntual devuelve 502 hasta que el destino
+# vuelva a ser resoluble. Verificado con `nginx -t` en un contenedor sin red
+# de compose (ningún `app`/`reverb` real): con `upstream {}` estático, la sola
+# ausencia de red hace fallar la validación de la config; con este patrón,
+# `nginx -t` pasa igual.
+resolver 127.0.0.11 valid=10s;
 
 server {
     listen 8080 default_server;
@@ -2357,7 +2361,8 @@ server {
     # cabeceras de upgrade son obligatorias; sin ellas el navegador recibe
     # un 400 y Echo reintenta en bucle.
     location /app {
-        proxy_pass http://reverb;
+        set $reverb_upstream http://reverb:8080;
+        proxy_pass $reverb_upstream;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection $connection_upgrade;
@@ -2375,7 +2380,8 @@ server {
     # La usa el servidor para publicar eventos. Verificado: responde 401 sin
     # firma válida, así que no queda abierta por estar enrutada.
     location /apps {
-        proxy_pass http://reverb;
+        set $reverb_upstream http://reverb:8080;
+        proxy_pass $reverb_upstream;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -2402,7 +2408,8 @@ server {
     }
 
     location ~ \.php$ {
-        fastcgi_pass php-fpm;
+        set $php_upstream app:9000;
+        fastcgi_pass $php_upstream;
         fastcgi_index index.php;
         include fastcgi_params;
         fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
