@@ -25,8 +25,7 @@ check() {
     local label="$1" path="$2" expected="$3"
     local actual
 
-    actual=$(curl -fsS -o /dev/null -w '%{http_code}' --max-time 15 "${BASE_URL}${path}" 2>/dev/null \
-        || curl -sS -o /dev/null -w '%{http_code}' --max-time 15 "${BASE_URL}${path}" 2>/dev/null)
+    actual=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 15 "${BASE_URL}${path}" 2>/dev/null)
 
     if [ "$actual" = "$expected" ]; then
         printf '  ok    %-28s %s\n' "$label" "$actual"
@@ -59,9 +58,24 @@ fi
 
 echo
 echo "Tiempo real:"
-# 401 es la respuesta correcta: demuestra que el gateway enruta a Reverb y que
-# Reverb rechaza lo que no viene firmado.
-check "gateway de Reverb" "/apps/smoke/channels" 401
+# No se compara un código de estado fijo a propósito. Reverb valida el ID de
+# aplicación ANTES de la firma: un ID inventado da 404 ("No matching
+# application"), uno real sin firmar da 401 ("Authentication signature
+# invalid") — y el REVERB_APP_ID real es config específica del deployment,
+# no un valor público como REVERB_APP_KEY, así que este script no lo puede
+# traer hardcodeado. Los dos son la MISMA prueba (Reverb contestó), así que
+# se acepta cualquiera de los dos mensajes en el cuerpo. Lo que sí distingue
+# un gateway roto es que ninguno de los dos aparezca: en desarrollo (Reverb
+# no está detrás de Nginx) esto da la página 404 propia de Laravel, sin
+# ninguna de esas frases — falla acá, correctamente.
+reverb_body=$(curl -sS --max-time 15 "${BASE_URL}/apps/smoke/channels" 2>/dev/null)
+
+if echo "$reverb_body" | grep -qiE 'matching application|authentication signature'; then
+    printf '  ok    %-28s Reverb respondió\n' "gateway de Reverb"
+else
+    printf '  FALLA %-28s Reverb no respondió (¿nginx no enruta /apps?)\n' "gateway de Reverb"
+    failures=$((failures + 1))
+fi
 
 if [ -n "${SMOKE_EMAIL:-}" ] && [ -n "${SMOKE_PASSWORD:-}" ]; then
     echo
