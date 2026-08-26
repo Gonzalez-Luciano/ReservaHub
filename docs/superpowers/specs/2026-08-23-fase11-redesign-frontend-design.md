@@ -605,7 +605,7 @@ cargan datos reales, contraseñas descartables, reinicio diario.
 
 ```
 reservahub.lucianogonzalez.dev        →  ReservaHub
-mail.reservahub.lucianogonzalez.dev   →  buzón de la demo
+reservahub-mail.lucianogonzalez.dev   →  buzón de la demo
 ```
 
 Hostname separado en lugar de una ruta bajo la aplicación: mantiene separados el

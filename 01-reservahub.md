@@ -756,12 +756,12 @@ La ubicación física, estructura `/srv`, volúmenes, firewall, SSH y configurac
 ```text
 lucianogonzalez.dev
 reservahub.lucianogonzalez.dev
-mail.reservahub.lucianogonzalez.dev
+reservahub-mail.lucianogonzalez.dev
 ```
 
 - `lucianogonzalez.dev`: portfolio futuro.
 - `reservahub.lucianogonzalez.dev`: ReservaHub.
-- `mail.reservahub.lucianogonzalez.dev`: Mailpit público de la demo.
+- `reservahub-mail.lucianogonzalez.dev`: Mailpit público de la demo.
 
 El dominio se administrará mediante Cloudflare.
 
@@ -1796,7 +1796,7 @@ Mailpit sigue formando parte intencional de la demo.
 URL prevista:
 
 ```text
-mail.reservahub.lucianogonzalez.dev
+reservahub-mail.lucianogonzalez.dev
 ```
 
 La aplicación ReservaHub no debe depender de que la interfaz de Mailpit esté disponible.

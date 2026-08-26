@@ -106,7 +106,7 @@ DIARIO    00:00       America/Argentina/Buenos_Aires  → limpiar Mailpit (opera
 
 ```text
 reservahub.lucianogonzalez.dev        aplicación
-mail.reservahub.lucianogonzalez.dev   Mailpit público
+reservahub-mail.lucianogonzalez.dev   Mailpit público
 ```
 
 Es el **único** lugar donde un hostname puede aparecer en el repositorio: como *default* de un
@@ -2097,7 +2097,7 @@ ARG VITE_REVERB_APP_KEY=""
 ARG VITE_REVERB_HOST="reservahub.lucianogonzalez.dev"
 ARG VITE_REVERB_PORT="443"
 ARG VITE_REVERB_SCHEME="https"
-ARG VITE_DEMO_MAIL_URL="https://mail.reservahub.lucianogonzalez.dev"
+ARG VITE_DEMO_MAIL_URL="https://reservahub-mail.lucianogonzalez.dev"
 
 ENV VITE_APP_NAME=$VITE_APP_NAME \
     VITE_REVERB_APP_KEY=$VITE_REVERB_APP_KEY \
@@ -4678,7 +4678,7 @@ VITE_REVERB_APP_KEY   (igual al REVERB_APP_KEY de producción; público por prot
 VITE_REVERB_HOST      reservahub.lucianogonzalez.dev
 VITE_REVERB_PORT      443
 VITE_REVERB_SCHEME    https
-VITE_DEMO_MAIL_URL    https://mail.reservahub.lucianogonzalez.dev
+VITE_DEMO_MAIL_URL    https://reservahub-mail.lucianogonzalez.dev
 ```
 
 Si el dominio todavía no está confirmado, dejar los defaults del Dockerfile y anotar que la primera
