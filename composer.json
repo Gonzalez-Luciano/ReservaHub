@@ -7,6 +7,7 @@
     "license": "MIT",
     "require": {
         "php": "^8.3 || ^8.4 || ^8.5",
+        "fakerphp/faker": "^1.23",
         "inertiajs/inertia-laravel": "^3.3",
         "laravel-lang/lang": "^15.34",
         "laravel/framework": "^13.8",
@@ -16,7 +17,6 @@
     },
     "require-dev": {
         "dedoc/scramble": "^0.13.40",
-        "fakerphp/faker": "^1.23",
         "laravel/pail": "^1.2.5",
         "laravel/pao": "^1.0.6",
         "laravel/pint": "^1.27",
