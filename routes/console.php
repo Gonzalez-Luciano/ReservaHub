@@ -27,3 +27,11 @@ Schedule::command('demo:restore-access')
     ->dailyAt('00:00')
     ->timezone('America/Argentina/Buenos_Aires')
     ->withoutOverlapping(10);
+
+// Reset completo semanal. El countdown del frontend
+// (DemoResetCountdown.jsx) promete exactamente este horario: si cambia uno,
+// cambian los dos.
+Schedule::command('demo:reset --force')
+    ->weeklyOn(1, '00:00')
+    ->timezone('America/Argentina/Buenos_Aires')
+    ->withoutOverlapping(30);
