@@ -3388,8 +3388,11 @@ check() {
     local label="$1" path="$2" expected="$3"
     local actual
 
-    actual=$(curl -fsS -o /dev/null -w '%{http_code}' --max-time 15 "${BASE_URL}${path}" 2>/dev/null \
-        || curl -sS -o /dev/null -w '%{http_code}' --max-time 15 "${BASE_URL}${path}" 2>/dev/null)
+    # Sin `-f`: alcanza con `-w '%{http_code}'` para comparar el código, y
+    # `-f` hacía que curl 8.18 escribiera la salida de `-w` igual antes de
+    # fallar en un 4xx — con el `|| curl` de respaldo, las dos invocaciones
+    # se concatenaban ("obtuvo 404404" en vez de "404").
+    actual=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 15 "${BASE_URL}${path}" 2>/dev/null)
 
     if [ "$actual" = "$expected" ]; then
         printf '  ok    %-28s %s\n' "$label" "$actual"
