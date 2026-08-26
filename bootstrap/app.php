@@ -39,6 +39,22 @@ return Application::configure(basePath: dirname(__DIR__))
             before: SubstituteBindings::class,
             prepend: EnsureBusinessContext::class,
         );
+
+        $trustedProxies = env('TRUSTED_PROXIES');
+
+        // Sin TRUSTED_PROXIES (desarrollo, CI, tests): no confiar en nadie,
+        // idéntico al comportamiento de hoy sin esta llamada. `*` es el caso
+        // especial de Laravel para "cualquier proxy" — correcto acá porque
+        // `app` no tiene otro llamante posible que `web` en la red interna
+        // (puerto 9000 nunca publicado). Ver config/demo.php y
+        // .env.production.example para el resto del razonamiento.
+        $middleware->trustProxies(
+            at: $trustedProxies === '*' ? '*' : array_filter(explode(',', (string) $trustedProxies)),
+            headers: Request::HEADER_X_FORWARDED_FOR
+                | Request::HEADER_X_FORWARDED_HOST
+                | Request::HEADER_X_FORWARDED_PORT
+                | Request::HEADER_X_FORWARDED_PROTO,
+        );
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
