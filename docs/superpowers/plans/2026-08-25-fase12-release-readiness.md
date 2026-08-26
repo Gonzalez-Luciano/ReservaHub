@@ -2770,8 +2770,17 @@ DEMO_ACCOUNT_PASSWORD=                    # [runtime] PÚBLICA por definición: 
 - [ ] **Step 2: Verificar que no se filtró ningún valor real**
 
 ```bash
-grep -nE '=(.+)$' .env.production.example | grep -viE '=(production|false|true|pgsql|redis|database|local|reverb|mailpit|smtp|stack|single|warning|es|en|phpredis|ReservaHub|reservahub|0\.0\.0\.0|[0-9]+|\*|"\$\{APP_NAME\}"|\.env\.production\.\w+)\s*(#.*)?$'
+grep -nE '^[A-Za-z_][A-Za-z0-9_]*=\S' .env.production.example | grep -viE '=(production|false|true|pgsql|redis|database|local|reverb|mailpit|smtp|http|stack|single|warning|es|en|phpredis|ReservaHub|reservahub|0\.0\.0\.0|[0-9]+|\*|"\$\{APP_NAME\}"|\.env\.production\.\w+)\s*(#.*)?$'
 ```
+
+`^[A-Za-z_][A-Za-z0-9_]*=\S` — a diferencia de un `=(.+)$` suelto, exige que la línea EMPIECE con un
+nombre de variable seguido de `=` y de inmediato un carácter no-blanco: eso descarta solo, en un solo
+movimiento, las líneas de comentario (que no empiezan así aunque contengan un `=` literal, como los
+banners `# ====`) y los valores intencionalmente vacíos con el comentario alineado más allá
+(`APP_KEY=                # [secret] ...` — después del `=` hay un espacio, no `\S`). Verificado contra
+la plantilla real: sin este ajuste, el `=(.+)$` original marcaba 17 líneas — todas comentarios o
+valores vacíos con formato, más `REVERB_SCHEME=http` por faltarle `http` a la lista blanca (ya
+agregado arriba) — ninguna un valor real filtrado.
 
 `\.env\.production\.\w+` cubre la propia línea `COMPOSE_ENV_FILE=.env.production.example`: es un nombre
 de archivo del propio repositorio, no un secreto.
