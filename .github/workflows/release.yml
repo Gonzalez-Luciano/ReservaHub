@@ -1,0 +1,98 @@
+name: release
+
+on:
+  push:
+    tags: ['v*']
+
+# Lo mínimo para publicar en GitHub Packages. Sin `contents: write`: este
+# workflow no crea releases ni toca el repositorio.
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  publish:
+    name: Publicar imágenes en GHCR
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Derivar la versión del tag
+        id: meta
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "owner=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Autenticarse contra GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # --- Imagen de aplicación: la misma para app, queue, scheduler y reverb ---
+      - name: Construir y publicar reservahub-app
+        id: app
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/production/app.Dockerfile
+          push: true
+          provenance: false
+          build-args: |
+            APP_VERSION=${{ steps.meta.outputs.version }}
+            VCS_REF=${{ github.sha }}
+            VITE_REVERB_APP_KEY=${{ vars.VITE_REVERB_APP_KEY }}
+            VITE_REVERB_HOST=${{ vars.VITE_REVERB_HOST }}
+            VITE_REVERB_PORT=${{ vars.VITE_REVERB_PORT }}
+            VITE_REVERB_SCHEME=${{ vars.VITE_REVERB_SCHEME }}
+            VITE_DEMO_MAIL_URL=${{ vars.VITE_DEMO_MAIL_URL }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ steps.meta.outputs.owner }}/reservahub-app:${{ steps.meta.outputs.version }}
+            ${{ env.REGISTRY }}/${{ steps.meta.outputs.owner }}/reservahub-app:sha-${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ steps.meta.outputs.owner }}/reservahub-app:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # --- Imagen web: parte de la imagen de app recién publicada, para que
+      #     las dos contengan literalmente el mismo public/build ---
+      - name: Construir y publicar reservahub-web
+        id: web
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/production/web.Dockerfile
+          push: true
+          provenance: false
+          build-args: |
+            APP_IMAGE=${{ env.REGISTRY }}/${{ steps.meta.outputs.owner }}/reservahub-app:${{ steps.meta.outputs.version }}
+            APP_VERSION=${{ steps.meta.outputs.version }}
+            VCS_REF=${{ github.sha }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ steps.meta.outputs.owner }}/reservahub-web:${{ steps.meta.outputs.version }}
+            ${{ env.REGISTRY }}/${{ steps.meta.outputs.owner }}/reservahub-web:sha-${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ steps.meta.outputs.owner }}/reservahub-web:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Los digests son lo que el operador fija en producción. `latest` es una
+      # comodidad, no una referencia de deployment.
+      - name: Publicar los digests en el resumen del run
+        run: |
+          {
+            echo "## Imágenes de ${GITHUB_REF_NAME}"
+            echo
+            echo '```text'
+            echo "reservahub-app  ${{ steps.app.outputs.digest }}"
+            echo "reservahub-web  ${{ steps.web.outputs.digest }}"
+            echo '```'
+            echo
+            echo "Fijar el digest en producción. No desplegar por \`latest\`."
+          } >> "$GITHUB_STEP_SUMMARY"
