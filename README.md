@@ -40,17 +40,16 @@ flowchart TB
 
     subgraph proyecto["Proyecto Docker de ReservaHub"]
         web["web · Nginx<br/>única superficie HTTP"]
+        reverb["reverb · reverb:start"]
         app["app · PHP-FPM + Laravel"]
         queue["queue · queue:work"]
         scheduler["scheduler · schedule:work"]
-        reverb["reverb · reverb:start"]
         pg[("pgsql · PostgreSQL 18<br/>datos, sesiones, caché")]
         redis[("redis · Redis<br/>transporte de la cola")]
         mail["mailpit · buzón público de la demo"]
     end
 
-    browser -->|HTTP| web
-    browser -->|WebSocket /app| web
+    browser -->|HTTP + WebSocket /app| web
     web -->|FastCGI| app
     web -->|proxy /app, /apps| reverb
     app --> pg
@@ -219,10 +218,10 @@ Contra el dataset sembrado por `DemoSeeder` — sin datos reales.
 |---|---|
 | ![Portada](docs/screenshots/home.webp) | ![Panel](docs/screenshots/dashboard.webp) |
 | Portada pública | Panel de staff |
-| ![Reserva pública](docs/screenshots/booking-publico-1.webp) | ![Checkout simulado](docs/screenshots/checkout.webp) |
+| ![Reserva pública](docs/screenshots/booking-publico-3.webp) | ![Checkout simulado](docs/screenshots/checkout.webp) |
 | Flujo público de reserva | Checkout simulado |
 
-Más capturas: [flujo de reserva completo](docs/screenshots/booking-publico-2.webp) ([paso final](docs/screenshots/booking-publico-3.webp)) ·
+Más capturas: [flujo de reserva paso 1](docs/screenshots/booking-publico-1.webp) ([flujo de reserva paso 2](docs/screenshots/booking-publico-2.webp)) ·
 [listado de reservas](docs/screenshots/bookings.webp) · [buzón de Mailpit](docs/screenshots/mailpit.webp) ·
 responsive: [panel](docs/screenshots/dashboard-responsive.webp) · [reservas](docs/screenshots/bookings-responsive.webp).
 
