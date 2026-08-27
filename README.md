@@ -211,6 +211,21 @@ El contrato, ya implementado, es:
 - **Contraseñas descartables:** ninguna contraseña de la demo es secreta ni protege datos reales; el
   reinicio diario y semanal es la barrera de seguridad, no el aislamiento del buzón.
 
+## Capturas
+
+Contra el dataset sembrado por `DemoSeeder` — sin datos reales.
+
+| | |
+|---|---|
+| ![Portada](docs/screenshots/home.webp) | ![Panel](docs/screenshots/dashboard.webp) |
+| Portada pública | Panel de staff |
+| ![Reserva pública](docs/screenshots/booking-publico-1.webp) | ![Checkout simulado](docs/screenshots/checkout.webp) |
+| Flujo público de reserva | Checkout simulado |
+
+Más capturas: [flujo de reserva completo](docs/screenshots/booking-publico-2.webp) ([paso final](docs/screenshots/booking-publico-3.webp)) ·
+[listado de reservas](docs/screenshots/bookings.webp) · [buzón de Mailpit](docs/screenshots/mailpit.webp) ·
+responsive: [panel](docs/screenshots/dashboard-responsive.webp) · [reservas](docs/screenshots/bookings-responsive.webp).
+
 ## Instalación de desarrollo
 
 El proyecto corre íntegramente en Docker vía Laravel Sail — no hay un camino nativo funcional,
