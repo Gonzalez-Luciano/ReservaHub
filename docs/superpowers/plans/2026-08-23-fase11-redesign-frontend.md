@@ -1,5 +1,10 @@
 # Fase 11 — Rediseño frontend y experiencia de demo · Plan de implementación
 
+> **Superado por la Fase 12 (§12.17, §12.22).** El reinicio completo pasó de diario a **semanal
+> (lunes 00:00 America/Argentina/Buenos_Aires)**. Las credenciales publicadas y el buzón de Mailpit
+> siguen restaurándose **diariamente**. El texto de abajo se conserva como registro de la decisión
+> original de la Fase 11.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Convertir las 24 páginas Inertia existentes en una demo SaaS profesional y coherente sobre el sistema visual Turno, exponiendo capacidades de backend ya implementadas sin romper ningún invariante de las Fases 9 y 10.

@@ -4,23 +4,25 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project status
 
-Fases 0–10 are implemented (auth, tenancy, services/employees, availability, bookings, notifications/scheduler, REST API + Sanctum, account/business management, payments, realtime/Reverb — see `docs/superpowers/plans/` and the status table in `01-reservahub.md` §7). Fase 11 (frontend redesign) and Fase 12 (release readiness + handoff) are not started. `01-reservahub.md` is still the authoritative spec for anything not yet implemented.
+Fases 0–11 are implemented (auth, tenancy, services/employees, availability, bookings, notifications/scheduler, REST API + Sanctum, account/business management, payments, realtime/Reverb, and the Fase 11 frontend redesign — see `docs/superpowers/plans/` and the status table in `01-reservahub.md` §7). Fase 12 (release readiness + handoff) is in progress: the portable production runtime, CI, the GHCR release workflow and the demo commands described below already exist; publishing the repository and cutting the `v1.0.0` release remain. `01-reservahub.md` is still the authoritative spec for anything not yet implemented.
 
-The frontend is deliberately minimal for now (17 Inertia pages, 4 shared components, Tailwind 4 with no component library, a placeholder dashboard). **Fase 11 owns the redesign** and must start from `superpowers:brainstorming` plus the installed frontend-design skill — not from UI code.
+The frontend went through its Fase 11 redesign (own design system, no component library) — see the status table in `01-reservahub.md` §7 and `docs/superpowers/plans/2026-08-23-fase11-redesign-frontend.md` for what shipped.
 
 Standard Laravel commands apply: `php artisan test` (or a specific test with `php artisan test --filter=TestName`), `vendor/bin/pint --test` for formatting. For the frontend, see **Package manager** below before running any JS command.
 
 ## Responsibility boundary: this repo does not operate the production server
 
-**Do not perform Linux host, Cloudflare, or production deployment work from this repository**, and do not add roadmap tasks that assign it here. Production runs on a multiproject home server (`/srv/apps`, `/srv/backups`, shared Docker Engine and `cloudflared`) operated by a separate, dedicated home-server operations workflow that runs on the real Linux machine and discovers the host state itself.
+**Do not perform Linux host, Cloudflare, or production deployment work from this repository**, and do not add roadmap tasks that assign it here. Production is intended to run as one isolated Docker project on a **multiproject Linux VPS** (initially planned on OVHcloud), operated by a separate operations workflow that runs on the real machine and discovers the host state itself.
 
-Out of scope here: host provisioning, `/srv` layout, host port registry and loopback binding, `cloudflared` / tunnel / DNS / Cloudflare Access, host firewall, production `.env` and secrets, the host-specific production Compose file, running real migrations on the server, backups/restore/reboot, systemd units, deployment transport, and production rollback.
+Out of scope here: host provisioning, the host's filesystem layout, host port registry and binding decisions, tunnel / DNS / Cloudflare configuration, host firewall, production `.env` values and real secrets, running real migrations on the server, backups/restore/reboot, systemd units, deployment transport, and executing the real deployment or rollback.
 
-In scope here: the application, its development Docker boundaries, tests, CI that validates the repo on GitHub (never reaching into the private server), builds, the environment contract, migrations, safe demo/bootstrap data, health checks, and the deployment handoff in `docs/DEPLOYMENT_HANDOFF.md` — the document the external operations workflow consumes. Keep that file in sync when runtime requirements change (new service, new env var, new persistent path, new exposure rule). Do not create speculative production artifacts (`compose.prod.yaml`, systemd units, tunnel config, backup cron, guessed production ports).
+In scope here: the application, its development Docker boundaries, tests, CI that validates the repo on GitHub (never reaching into the server), builds, the environment contract, migrations, safe demo/bootstrap data, health checks, **the portable production runtime** (`docker/production/`, `compose.production.yaml`, the GHCR release workflow) and the deployment handoff in `docs/DEPLOYMENT_HANDOFF.md` — the document the external operations workflow consumes. Keep that file in sync when runtime requirements change (new service, new env var, new persistent path, new exposure rule).
+
+The production artifacts this repo owns are **host-agnostic by construction**: no `/srv` paths, no public hostname, no guessed public ports, no Cloudflare, no systemd units, no backup cron. Anything host-specific belongs to the operations workflow, which may add a small local override.
 
 ## Development environment: Docker (Laravel Sail)
 
-The project runs under Docker via Laravel Sail — `compose.yaml` at the repo root defines `laravel.test` (app), `pgsql`, `redis`, `mailpit`, `queue` (`php artisan queue:work`), `scheduler` (`php artisan schedule:work`), and `reverb` (`php artisan reverb:start`). There is no working native (non-Docker) path: `.env`'s `DB_HOST`/`REDIS_HOST`/`MAIL_HOST` point at Docker service names (`pgsql`, `redis`, `mailpit`), which only resolve inside the `laravel.test` container's network. Always develop and test against the containers, not `php artisan serve` on the host.
+The project runs under Docker via Laravel Sail — `compose.yaml` at the repo root defines `laravel.test` (app), `pgsql`, `redis`, `mailpit`, `queue` (`php artisan queue:work`), `scheduler` (`php artisan schedule:work`), and `reverb` (`php artisan reverb:start`). There is no working native (non-Docker) path: `.env`'s `DB_HOST`/`REDIS_HOST`/`MAIL_HOST` point at Docker service names (`pgsql`, `redis`, `mailpit`), which only resolve inside the `laravel.test` container's network. Always develop and test against the containers, never `php artisan serve` on the host — Sail (this whole section) is development only; see **Production runtime** below for what actually runs in production.
 
 Queued jobs run on Redis (`QUEUE_CONNECTION=redis`), not the `database` driver — the `queue` container is the only consumer. Outgoing mail (booking notifications, reminders, employee invitations) is caught by Mailpit rather than actually sent; inspect it at the dashboard port from **Testing a feature branch or worktree** below (`http://localhost:8025` on the main checkout). `queue:work` boots once and keeps application code in memory, so after editing a listener or a notification class, restart the worker to pick up the change:
 
@@ -85,6 +87,34 @@ The first `php artisan test` after `up -d` takes roughly ten times longer than t
 **Running the frontend build in a container:** if the JS dev server (`pnpm dev`) was ever run natively on the host against this same working directory, it writes `public/hot`, which makes Laravel's `@vite` directive emit script tags pointing at that (now-dead) native Vite server instead of the built assets — resulting in a blank page with a console `@vitejs/plugin-react can't detect preamble` error. Delete `public/hot` (`rm -f public/hot`) and run `pnpm build` if you hit this.
 
 **Tearing down a worktree's stack:** `docker compose down -v` (from that worktree's directory) before or when the worktree itself is removed. The `superpowers:finishing-a-development-branch` skill's cleanup step only runs `git worktree remove` — it has no knowledge of Docker, so a Sail stack brought up for manual testing in a worktree is never torn down automatically and will keep running (and holding its forwarded ports) after the branch is merged unless done by hand.
+
+## Production runtime: Nginx + PHP-FPM, never Sail
+
+`compose.yaml` (Sail) is **development only** and is not used in production. The production runtime lives in `docker/production/` and `compose.production.yaml`:
+
+- `docker/production/app.Dockerfile` — multi-stage image (`composer` → `node/pnpm` → `php:8.5-fpm-alpine`). The **same** image runs `app`, `queue`, `scheduler` and `reverb`; only the container command differs. It contains no Node, no `node_modules`, no dev dependencies and no `.env`.
+- `docker/production/web.Dockerfile` — Nginx, the project's only HTTP surface. It serves `public/`, sends PHP to PHP-FPM, and proxies `/app` (WebSocket) and `/apps` (Pusher publish API) to Reverb. `/broadcasting/auth` is **not** proxied: it's a session-authenticated Laravel request.
+- `php artisan serve` is never used in production, and there is no Node process in production — `public/build` is baked into the image.
+
+Because `public/build` ships inside the image, every `VITE_*` value is **compiled in at build time**. Changing the public hostname, the Reverb client settings or the Mailpit URL requires a new image and a new release, not an `.env` change.
+
+Verify the production stack locally with `compose.production.yaml` and a `.env` derived from `.env.production.example` — never with Sail.
+
+## Demo reset contract (weekly data, daily credentials)
+
+```text
+SEMANAL   lunes 00:00 America/Argentina/Buenos_Aires  → demo:reset
+DIARIO    00:00       America/Argentina/Buenos_Aires  → demo:restore-access
+DIARIO    00:00       America/Argentina/Buenos_Aires  → limpiar Mailpit (operaciones)
+```
+
+The full functional dataset now lives for a **week** so bookings can age, get rescheduled, cancelled and paid; only the published credentials and the shared mailbox are restored daily.
+
+- `php artisan demo:reset` is destructive (`migrate:fresh` + `DemoSeeder`). Three independent guards in `App\Support\DemoEnvironment`: `DEMO_PUBLIC_MODE=true`, `DEMO_TARGET_DATABASE` matching the connected database, and the database actually containing a canonical demo slug. `--force` is required non-interactively. It never runs `DatabaseSeeder` (which would create `test@example.com`) and it never touches Mailpit.
+- It clears the **Redis** queue before and after wiping, because `QUEUE_CONNECTION=redis`: `migrate:fresh` only empties the unused `jobs` table, so without this, queued jobs would fire against deleted IDs.
+- Its mutex is a PostgreSQL **session** advisory lock, not `Cache::lock()` — the cache lock table is dropped mid-reset.
+- `php artisan demo:restore-access` restores only access (password, canonical email, `is_active`, sessions, Sanctum tokens, password-reset tokens) via `UserAccessRevoker`. It never touches bookings, payments, services or schedules.
+- `resources/js/Components/domain/DemoResetCountdown.jsx` counts down to the **next Monday 00:00** in that timezone and is hardcoded there, not configurable by env. If the real schedule changes, that file changes too.
 
 ## Package manager: pnpm, not npm
 
