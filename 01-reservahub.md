@@ -387,7 +387,7 @@ contexto obligatorio y anidar reutiliza la resolución de scope de reservas.
 
 | Fase | Estado | Evidencia |
 |---|---|---|
-| 0 — Preparación | Hecha, salvo el pipeline de CI | Proyecto Laravel 13 + Sail, `.env.example`, Pint, pnpm. **Falta `.github/workflows`** → se cierra en la Fase 12 |
+| 0 — Preparación | Hecha | Proyecto Laravel 13 + Sail, `.env.example`, Pint, pnpm, `.github/workflows/ci.yml` (cerrado en la Fase 12) |
 | 1 — Autenticación | Hecha | `tests/Feature/Auth/*` |
 | 2 — Empresas y tenancy | Hecha | `tests/Feature/Tenancy/*`, `tests/Feature/Policies/*`, `EnsureBusinessContext` |
 | 3 — Servicios y empleados | Hecha | `tests/Feature/Dashboard/*`, `DemoSeeder` |
@@ -400,7 +400,7 @@ contexto obligatorio y anidar reutiliza la resolución de scope de reservas.
 | 10 — Tiempo real | Hecha | `laravel/reverb`, `app/Events/Broadcasting/BookingChanged.php`, `app/Listeners/BroadcastBookingChange.php`, `routes/channels.php`, servicio `reverb` en `compose.yaml`, `tests/Feature/Realtime/*` |
 | 10.5 — Listado público de negocios | Hecha | `Public\BusinessController::index()` + `GET /negocios`, `Api\BusinessController::index()` + `GET /api/businesses`, `Pages/Public/Business/Index.jsx`, link desde `Home.jsx`, `tests/Feature/Public/BusinessIndexTest`, `tests/Feature/Api/BusinessesIndexTest`, `DemoSeeder` con dos negocios |
 | 11 — Rediseño y experiencia frontend | Hecha | Rediseño completo de landing/pública/dashboard, sistema de diseño propio, `DemoSeeder` expandido a clientes y reservas (23 reservas, cuatro estados estables, tres pagos de seña aprobados — cerrado por esta fase, ya no queda pendiente de la Fase 12), buzón público de Mailpit documentado y enlazado (`VITE_DEMO_MAIL_URL`), aviso de demo y guía de uso, `docs/DEPLOYMENT_HANDOFF.md` actualizado al modelo de demo pública |
-| 12 — Release readiness y handoff | En curso | `docs/DEPLOYMENT_HANDOFF.md` escrito y actualizado. Pendientes: workflow de CI, README propio, proxies de confianza para operar detrás de un proxy/tunnel, candidato `php artisan demo:reset` |
+| 12 — Release readiness y handoff | En curso | `docs/DEPLOYMENT_HANDOFF.md` reescrito para el modelo VPS multiproyecto, `docs/RELEASE.md`, `README.md` propio, `.github/workflows/{ci,release}.yml`, `docker/production/{app,web}.Dockerfile`, `compose.production.yaml`, `php artisan demo:reset` y `demo:restore-access` con las guardas de `DemoEnvironment`, `trustProxies` configurado. Pendientes: publicación del repositorio en GitHub (Tarea 21) y el release `v1.0.0` (Tarea 22) |
 
 ### Fase 0 — Preparación
 
@@ -551,6 +551,11 @@ negocio, y cualquier diseño visual — eso es Fase 11.
 El frontend dejó de ser aceptable como "la interfaz mínima para ejercitar los CRUD". Esta fase no define todavía el diseño final: define el alcance y las preguntas que el brainstorming posterior tiene que resolver.
 
 **Estado: Hecha** (ver la tabla de estado más arriba). Lo que sigue quedó como registro del alcance y las preguntas que guiaron el brainstorming y la planificación —no como especificación visual final—; el diseño aprobado, el plan de ejecución y el resultado real viven en `docs/superpowers/plans/2026-08-23-fase11-redesign-frontend.md`, `docs/superpowers/specs/2026-08-23-fase11-redesign-frontend-design.md` y en el propio frontend (`resources/js/`). El **Punto de partida real** de la subsección siguiente describe el frontend **antes** de esta fase, a propósito: es la línea de base contra la que se auditó, no el estado actual del repositorio.
+
+> **Superado por la Fase 12 (§12.17, §12.22).** El reinicio completo pasó de diario a **semanal
+> (lunes 00:00 America/Argentina/Buenos_Aires)**. Las credenciales publicadas y el buzón de Mailpit
+> siguen restaurándose **diariamente**. El texto de abajo se conserva como registro de la decisión
+> original de la Fase 11.
 
 #### Punto de partida real (verificado en el repositorio)
 
@@ -756,12 +761,12 @@ La ubicación física, estructura `/srv`, volúmenes, firewall, SSH y configurac
 ```text
 lucianogonzalez.dev
 reservahub.lucianogonzalez.dev
-mail.reservahub.lucianogonzalez.dev
+reservahub-mail.lucianogonzalez.dev
 ```
 
 - `lucianogonzalez.dev`: portfolio futuro.
 - `reservahub.lucianogonzalez.dev`: ReservaHub.
-- `mail.reservahub.lucianogonzalez.dev`: Mailpit público de la demo.
+- `reservahub-mail.lucianogonzalez.dev`: Mailpit público de la demo.
 
 El dominio se administrará mediante Cloudflare.
 
@@ -1796,7 +1801,7 @@ Mailpit sigue formando parte intencional de la demo.
 URL prevista:
 
 ```text
-mail.reservahub.lucianogonzalez.dev
+reservahub-mail.lucianogonzalez.dev
 ```
 
 La aplicación ReservaHub no debe depender de que la interfaz de Mailpit esté disponible.

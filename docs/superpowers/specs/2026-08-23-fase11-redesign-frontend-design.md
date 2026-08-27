@@ -1,5 +1,10 @@
 # Fase 11 — Rediseño frontend y experiencia de demo
 
+> **Superado por la Fase 12 (§12.17, §12.22).** El reinicio completo pasó de diario a **semanal
+> (lunes 00:00 America/Argentina/Buenos_Aires)**. Las credenciales publicadas y el buzón de Mailpit
+> siguen restaurándose **diariamente**. El texto de abajo se conserva como registro de la decisión
+> original de la Fase 11.
+
 Fecha: 2026-08-23
 Rama: `feat/phase-11-frontend-redesign`
 Estado: diseño aprobado, pendiente de plan de implementación
@@ -605,7 +610,7 @@ cargan datos reales, contraseñas descartables, reinicio diario.
 
 ```
 reservahub.lucianogonzalez.dev        →  ReservaHub
-mail.reservahub.lucianogonzalez.dev   →  buzón de la demo
+reservahub-mail.lucianogonzalez.dev   →  buzón de la demo
 ```
 
 Hostname separado en lugar de una ruta bajo la aplicación: mantiene separados el

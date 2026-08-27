@@ -32,7 +32,11 @@ const MAIL_STEPS = [
     'Abrilo y, si tiene un enlace, seguilo desde ahí.',
 ];
 
-const RESET_ITEMS = ['los datos vuelven al estado inicial', 'se vacía el buzón de correo', 'se pierde lo que hayas creado'];
+const RESET_ITEMS = [
+    'los datos vuelven al estado inicial',
+    'se pierde lo que hayas creado durante la semana',
+    'las reservas, los pagos y el historial arrancan de cero',
+];
 
 const FICTICIOUS_DATA_POINTS = [
     <>
@@ -86,7 +90,7 @@ function JourneyCard({ label, title, note, steps }) {
     );
 }
 
-export default function ComoFunciona() {
+export default function ComoFunciona({ demoPassword }) {
     return (
         <PublicLayout>
             <div className="mx-auto max-w-[1440px] px-6 pb-4 pt-14 lg:px-10 lg:pt-19">
@@ -123,10 +127,14 @@ export default function ComoFunciona() {
                         <div className="micro">Próximo reinicio</div>
                         <DemoResetCountdown className="mt-2.5 text-[40px] font-semibold leading-[44px] tracking-[-0.04em]" />
                         <p className="mt-2.5 text-[14px] leading-[22px] text-muted">
-                            Todos los días a las{' '}
+                            Todos los lunes a las{' '}
                             <span className="tnum font-medium text-fg">00:00</span>, hora de Argentina (
                             <span className="tnum">America/Argentina/Buenos_Aires</span>), sin importar desde dónde
                             entres.
+                        </p>
+                        <p className="mt-2.5 text-[14px] leading-[22px] text-muted">
+                            Los datos completos se restauran semanalmente. Las credenciales de la cuenta de
+                            demostración y el buzón compartido se restauran todos los días a las 00:00.
                         </p>
                         <div className="mt-4.5 border-t border-border pt-4">
                             <div className="text-[13px] leading-[21px] text-fg-body">En cada reinicio:</div>
@@ -181,7 +189,7 @@ export default function ComoFunciona() {
                                     <div className="mt-1.5 flex flex-wrap items-baseline gap-2.5">
                                         <span className="tnum text-[14px] font-medium">owner@reservahub.test</span>
                                         <span className="text-[13px] text-muted">·</span>
-                                        <span className="tnum text-[14px] font-medium">password</span>
+                                        <span className="tnum text-[14px] font-medium">{demoPassword}</span>
                                     </div>
                                     <div className="mt-1 text-[12px] leading-[18px] text-muted">
                                         Cuenta ficticia, creada por el seeder. No es de nadie.
@@ -199,7 +207,7 @@ export default function ComoFunciona() {
                                     <div className="micro">Necesitás una cuenta</div>
                                     <div className="mt-1.5 text-[13px] leading-5 text-fg-body">
                                         Creála con datos inventados y una contraseña descartable. Se borra en el
-                                        próximo reinicio.
+                                        próximo reinicio semanal.
                                     </div>
                                 </div>
                             }

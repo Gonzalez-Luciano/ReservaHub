@@ -4,7 +4,7 @@ import PageHeader from '../../../Components/ui/PageHeader';
 import Button from '../../../Components/ui/Button';
 import TableShell from '../../../Components/ui/TableShell';
 import StatusBadge from '../../../Components/ui/StatusBadge';
-import { CheckCircleIcon, SlashCircleIcon } from '../../../Components/ui/icons';
+import { CheckCircleIcon, SlashCircleIcon, PlusIcon } from '../../../Components/ui/icons';
 
 const MANAGER_ROLES = ['owner', 'admin'];
 
@@ -39,6 +39,7 @@ export default function Index({ services }) {
                     actions={isManager && (
                         <Link href="/dashboard/services/create">
                             <Button variant="primary" size="sm">
+                                <PlusIcon size={14} />
                                 Nuevo servicio
                             </Button>
                         </Link>

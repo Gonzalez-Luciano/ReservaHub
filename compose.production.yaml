@@ -1,0 +1,197 @@
+# ReservaHub — topología productiva portable.
+#
+# NO es específico de ningún host: no decide hostname público, TLS, tunnel,
+# firewall ni rutas del sistema de archivos. El operador puede agregar un
+# override chico (compose.override.yaml) para adaptar lo que su máquina
+# necesite.
+#
+# Las cuatro instancias de aplicación (app, queue, scheduler, reverb) corren
+# LA MISMA imagen y solo cambian de comando.
+#
+# `reservahub-production`, no `reservahub`: `docker compose` deriva el nombre
+# de proyecto por defecto del basename del directorio, y este repo se llama
+# `reservahub`. Un checkout de desarrollo (Sail) corrido desde ese mismo
+# directorio ya usa el project name `reservahub` con contenedores
+# `reservahub-pgsql-1` / `reservahub-redis-1` / `reservahub-mailpit-1`. Sin
+# este nombre explícito y distinto, levantar esta verificación productiva en
+# la misma máquina RECREA (destruye) esos contenedores del stack de
+# desarrollo — nombre de contenedor colisiona aunque los puertos no. Verificado
+# en carne propia durante la Tarea 12: los tres contenedores de desarrollo
+# fueron reemplazados por los productivos hasta corregir esto.
+name: reservahub-production
+
+x-app: &app
+  image: ${APP_IMAGE:-ghcr.io/gonzalez-luciano/reservahub-app:latest}
+  # Variable, no un nombre fijo: --env-file en la CLI interpola ${...} en este
+  # YAML pero NO reescribe un `env_file: .env` literal — son dos mecanismos
+  # independientes. Con la variable, el mismo --env-file que interpola el resto
+  # del archivo también decide qué carga el contenedor, siempre que ese propio
+  # archivo declare COMPOSE_ENV_FILE=<su nombre> (ver .env.production.example).
+  env_file: ${COMPOSE_ENV_FILE:-.env}
+  restart: unless-stopped
+  networks: [reservahub]
+  depends_on:
+    pgsql:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+
+services:
+
+  # --- Única superficie HTTP del proyecto ---
+  web:
+    image: ${WEB_IMAGE:-ghcr.io/gonzalez-luciano/reservahub-web:latest}
+    restart: unless-stopped
+    networks: [reservahub]
+    # Loopback por defecto: la exposición pública la decide operaciones, no
+    # este archivo. Cambiar con WEB_BIND=0.0.0.0 o con un override.
+    ports:
+      - '${WEB_BIND:-127.0.0.1}:${WEB_PORT:-8080}:8080'
+    depends_on:
+      app:
+        condition: service_started
+      reverb:
+        condition: service_started
+    healthcheck:
+      # Atraviesa la cadena completa Nginx → PHP-FPM → Laravel: es el health
+      # real de la aplicación, no un ping a Nginx.
+      # 127.0.0.1, no localhost: nginx solo escucha en 0.0.0.0:8080 (IPv4);
+      # `/etc/hosts` resuelve `localhost` a `::1` primero, así que `wget` con
+      # el hostname falla con "Connection refused" por IPv6 aunque el
+      # servicio esté perfectamente sano en IPv4. Verificado en carne propia
+      # en la Tarea 12: el contenedor quedaba "unhealthy" para siempre pese a
+      # que cada curl externo devolvía 200.
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:8080/up']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  # --- PHP-FPM ---
+  app:
+    <<: *app
+    healthcheck:
+      # El puerto FastCGI acepta conexión. El health de verdad de la cadena
+      # completa lo hace `web` contra /up; este solo evita que `web` quede
+      # esperando a un backend muerto.
+      test: ['CMD', 'php', '-r', 'exit((int) ! @fsockopen("127.0.0.1", 9000));']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+
+  # --- Cola ---
+  # --tries=3 y --max-time=3600: el worker se recicla cada hora, lo que acota
+  # cualquier fuga de memoria de un proceso de larga vida. Mantiene el código
+  # en memoria, así que cada deploy necesita reiniciar este contenedor.
+  #
+  # SIN healthcheck a propósito. `queue:monitor` comprueba que Redis responde y
+  # cuántos jobs hay en cola, NO que este worker siga vivo: pasaría en verde con
+  # el proceso muerto. §12.10 prohíbe healthchecks ficticios, así que es
+  # preferible no declarar ninguno y dejar que `restart: unless-stopped` cubra
+  # la caída del proceso. Un liveness real exigiría un supervisor dentro del
+  # contenedor, que es complejidad que esta demo no justifica.
+  queue:
+    <<: *app
+    command: ['php', 'artisan', 'queue:work', '--tries=3', '--max-time=3600']
+
+  # --- Scheduler ---
+  # La aplicación sigue siendo dueña de `schedule:list`; el host solo mantiene
+  # vivo este proceso.
+  scheduler:
+    <<: *app
+    command: ['php', 'artisan', 'schedule:work']
+
+  # --- Tiempo real ---
+  reverb:
+    <<: *app
+    command: ['php', 'artisan', 'reverb:start', '--host=0.0.0.0', '--port=8080']
+    healthcheck:
+      # Verificado con curl contra el contenedor real: Reverb responde 200 en
+      # /up y 404 en / y en /health.
+      test: ['CMD', 'php', '-r', 'exit((int)(@file_get_contents("http://127.0.0.1:8080/up") === false));']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  # --- Datos: el único estado que no se puede perder ---
+  pgsql:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    networks: [reservahub]
+    environment:
+      POSTGRES_DB: ${DB_DATABASE}
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      # postgres:18-alpine trae su propio PGDATA por defecto
+      # (/var/lib/postgresql/18/docker), NO /var/lib/postgresql/data. Sin este
+      # override, el volumen de abajo queda montado en un directorio que
+      # Postgres nunca usa: el proceso real escribe en la capa efímera del
+      # contenedor, initdb corre sobre datos ya horneados en la imagen (que no
+      # conocen a POSTGRES_USER/POSTGRES_PASSWORD) y la autenticación falla
+      # con "role ... does not exist" pese a que las credenciales declaradas
+      # coinciden. Verificado en carne propia en la Tarea 12. Subdirectorio
+      # `pgdata`, no la raíz del volumen: recomendación oficial de la imagen
+      # para evitar que un `lost+found` de algunos backends de volumen se
+      # confunda con "el directorio no está vacío".
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - pgsql-data:/var/lib/postgresql/data
+    # Sin `ports`: solo red interna (§12.9).
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -q -d ${DB_DATABASE} -U ${DB_USERNAME}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # --- Transporte de la cola ---
+  redis:
+    image: redis:alpine
+    restart: unless-stopped
+    networks: [reservahub]
+    # appendonly: un reinicio normal del contenedor no debería tirar los jobs
+    # encolados (emails sin enviar). No es dato crítico y no entra a backup,
+    # pero perderlo en cada restart sería gratuito y evitable.
+    command: ['redis-server', '--appendonly', 'yes']
+    volumes:
+      - redis-data:/data
+    # Sin `ports`: solo red interna (§12.9).
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # --- Buzón público de la demo ---
+  # Expuesto a propósito: es superficie de producto, no tooling olvidado.
+  # El operador decide su hostname; acá solo se publica en loopback.
+  mailpit:
+    image: axllent/mailpit:latest
+    restart: unless-stopped
+    networks: [reservahub]
+    ports:
+      - '${MAILPIT_BIND:-127.0.0.1}:${MAILPIT_PORT:-8025}:8025'
+    environment:
+      MP_MAX_MESSAGES: ${MAILPIT_MAX_MESSAGES:-2000}
+      MP_DATABASE: /data/mailpit.db
+    volumes:
+      - mailpit-data:/data
+    healthcheck:
+      # Endpoint verificado: /readyz responde 200 en la versión instalada.
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:8025/readyz']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+networks:
+  reservahub:
+    driver: bridge
+
+volumes:
+  pgsql-data:
+  redis-data:
+  mailpit-data:

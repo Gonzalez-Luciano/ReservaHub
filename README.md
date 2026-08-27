@@ -1,58 +1,273 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# ReservaHub
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+SaaS de reservas por turnos, multi-tenant, en español, para negocios que trabajan con franjas
+horarias.
 
-## About Laravel
+[![CI](https://github.com/Gonzalez-Luciano/reservahub/actions/workflows/ci.yml/badge.svg)](https://github.com/Gonzalez-Luciano/reservahub/actions/workflows/ci.yml)
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## El problema
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+Peluquerías, gimnasios, talleres, profesores particulares, estudios: cualquier negocio que vende
+tiempo en franjas horarias necesita una regla simple y difícil de romper — que dos personas no
+puedan reservar el mismo turno con el mismo empleado. ReservaHub resuelve eso de punta a punta:
+disponibilidad calculada a partir del horario real del empleado, prevención de solapamientos,
+confirmación por seña, recordatorios automáticos y un panel en tiempo real para el negocio.
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+## Aviso de estado
 
-## Learning Laravel
+Proyecto de aprendizaje y portfolio. Los pagos son **simulados** — no hay ningún cobro real, ninguna
+pasarela real y ninguna tarjeta involucrada. El objetivo es mostrar una implementación completa de
+Laravel (dominio, API, colas, tiempo real, Docker, CI) de punta a punta, no operar un negocio real.
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+## Stack
 
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+- **Backend:** Laravel 13 · PHP 8.5
+- **Frontend:** Inertia 3 · React 19 · Vite 8 · Tailwind 4 — sin librería de componentes, sistema de
+  diseño propio
+- **Datos:** PostgreSQL 18 · Redis (transporte de cola)
+- **Tiempo real:** Laravel Reverb
+- **Infraestructura:** Docker (Sail en desarrollo, Nginx + PHP-FPM en producción)
+- **Tests:** PHPUnit
 
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
+## Arquitectura
 
-## Agentic Development
+Un solo runtime de aplicación (Laravel + Inertia + React compilado a `public/build`, sin Node en
+producción), acompañado de procesos de cola, scheduler y tiempo real que corren la misma imagen:
 
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+```mermaid
+flowchart TB
+    browser["Navegador · React + Inertia"]
 
-```bash
-composer require laravel/boost --dev
+    subgraph proyecto["Proyecto Docker de ReservaHub"]
+        web["web · Nginx<br/>única superficie HTTP"]
+        reverb["reverb · reverb:start"]
+        app["app · PHP-FPM + Laravel"]
+        queue["queue · queue:work"]
+        scheduler["scheduler · schedule:work"]
+        pg[("pgsql · PostgreSQL 18<br/>datos, sesiones, caché")]
+        redis[("redis · Redis<br/>transporte de la cola")]
+        mail["mailpit · buzón público de la demo"]
+    end
 
-php artisan boost:install
+    browser -->|HTTP + WebSocket /app| web
+    web -->|FastCGI| app
+    web -->|proxy /app, /apps| reverb
+    app --> pg
+    app --> redis
+    queue --> pg
+    queue --> redis
+    queue -->|SMTP| mail
+    queue -->|publica eventos| reverb
+    scheduler --> pg
+    reverb --> pg
+
+    note["app, queue, scheduler y reverb<br/>corren LA MISMA imagen"]
+    note -.-> app
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+Dentro de `app`, cada request atraviesa la misma cadena de capas:
 
-## Contributing
+```mermaid
+flowchart LR
+    C["Controller<br/>coordina request/response"] --> FR["Form Request<br/>valida"]
+    FR --> P["Policy<br/>autoriza, incl. cross-business"]
+    P --> A["Action<br/>ejecuta el caso de uso<br/>en una transacción"]
+    A --> S["Service<br/>disponibilidad, pagos"]
+    A --> M["Model<br/>relaciones, casts, scopes"]
+    A --> E["Event"] --> L["Listener"] --> N["Notification / Broadcast"]
+```
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+## Roles
 
-## Code of Conduct
+Cuatro roles fijos en una columna `role` de `users`: `owner`, `admin`, `employee`, `customer`. Sin
+sistema de permisos granular por ahora — es una decisión deliberada para no sobre-diseñar antes de
+necesitarlo.
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+## Multi-tenancy
 
-## Security Vulnerabilities
+Toda tabla propiedad de un negocio lleva `business_id`. Un global scope (`BusinessScope`) filtra
+automáticamente por el negocio del usuario autenticado; el middleware `EnsureBusinessContext`
+resuelve y fija ese negocio en el request; las Policies son la última barrera contra el acceso
+cruzado (`employee` de un negocio no puede leer ni modificar datos de otro). El aislamiento entre
+negocios es un objetivo de test explícito en toda la suite, no un efecto colateral.
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+## Servicios
 
-## License
+Cada servicio define su propia duración, precio, `buffer_minutes` (colchón después del turno) y una
+seña opcional (`deposit_amount`). La duración de una reserva **siempre** sale del servicio — nunca
+la envía el cliente.
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+## Disponibilidad
+
+`App\Services\AvailabilityService` es el motor central: dado un negocio, un servicio, un empleado y
+una fecha, combina el horario semanal del empleado, resta pausas (`schedule_breaks`), licencias
+(`time_offs`), feriados del negocio y reservas existentes, todo evaluado en la zona horaria del
+negocio, y devuelve los huecos libres. Es un servicio de dominio puro, con tests unitarios
+independientes de HTTP.
+
+## Prevención de solapamientos
+
+Un mismo empleado no puede tener dos reservas que se superpongan. La disponibilidad se calcula
+contra las reservas reales del empleado, no contra un calendario aparte.
+
+## Concurrencia
+
+Calcular disponibilidad en la capa de validación no alcanza: dos requests simultáneos podrían leer
+el mismo hueco libre y crear dos reservas para el mismo empleado. Por eso la disponibilidad se
+**re-valida dentro de la transacción** que crea la reserva, protegida por
+`pg_advisory_xact_lock` por empleado (`App\Actions\Bookings\CreateBooking`, línea 53) — un segundo
+request para el mismo empleado espera al primero antes de leer el estado. Hay un test de
+concurrencia dedicado que dispara creaciones simultáneas contra el mismo slot.
+
+## Reservas
+
+Una reserva pasa por los estados `pending`, `confirmed`, `cancelled`, `completed` y `no_show`. Cada
+transición queda registrada en `booking_status_histories`. Los clientes no pueden cancelar pasado el
+límite configurado por el negocio (`cancellation_hours`).
+
+## Pagos simulados
+
+Un único proveedor de pagos, **simulado**, detrás del contrato `PaymentGateway`
+(`App\Services\Payments\Simulated\SimulatedPaymentGateway`). El estado del proveedor vive en su
+propia tabla, `simulated_provider_payments`, separada de `payments`: la reconciliación
+(`payments:reconcile`) compara dos almacenes de verdad independientes, tal como lo haría contra un
+proveedor real.
+
+## Webhooks idempotentes
+
+Un webhook repetido nunca duplica un pago ni confirma una reserva dos veces. La identidad del evento
+es `unique (provider, external_event_id)`; el procesamiento reclama la fila con `for update`, y el
+efecto (aplicar el resultado del pago) junto con la marca de "procesado" ocurren en la misma
+transacción. `App\Actions\Payments\ApplyPaymentResult` es el único camino que aplica un resultado de
+pago, y `ConfirmBooking` el único que confirma una reserva — tanto el endpoint HTTP del webhook como
+`payments:reconcile` convergen ahí.
+
+## Cola
+
+Los jobs corren sobre Redis (`QUEUE_CONNECTION=redis`), consumidos por:
+
+```bash
+php artisan queue:work --tries=3 --max-time=3600
+```
+
+## Scheduler
+
+Un proceso `schedule:work` dispara, entre otros:
+
+- `bookings:send-reminders` — recordatorios de 24h/2h, sin duplicados.
+- `bookings:expire-unpaid` — cancela reservas cuya ventana de pago venció.
+- `payments:reconcile` — compara el estado local contra el del proveedor simulado.
+- `demo:restore-access` — restaura credenciales de demo, todos los días.
+- `demo:reset` — reinicia el dataset completo de demo, todos los lunes.
+
+## Tiempo real
+
+Laravel Reverb entrega actualizaciones en vivo por un canal privado por negocio
+(`private-business.{businessId}`). `App\Events\Broadcasting\BookingChanged` es el **único** evento
+de broadcast — no hay eventos de WebSocket para pagos; un pago aprobado llega a la pantalla como
+cualquier confirmación de reserva. El payload es una pista (`{booking_id, change, updated_at}`), no
+datos: el cliente recarga el estado canónico con `router.reload()`, así que las Policies siguen
+siendo la autoridad.
+
+## Docker
+
+- **Desarrollo:** `compose.yaml`, basado en Laravel Sail (`laravel.test`, `pgsql`, `redis`,
+  `mailpit`, `queue`, `scheduler`, `reverb`).
+- **Producción:** `compose.production.yaml` + `docker/production/` — Nginx como única superficie
+  HTTP, PHP-FPM aparte, sin ningún proceso Node en runtime (los assets se compilan en build time).
+
+## CI
+
+El workflow `ci` corre tests y formato en cada push y pull request. Ver el badge arriba o
+`.github/workflows/ci.yml`.
+
+## API
+
+REST bajo `/api`, sin versión, autenticada con tokens personales de Sanctum. Toda respuesta sigue el
+mismo envelope:
+
+```json
+{ "success": true, "data": {}, "message": "", "errors": null }
+```
+
+Documentación completa, con ejemplos de cada endpoint, en [`docs/api.md`](docs/api.md).
+
+## Demo pública
+
+El repositorio está preparado para operar como una demo pública descartable, aunque **todavía no
+hay ningún despliegue real** — la URL se agrega en un commit posterior, cuando el deployment exista.
+El contrato, ya implementado, es:
+
+- **Dataset semanal:** el domingo a la noche / lunes 00:00 (`America/Argentina/Buenos_Aires`) se
+  reinicia toda la base de datos al estado sembrado por `DemoSeeder` (`demo:reset`).
+- **Credenciales diarias:** todos los días a las 00:00 se restauran las contraseñas de las cuentas
+  de demo (`demo:restore-access`), para que una sesión de un visitante anterior no deje contraseñas
+  cambiadas de un día para el otro.
+- **Mailpit público, a propósito:** el buzón que captura los correos de la demo (verificación,
+  reset de contraseña, invitaciones, notificaciones de reserva) es visible para cualquier
+  visitante, sin aislamiento entre ellos. Es una decisión consciente del modelo de demo compartida,
+  documentada en [`docs/DEPLOYMENT_HANDOFF.md`](docs/DEPLOYMENT_HANDOFF.md) — no un descuido.
+- **Contraseñas descartables:** ninguna contraseña de la demo es secreta ni protege datos reales; el
+  reinicio diario y semanal es la barrera de seguridad, no el aislamiento del buzón.
+
+## Capturas
+
+Contra el dataset sembrado por `DemoSeeder` — sin datos reales.
+
+| | |
+|---|---|
+| ![Portada](docs/screenshots/home.webp) | ![Panel](docs/screenshots/dashboard.webp) |
+| Portada pública | Panel de staff |
+| ![Reserva pública](docs/screenshots/booking-publico-3.webp) | ![Checkout simulado](docs/screenshots/checkout.webp) |
+| Flujo público de reserva | Checkout simulado |
+
+Más capturas: [flujo de reserva paso 1](docs/screenshots/booking-publico-1.webp) ([flujo de reserva paso 2](docs/screenshots/booking-publico-2.webp)) ·
+[listado de reservas](docs/screenshots/bookings.webp) · [buzón de Mailpit](docs/screenshots/mailpit.webp) ·
+responsive: [panel](docs/screenshots/dashboard-responsive.webp) · [reservas](docs/screenshots/bookings-responsive.webp).
+
+## Instalación de desarrollo
+
+El proyecto corre íntegramente en Docker vía Laravel Sail — no hay un camino nativo funcional,
+porque `.env` apunta a los nombres de servicio de Docker (`pgsql`, `redis`, `mailpit`).
+
+> **`vendor/bin/sail` no funciona en Git Bash sobre Windows** (falla con
+> `Unsupported operating system [MINGW64_NT-...]`). Usar `docker compose` directamente, con
+> variables `WWWUSER`/`WWWGROUP` dummy — sin ellas Sail muestra warnings inofensivos de "variable
+> not set" pero los contenedores igual arrancan bien.
+
+```bash
+WWWUSER=1000 WWWGROUP=1000 docker compose up -d
+docker compose exec laravel.test php artisan migrate:fresh --force
+docker compose exec laravel.test php artisan test
+docker compose exec laravel.test vendor/bin/pint --test
+```
+
+Para poblar el dataset de demo (negocios, servicios, empleados, clientes y reservas de ejemplo):
+
+```bash
+docker compose exec laravel.test php artisan db:seed --class=DemoSeeder
+```
+
+El frontend usa **pnpm**, no npm:
+
+```bash
+docker compose exec laravel.test bash -lc "pnpm install --frozen-lockfile && pnpm build"
+```
+
+## Tests
+
+```bash
+docker compose exec laravel.test php artisan test
+docker compose exec laravel.test vendor/bin/pint --test
+```
+
+## Documentación
+
+- [`docs/api.md`](docs/api.md) — referencia de la API REST, con ejemplos de cada endpoint.
+- [`docs/DEPLOYMENT_HANDOFF.md`](docs/DEPLOYMENT_HANDOFF.md) — contrato de aplicación para quien
+  opere el servidor de producción (procesos, variables de entorno, health checks, contrato de
+  reinicio de la demo).
+- [`docs/RELEASE.md`](docs/RELEASE.md) — procedimiento de release, esquema de `v1.0.0` y
+  rollback por versión de imagen.
+- [`01-reservahub.md`](01-reservahub.md) — especificación completa del proyecto, autoridad sobre
+  cualquier comportamiento no cubierto por los documentos anteriores.

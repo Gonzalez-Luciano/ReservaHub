@@ -66,7 +66,7 @@ class DemoSeeder extends Seeder
             User::factory()->create([
                 'name' => 'Peluquería Demo Owner',
                 'email' => 'owner@reservahub.test',
-                'password' => 'password',
+                'password' => config('demo.password'),
                 'role' => Role::Owner,
                 'business_id' => $business->id,
             ]);
@@ -78,7 +78,7 @@ class DemoSeeder extends Seeder
                     ['name' => 'Beto Empleado', 'email' => 'beto@reservahub.test'],
                 )
                 ->create([
-                    'password' => 'password',
+                    'password' => config('demo.password'),
                     'role' => Role::Employee,
                     'business_id' => $business->id,
                 ]);
@@ -210,7 +210,7 @@ class DemoSeeder extends Seeder
             User::factory()->create([
                 'name' => 'Estudio Demo Owner',
                 'email' => 'owner2@reservahub.test',
-                'password' => 'password',
+                'password' => config('demo.password'),
                 'role' => Role::Owner,
                 'business_id' => $business->id,
             ]);
@@ -218,7 +218,7 @@ class DemoSeeder extends Seeder
             $carla = User::factory()->create([
                 'name' => 'Carla Empleada',
                 'email' => 'carla@reservahub.test',
-                'password' => 'password',
+                'password' => config('demo.password'),
                 'role' => Role::Employee,
                 'business_id' => $business->id,
             ]);
@@ -306,7 +306,7 @@ class DemoSeeder extends Seeder
             $customers[$key] = User::factory()->customer()->create([
                 'name' => $attributes['name'],
                 'email' => $attributes['email'],
-                'password' => 'password',
+                'password' => config('demo.password'),
             ]);
         }
 

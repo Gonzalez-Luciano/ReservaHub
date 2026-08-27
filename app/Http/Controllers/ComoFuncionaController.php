@@ -16,6 +16,7 @@ class ComoFuncionaController extends Controller
     {
         return Inertia::render('ComoFunciona', [
             'mailUrl' => config('app.demo_mail_url'),
+            'demoPassword' => config('demo.password'),
         ]);
     }
 }

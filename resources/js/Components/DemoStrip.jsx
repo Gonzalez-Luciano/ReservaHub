@@ -16,11 +16,11 @@ export default function DemoStrip() {
             </div>
 
             <div className="border-b border-border p-4 xl:border-b-0 xl:border-l">
-                <div className="micro">Se restaura cada día</div>
+                <div className="micro">Se restaura cada lunes</div>
                 <p className="mt-1.5 text-[13px] leading-5 text-fg-body">
-                    Próximo reinicio en <span className="font-semibold"><DemoResetCountdown /></span>
+                    Próximo reinicio completo en <span className="font-semibold"><DemoResetCountdown /></span>
                     <br />
-                    <span className="text-muted">00:00, hora de Argentina</span>
+                    <span className="text-muted">Lunes 00:00, hora de Argentina</span>
                 </p>
             </div>
 

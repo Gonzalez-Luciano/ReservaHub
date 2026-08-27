@@ -1,0 +1,166 @@
+name: ci
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+# Solo lectura: este workflow valida, no publica nada.
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Tests y calidad
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_DB: testing
+          POSTGRES_USER: sail
+          POSTGRES_PASSWORD: password
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U sail -d testing"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DB_CONNECTION: pgsql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      DB_DATABASE: testing
+      DB_USERNAME: sail
+      DB_PASSWORD: password
+      # phpunit.xml ya fuerza sync/array/null para cola, caché, sesión y
+      # broadcasting, así que no hace falta Redis para correr la suite.
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: PHP 8.5
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          extensions: pdo_pgsql, pgsql, redis, bcmath, intl, zip, pcntl, sockets
+          coverage: none
+          ini-values: error_reporting=E_ALL
+
+      - name: Validar composer.json
+        run: composer validate --strict
+
+      - name: Caché de Composer
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/composer/files
+          key: composer-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-
+
+      - name: Copiar el .env
+        # Antes de `composer install`: su post-autoload-script corre
+        # `package:discover`, que bootea la app. Sin .env acá,
+        # PAYMENTS_SIMULATED_WEBHOOK_SECRET llega vacío y el binding
+        # fail-closed de AppServiceProvider explota durante la instalación.
+        run: cp .env.example .env
+
+      - name: Instalar dependencias PHP
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Generar la clave de la app
+        run: php artisan key:generate
+
+      - name: Node 24 y pnpm
+        # Sin `version:`: la acción la lee de "packageManager" en package.json
+        # (Step 0), así que CI y el entorno de desarrollo (Corepack) resuelven
+        # siempre la misma versión de pnpm por construcción.
+        uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+
+      - name: Instalar dependencias JS
+        run: pnpm install --frozen-lockfile
+
+      - name: Compilar el frontend
+        # Sin public/build, TODA página Inertia falla con "Not a valid Inertia
+        # response" y la suite reporta ~28 fallos que no son bugs de la app.
+        run: pnpm build
+
+      - name: Tests
+        run: php artisan test
+
+      - name: Formato
+        run: vendor/bin/pint --test
+
+  docker:
+    name: Validación de Docker
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validar el compose de desarrollo
+        # Sail necesita estas dos variables; el wrapper las inyecta y acá no
+        # existe. Los valores son irrelevantes para `config -q`.
+        env:
+          WWWUSER: '1000'
+          WWWGROUP: '1000'
+        run: docker compose --env-file .env.example config -q
+
+      - name: Validar el compose productivo
+        run: docker compose -f compose.production.yaml --env-file .env.production.example config -q
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Construir la imagen de aplicación
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/production/app.Dockerfile
+          push: false
+          load: true
+          tags: reservahub-app:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Construir la imagen web
+        # Deliberadamente `docker build` plano, NO `docker/build-push-action`.
+        # Verificado de forma reproducible: el builder que `setup-buildx-action`
+        # deja activo usa el driver `docker-container`, cuyo BuildKit corre en
+        # un contenedor aparte que NO comparte el almacén de imágenes del
+        # daemon local — un `FROM reservahub-app:ci` con ese builder intenta
+        # descargarla de Docker Hub y falla con "pull access denied", aunque la
+        # imagen exista localmente (recién cargada con `load: true` arriba).
+        # `docker build` usa el builder clásico del propio daemon, que sí ve la
+        # imagen que se acaba de cargar, sin builder ni configuración extra.
+        # (El workflow de release, Tarea 15, no tiene este problema: allí la
+        # imagen de app ya se publicó a GHCR antes de este paso, así que
+        # `FROM` resuelve por red contra el registry, no contra el daemon
+        # local — buildx maneja eso sin inconvenientes.)
+        run: docker build -f docker/production/web.Dockerfile --build-arg APP_IMAGE=reservahub-app:ci -t reservahub-web:ci .
+
+      - name: La imagen no debe contener Node, .env ni dependencias de desarrollo
+        # --entrypoint sh: el ENTRYPOINT de la imagen (entrypoint.sh) corre
+        # `php artisan config:cache` antes de `exec "$@"`, y eso arranca
+        # AppServiceProvider, que falla cerrado sin
+        # PAYMENTS_SIMULATED_WEBHOOK_SECRET (Fase 9). Correcto para runtime
+        # real; pero sin este override, TODOS los `docker run` de acá abajo
+        # fallarían con ese error antes de llegar al `ls`/`command -v` que se
+        # quiere probar — verificado de forma reproducible corriendo el `ls
+        # public/build/manifest.json` sin el override: exit code 1 con ese
+        # mismo mensaje, no con el resultado del comando.
+        run: |
+          ! docker run --rm --entrypoint sh reservahub-app:ci -c "ls node_modules" 2>/dev/null
+          ! docker run --rm --entrypoint sh reservahub-app:ci -c "ls .env" 2>/dev/null
+          ! docker run --rm --entrypoint sh reservahub-app:ci -c "command -v node" 2>/dev/null
+          ! docker run --rm --entrypoint sh reservahub-app:ci -c "ls vendor/laravel/sail" 2>/dev/null
+          docker run --rm --entrypoint sh reservahub-app:ci -c "ls public/build/manifest.json"
