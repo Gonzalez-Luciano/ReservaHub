@@ -63,13 +63,18 @@ jobs:
           key: composer-${{ hashFiles('composer.lock') }}
           restore-keys: composer-
 
+      - name: Copiar el .env
+        # Antes de `composer install`: su post-autoload-script corre
+        # `package:discover`, que bootea la app. Sin .env acá,
+        # PAYMENTS_SIMULATED_WEBHOOK_SECRET llega vacío y el binding
+        # fail-closed de AppServiceProvider explota durante la instalación.
+        run: cp .env.example .env
+
       - name: Instalar dependencias PHP
         run: composer install --no-interaction --prefer-dist --no-progress
 
-      - name: Preparar el entorno
-        run: |
-          cp .env.example .env
-          php artisan key:generate
+      - name: Generar la clave de la app
+        run: php artisan key:generate
 
       - name: Node 24 y pnpm
         # Sin `version:`: la acción la lee de "packageManager" en package.json
