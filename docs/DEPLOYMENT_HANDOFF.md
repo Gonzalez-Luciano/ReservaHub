@@ -1,299 +1,424 @@
 # Handoff de despliegue — ReservaHub
 
-Contrato de **aplicación** para quien opere el servidor. No es un manual de administración de Linux: no indica distro, rutas del host, puertos, tunnel, firewall ni backups del sistema. Esas decisiones son del workflow externo de operaciones de home server, que las toma después de inspeccionar la máquina real.
+Contrato de **aplicación** para quien opere el servidor. No es un manual de administración de Linux: no indica distro, usuario del servidor, SSH, firewall, estructura física de `/srv`, reverse proxy del host, Cloudflare, DNS, certificados ni backups del sistema operativo. Esas decisiones son del **agente de operaciones del VPS**, que las toma después de inspeccionar la máquina real.
 
-- Autoridad sobre la aplicación: este repositorio (`01-reservahub.md`, `CLAUDE.md`, este documento).
-- Autoridad sobre el servidor físico: el workflow externo de operaciones (`/srv/apps`, `/srv/backups`, registro de puertos, `cloudflared`, secretos, backups, deploy, rollback).
+- **Autoridad sobre la aplicación:** este repositorio (`01-reservahub.md`, `CLAUDE.md`, este documento).
+- **Autoridad sobre el servidor físico:** el agente de operaciones del VPS.
 
-## 1. Qué es
+El destino conceptual es un **VPS Linux multiproyecto**, inicialmente previsto en **OVHcloud**. Este documento explica **ReservaHub** — sus imágenes, sus contenedores, su contrato de entorno, sus procedimientos de migración/siembra/reset/salud/rollback — no cómo administrar Linux. La lista completa de qué entrega este repositorio y qué decide operaciones está en §21.
 
-SaaS de reservas por turnos, multi-tenant (`business_id` en toda tabla de negocio). **Un solo runtime de aplicación**: Laravel 13 + Inertia + React compilado por Vite. No hay servicio Node en producción ni frontend separado; los assets se compilan a `public/build` y los sirve el mismo proceso web.
+> Modelo anterior (superado): versiones previas de este documento describían un despliegue de **home server** (`/srv/apps`, `cloudflared`, Docker Engine compartido con otros proyectos del mismo host físico) con **reinicio diario completo** de la demo. Ambos quedaron reemplazados por la Fase 12: el destino es un VPS Linux multiproyecto y el reset completo de la demo es **semanal** (§12, §15); solo la restauración de credenciales sigue siendo diaria (§13).
+
+## 1. Qué es y qué NO es este documento
+
+SaaS de reservas por turnos, multi-tenant (`business_id` en toda tabla de negocio). **Un solo runtime de aplicación**: Laravel 13 + Inertia + React compilado por Vite. No hay servicio Node en producción ni frontend separado; los assets se compilan a `public/build` en tiempo de build y viajan dentro de la imagen (§2, §6).
 
 ```text
-Laravel 13 / Inertia / React (un solo servicio HTTP)
-        |
-PostgreSQL 18   (datos, sesiones, cache, locks del scheduler)
-        |
-Redis           (cola de trabajos)
-        |
-worker de cola + scheduler + Reverb (procesos aparte, mismo código)
+Nginx (web)  →  PHP-FPM (app)  →  Laravel 13 / Inertia / React
+                     |
+              PostgreSQL 18   (datos, sesiones, cache, locks del scheduler)
+                     |
+              Redis           (cola de trabajos)
+                     |
+      worker de cola + scheduler + Reverb  (mismo código, comandos distintos)
+                     |
+              Mailpit         (buzón público de la demo)
 ```
 
-Es **un proyecto Docker aislado**: red, volúmenes, base de datos, Redis y credenciales propios. Lo único que comparte con otros proyectos del host es el Docker Engine, el `cloudflared` del host y el sistema operativo.
+Es lo que este repositorio entrega: el Dockerfile productivo, el compose productivo, las imágenes en GHCR, el contrato de entorno, las migraciones, `DemoSeeder`, `demo:reset`, `demo:restore-access`, los healthchecks, los smoke checks y este mismo documento. No decide distro, SSH, firewall, `/srv`, reverse proxy del host, Cloudflare, DNS, secretos reales, hostname real, certificados, scheduling real del host, retención real de Mailpit, reboot recovery, backups del host, ni ejecuta el primer deployment real — eso es del agente de operaciones del VPS (lista completa en §21).
 
-## 2. Procesos que la aplicación necesita
+## 2. Qué imágenes existen
 
-| Proceso | Comando | Obligatorio | Notas |
-|---|---|---|---|
-| Web/app | servidor PHP-FPM/HTTP sirviendo `public/` | Sí | Único entrypoint HTTP. Document root: `public/` |
-| Worker de cola | `php artisan queue:work --tries=3 --max-time=3600` | Sí | Sin él no sale ningún email (notificaciones de reserva, recordatorios, verificación, reset de contraseña, invitaciones) |
-| Scheduler | `php artisan schedule:work` (o `schedule:run` por cron cada minuto) | Sí | Ejecuta `bookings:send-reminders` cada 5 minutos |
-| Reverb | `php artisan reverb:start` | Sí, para tiempo real | Proceso de larga vida. Sin él la aplicación funciona entera; solo deja de refrescarse sola la pantalla de reservas |
+Dos imágenes públicas en GitHub Container Registry, publicadas por `.github/workflows/release.yml` en cada tag `v*`:
 
-El worker mantiene el código en memoria: hay que reiniciarlo en cada deploy (`queue:restart` o reinicio del contenedor).
+```text
+ghcr.io/gonzalez-luciano/reservahub-app
+ghcr.io/gonzalez-luciano/reservahub-web
+```
 
-Reverb, igual que el worker, mantiene el código en memoria: hay que reiniciarlo
-en cada deploy. `php artisan reverb:restart` corta las conexiones con gracia y
-deja que el gestor de procesos lo vuelva a levantar.
+Cada una con tres tags por release:
 
-Referencia de desarrollo: `compose.yaml` del repo (Sail) ya define `laravel.test`, `queue`, `scheduler`, `reverb`, `pgsql`, `redis` y `mailpit`. Sirve como descripción de la topología; **no es un compose de producción** (publica puertos al host y monta el código como volumen) — no porque incluya Mailpit, que sigue siendo parte legítima de la topología en el modelo de demo pública (§3, §9, §10).
+```text
+X.Y.Z          — versión semántica (el tag de git sin el prefijo "v")
+sha-<commit>   — trazabilidad exacta al commit
+latest         — conveniencia, NO una referencia de deployment
+```
 
-## 3. Servicios de datos
+**Producción fija versión o digest; nunca `latest`.** El propio workflow de release lo deja escrito en el resumen del run: *"Fijar el digest en producción. No desplegar por `latest`."* — `latest` es cómodo para explorar la imagen manualmente, pero apuntar producción a una etiqueta móvil significa que un `docker compose pull` sin cambiar nada más puede traer un release distinto sin que nadie lo pidiera.
 
-### PostgreSQL 18 — **persistente, obligatorio**
+`reservahub-web` se construye a partir de la imagen de `reservahub-app` recién publicada (`build-args: APP_IMAGE=...`), para que ambas contengan literalmente el mismo `public/build` — no hay forma de que el frontend servido por Nginx y el que conocería PHP-FPM diverjan entre sí dentro del mismo release.
 
-Contiene todo el estado del negocio: `businesses`, `users`, `services`, `schedules`, `schedule_breaks`, `time_offs`, `bookings`, `booking_status_histories`, `booking_reminders`, `employee_invitations`, `notifications`, `personal_access_tokens`, más `sessions`, `cache` y `jobs` del framework.
+## 3. Qué contenedores ejecutar
 
-- Es el único dato que **no** se puede perder.
-- Requiere volumen persistente y backup (ver §8).
+Ocho servicios, definidos en `compose.production.yaml`. **`app`, `queue`, `scheduler` y `reverb` corren la misma imagen** (`reservahub-app`) y solo cambian de comando — no hay cuatro imágenes distintas que mantener sincronizadas, hay una imagen y cuatro procesos.
 
-### Redis — obligatorio en runtime, persistencia opcional
+| Servicio | Imagen | Comando |
+|---|---|---|
+| `web` | `reservahub-web` | Nginx, único borde HTTP |
+| `app` | `reservahub-app` | PHP-FPM (sin comando explícito, el `CMD` de la imagen) |
+| `queue` | `reservahub-app` | `php artisan queue:work --tries=3 --max-time=3600` |
+| `scheduler` | `reservahub-app` | `php artisan schedule:work` |
+| `reverb` | `reservahub-app` | `php artisan reverb:start --host=0.0.0.0 --port=8080` |
+| `pgsql` | `postgres:18-alpine` | — |
+| `redis` | `redis:alpine` | `redis-server --appendonly yes` |
+| `mailpit` | `axllent/mailpit:latest` | — |
 
-Uso único: transporte de la cola (`QUEUE_CONNECTION=redis`). Sesiones, cache y locks del scheduler van a PostgreSQL, no a Redis.
+`--tries=3 --max-time=3600` en `queue` recicla el worker cada hora, lo que acota cualquier fuga de memoria de un proceso de larga vida — y por eso mantiene el código en memoria: cada deploy necesita recrear este contenedor, no solo el de `app`.
 
-- Perder Redis pierde solo los trabajos encolados y no ejecutados (emails pendientes). No corrompe datos de negocio.
-- Persistencia (AOF/RDB) es deseable pero no crítica; no es candidato a backup.
+### Riesgo de nombre de proyecto Docker Compose — ya corregido, no revertir
 
-### Correo saliente — obligatorio para el flujo funcional, Mailpit incluido
+`compose.production.yaml` declara explícitamente:
 
-En un despliegue de portfolio público (el modelo que aprobó la Fase 11), **Mailpit es el destino SMTP previsto**, no un sustituto temporal de un proveedor real: `MAIL_HOST=mailpit` en producción es la configuración correcta, no una salvedad de desarrollo. Su interfaz web (bandeja de la demo) es **superficie de producto**, expuesta públicamente a propósito, para que quien prueba la demo pueda inspeccionar los emails de verificación, reset de contraseña, confirmación de reserva e invitaciones sin necesitar una casilla real — ver §10 y `01-reservahub.md` §11.5.
+```yaml
+name: reservahub-production
+```
 
-Un SMTP real (`MAIL_MAILER=smtp` contra un proveedor externo) sigue siendo una opción válida si el operador prefiere entregar correo de verdad; ninguna de las dos opciones es "la de desarrollo" en este contrato — la elección depende de si la instancia se sigue presentando como demo pública (Mailpit) o pasa a ser un despliegue con destinatarios reales (SMTP real).
+**Esto no es cosmético.** `docker compose` deriva el nombre de proyecto por defecto del basename del directorio desde el que se ejecuta, y este repositorio se llama `reservahub` — el nombre natural para clonarlo. Un checkout de desarrollo (Sail, `compose.yaml`, sin `name:` explícito) corrido desde un directorio `reservahub/` resuelve **al mismo** project name por defecto, `reservahub`, con contenedores `reservahub-pgsql-1` / `reservahub-redis-1` / `reservahub-mailpit-1`.
 
-## 4. Contrato de entorno
+Esto no es hipotético: durante la Tarea 12, la primera verificación local de este mismo compose productivo — corrida antes de que existiera esta línea `name:` — **recreó (destruyó) los contenedores del stack de desarrollo del checkout principal** porque compartían esos mismos nombres de contenedor bajo el project name `reservahub`. Los datos no se perdieron (los volúmenes con nombre de cada stack son distintos), pero los contenedores sí, y el stack de desarrollo quedó abajo hasta reconstruirlo a mano.
 
-Nombres de variables, no valores. **Este repositorio no contiene ni debe contener valores de producción.** El `.env` de producción lo crea y lo custodia el operador del servidor, fuera de git. `.env.example` es la plantilla de referencia.
+**Si algún operador futuro "prolija" este archivo y vuelve a poner `name: reservahub`** (por ejemplo para que coincida con el nombre del repo, o con el de la imagen), reintroduce exactamente este riesgo en cualquier máquina donde este compose productivo se corra alguna vez desde un directorio también usado para desarrollo — incluida la propia verificación local que hizo evidente el bug. El nombre `reservahub-production` es la corrección, no un detalle de estilo.
 
-| Variable | Dueño | Secreto | Nota |
-|---|---|---|---|
-| `APP_NAME` | app | no | |
-| `APP_ENV` | operador | no | `production` |
-| `APP_KEY` | operador | **sí** | Generar una vez con `php artisan key:generate`; si cambia, se invalidan sesiones y datos cifrados |
-| `APP_DEBUG` | operador | no | `false` en producción, sin excepciones |
-| `APP_URL` | operador | no | URL pública real; de ella dependen los links de emails (verificación, reset, invitaciones) |
-| `APP_LOCALE` / `APP_FALLBACK_LOCALE` | app | no | `es` / `en` |
-| `DB_CONNECTION` | app | no | `pgsql` |
-| `DB_HOST` / `DB_PORT` / `DB_DATABASE` / `DB_USERNAME` | operador | no | `DB_HOST` = nombre del servicio de la red Docker del stack, nunca `127.0.0.1` del host |
-| `DB_PASSWORD` | operador | **sí** | |
-| `REDIS_HOST` / `REDIS_PORT` / `REDIS_CLIENT` | operador | no | Servicio de la red interna del stack |
-| `REDIS_PASSWORD` | operador | **sí** si se usa | |
-| `QUEUE_CONNECTION` | app | no | `redis` |
-| `CACHE_STORE` | app | no | `database` |
-| `SESSION_DRIVER` | app | no | `database` |
-| `SESSION_SECURE_COOKIE` | operador | no | `true` detrás de HTTPS |
-| `BROADCAST_CONNECTION` | app | no | `reverb` |
-| `REVERB_APP_ID` | operador | no | Identificador de la aplicación Reverb |
-| `REVERB_APP_KEY` | operador | no | Público por diseño: viaja al navegador en el bundle |
-| `REVERB_APP_SECRET` | operador | **sí** | Firma las peticiones servidor→Reverb. **Nunca** en una variable `VITE_*` |
-| `REVERB_HOST` / `REVERB_PORT` / `REVERB_SCHEME` | operador | no | Dónde encuentra el **servidor** a Reverb: servicio de la red interna del stack |
-| `REVERB_SERVER_HOST` / `REVERB_SERVER_PORT` | operador | no | Dónde **escucha** Reverb: `0.0.0.0` y el puerto interno |
-| `REVERB_ALLOWED_ORIGINS` | operador | no | Hosts separados por coma. Solo host, sin esquema ni puerto; admite comodines `*` de `Str::is()`. Sin valor, acepta solo `localhost`: falla cerrado |
-| `VITE_REVERB_APP_KEY` / `VITE_REVERB_HOST` / `VITE_REVERB_PORT` / `VITE_REVERB_SCHEME` | operador | no | Dónde encuentra el **navegador** a Reverb. **Se compilan dentro del bundle**: cambiarlos exige `pnpm build` y volver a desplegar `public/build`, no alcanza con reiniciar procesos |
-| `VITE_DEMO_MAIL_URL` | operador | no | URL pública del buzón de la demo (Mailpit). **Pública por diseño, no un secreto** — misma categoría que las `VITE_REVERB_*`: se compila dentro del bundle, así que cambiarla exige `pnpm build` y volver a desplegar `public/build`. Si queda sin definir, el CTA del buzón en `/como-funciona` simplemente no se renderiza; el resto de la aplicación funciona igual (sin polling ni verificación de disponibilidad) |
-| `FILESYSTEM_DISK` | app | no | `local` |
-| `MAIL_MAILER` / `MAIL_HOST` / `MAIL_PORT` / `MAIL_FROM_ADDRESS` / `MAIL_FROM_NAME` | operador | no | SMTP real |
-| `MAIL_USERNAME` / `MAIL_PASSWORD` | operador | **sí** | |
-| `LOG_CHANNEL` / `LOG_STACK` / `LOG_LEVEL` | operador | no | Ver §7 |
-| `TRUSTED_PROXIES` | operador | no | Necesario detrás de proxy/tunnel — ver §10 |
-| `PAYMENTS_SIMULATED_WEBHOOK_SECRET` | operador | **sí** | Firma HMAC del proveedor simulado; sin ella la aplicación falla al arrancar el binding del `PaymentGateway` (falla cerrado, `MissingWebhookSecretException`) en vez de servir un webhook que firma y verifica con clave vacía |
-| `PAYMENTS_WINDOW_MINUTES` | app | no | Minutos de ventana de pago por reserva con seña; 30 por defecto |
-| `PAYMENTS_WEBHOOK_TOLERANCE_SECONDS` | app | no | Antigüedad máxima aceptada para la marca temporal de una firma entrante; 300 por defecto |
-| `PAYMENTS_RECONCILE_BATCH` | app | no | Tamaño de lote de `payments:reconcile`; 100 por defecto |
-| `PAYMENTS_RECONCILE_CADENCE_MINUTES` | app | no | Cadencia de `payments:reconcile`; 5 por defecto |
+## 4. Qué procesos son obligatorios
 
-### `SESSION_DRIVER=database` — requisito operativo
+| Proceso | Obligatorio | Consecuencia si falta |
+|---|---|---|
+| `web` | Sí | Único entrypoint HTTP; sin él no hay aplicación |
+| `app` | Sí | PHP-FPM; `web` no tiene a quién reenviar |
+| `queue` | Sí | Sin él no sale **ningún** email (confirmación, recordatorios, verificación, reset de contraseña, invitaciones) |
+| `scheduler` | Sí | Sin él dejan de correr los recordatorios, la expiración de señas, la reconciliación de pagos, la restauración diaria de acceso y el reset semanal de la demo |
+| `reverb` | Solo para tiempo real | Sin él la aplicación funciona **entera**; solo deja de refrescarse sola la pantalla de reservas (`router.reload` manual sigue trayendo el estado correcto) |
 
-Deja de ser una conveniencia. La aplicación invalida las sesiones ajenas
-borrando filas de la tabla `sessions`, y con cualquier otro driver
-`UserAccessRevoker` lanza una excepción: el cambio de contraseña y la
-desactivación de usuarios fallarían con 500 en producción. La tabla `sessions`
-tiene que estar presente y migrada (ya viene en las migraciones base).
+## 5. Qué puertos internos existen
 
-### Dos pares de direcciones que no hay que confundir
+| Puerto | Servicio | Protocolo |
+|---|---|---|
+| `8080` | `web` | HTTP |
+| `9000` | `app` | FastCGI |
+| `8080` | `reverb` | HTTP / WebSocket (namespace de red propio del contenedor; no colisiona con el `8080` de `web`) |
+| `5432` | `pgsql` | PostgreSQL |
+| `6379` | `redis` | Redis |
+| `1025` | `mailpit` | SMTP |
+| `8025` | `mailpit` | HTTP (dashboard) |
 
-`REVERB_HOST`/`REVERB_PORT` es dónde el **servidor** (el worker de cola)
-encuentra a Reverb, típicamente un nombre de servicio de la red interna.
-`VITE_REVERB_HOST`/`VITE_REVERB_PORT` es dónde lo encuentra el **navegador**,
-o sea el host público. `REVERB_SERVER_HOST`/`REVERB_SERVER_PORT` es dónde el
-propio proceso escucha. Los tres pares son distintos y ninguno reemplaza a otro.
+**Solo `web` y `mailpit` se publican al host** (verificado contra `compose.production.yaml`: son los dos únicos bloques `ports:` del archivo). PostgreSQL y Redis nunca tienen un `ports:` — solo la red interna `reservahub`. Los dos puertos publicados están además atados a `127.0.0.1` por defecto (`WEB_BIND`, `MAILPIT_BIND`), así que ni siquiera con el puerto publicado quedan alcanzables desde fuera del propio VPS sin que el operador lo decida explícitamente (más detalle de esta cadena de confianza en §8).
 
-## 5. Build
+## 6. Qué debe persistir
 
-Sin proceso Node en runtime; el build se hace antes de servir (en la imagen o en el deploy):
+| Dato | Volumen | Persistente | Backup | Por qué |
+|---|---|---|---|---|
+| PostgreSQL | `pgsql-data` | **Sí** | **Sí** | **Único dato irrecuperable**: `businesses`, `users`, `services`, `schedules`, `bookings`, `payments`, sesiones, cache y locks del scheduler |
+| Redis | `redis-data` | Sí (AOF) | No | Solo trabajos encolados y no ejecutados (emails pendientes); perderlo no corrompe datos de negocio, solo retrasa/pierde una notificación |
+| Mailpit | `mailpit-data` | Sí | No | Conveniente, no crítico: es el buzón descartable de la demo |
+| `storage/app` | — (sin volumen) | No aplica | No | La aplicación **no acepta uploads**: `businesses.logo_path` existe en el esquema pero no se usa (el logo es un asset fijo del frontend). Si algún día se agregan uploads, este directorio pasa a ser dato de usuario y necesita volumen + backup |
+| `public/build` | — (dentro de la imagen) | No aplica | No | Viaja horneado en `reservahub-web`/`reservahub-app`; se regenera con un build nuevo, no con un volumen |
+
+## 7. Contrato de entorno completo
+
+Nombres de variables, no valores — **este repositorio no contiene ni debe contener un solo valor real de producción**. `.env.production.example` es la plantilla; el operador crea y custodia el `.env` real fuera de git.
+
+Categorías: `secret` (nunca se publica, nunca entra a una imagen, nunca a git) · `runtime público` (se lee al arrancar el proceso) · `build-time público` (se **compila** dentro del bundle) · `internal` (nombres de servicio de la red interna del stack) · `development-only` (no va en producción).
+
+| Variable | Categoría | Nota |
+|---|---|---|
+| `COMPOSE_ENV_FILE` | internal | Se declara a sí mismo — ver comentario en `.env.production.example` sobre por qué esta variable tiene que coincidir con el nombre real del archivo |
+| `APP_NAME` | runtime público | |
+| `APP_ENV` | runtime público | `production` |
+| `APP_KEY` | **secret** | Generar UNA vez con `php artisan key:generate --show`; cambiarla invalida sesiones y datos cifrados |
+| `APP_DEBUG` | runtime público | `false` en producción, sin excepciones |
+| `APP_URL` | runtime público | URL pública real con `https://`; de ella dependen los links de emails |
+| `APP_LOCALE` / `APP_FALLBACK_LOCALE` | runtime público | `es` / `en` |
+| `DB_CONNECTION` | runtime público | `pgsql` |
+| `DB_HOST` | internal | nombre del servicio (`pgsql`), nunca `127.0.0.1` |
+| `DB_PORT` / `DB_DATABASE` / `DB_USERNAME` | runtime público | |
+| `DB_PASSWORD` | **secret** | |
+| `REDIS_HOST` / `REDIS_PORT` | internal | |
+| `REDIS_PASSWORD` | **secret** si se usa | Vacío = sin auth; solo aceptable porque Redis nunca se publica (§5) |
+| `QUEUE_CONNECTION` | runtime público | `redis` — la cola es Redis, no la tabla `jobs` |
+| `CACHE_STORE` | runtime público | `database` |
+| `SESSION_DRIVER` | runtime público | `database` — **obligatorio**, ver recuadro abajo |
+| `SESSION_LIFETIME` | runtime público | |
+| `SESSION_SECURE_COOKIE` | runtime público | `true` detrás de HTTPS |
+| `FILESYSTEM_DISK` | runtime público | `local` |
+| `TRUSTED_PROXIES` | runtime público | `*` — ver la cadena de confianza del proxy en §8 |
+| `LOG_CHANNEL` / `LOG_STACK` / `LOG_LEVEL` | runtime público | Ver §16 |
+| `MAIL_MAILER` / `MAIL_HOST` / `MAIL_PORT` | runtime público / internal | `MAIL_HOST=mailpit` es la configuración **correcta** en el modelo de demo pública, no una salvedad de desarrollo (§14, `01-reservahub.md` §11.5); SMTP real contra un proveedor externo es igual de válido si la instancia deja de presentarse como demo |
+| `MAIL_USERNAME` / `MAIL_PASSWORD` | **secret** | Vacío con Mailpit |
+| `MAIL_FROM_ADDRESS` / `MAIL_FROM_NAME` | runtime público | |
+| `BROADCAST_CONNECTION` | runtime público | `reverb` |
+| `REVERB_APP_ID` | runtime público | |
+| `REVERB_APP_KEY` | runtime público | Público por protocolo: viaja al navegador |
+| `REVERB_APP_SECRET` | **secret** | Firma servidor→Reverb. **Nunca** en una `VITE_*` |
+| `REVERB_HOST` / `REVERB_PORT` / `REVERB_SCHEME` | internal | Dónde encuentra el **servidor** a Reverb — ver §8 |
+| `REVERB_SERVER_HOST` / `REVERB_SERVER_PORT` | internal | Dónde **escucha** el proceso — ver §8 |
+| `REVERB_ALLOWED_ORIGINS` | runtime público | Solo host, sin esquema ni puerto; admite comodines `*`. Vacío = solo `localhost`: falla cerrado |
+| `REVERB_SCALING_ENABLED` | runtime público | `false` — una sola instancia |
+| `VITE_REVERB_APP_KEY` / `VITE_REVERB_HOST` / `VITE_REVERB_PORT` / `VITE_REVERB_SCHEME` | **build-time público** | Dónde encuentra el **navegador** a Reverb — ver §8 y advertencia abajo |
+| `VITE_DEMO_MAIL_URL` | **build-time público** | URL pública del buzón de la demo; sin definir, el CTA del buzón simplemente no se renderiza |
+| `PAYMENTS_SIMULATED_WEBHOOK_SECRET` | **secret** | Sin ella la app falla al arrancar el binding de `PaymentGateway` — falla cerrado, a propósito |
+| `PAYMENTS_WINDOW_MINUTES` / `PAYMENTS_WEBHOOK_TOLERANCE_SECONDS` / `PAYMENTS_RECONCILE_BATCH` / `PAYMENTS_RECONCILE_CADENCE_MINUTES` | runtime público | |
+| `DEMO_PUBLIC_MODE` | runtime público | `true` habilita `demo:reset` — ver §12 |
+| `DEMO_TARGET_DATABASE` | runtime público | Debe coincidir EXACTAMENTE con `DB_DATABASE` — segunda guarda independiente, ver §12 |
+| `DEMO_ACCOUNT_PASSWORD` | runtime público | Pública por definición: se publica en `/como-funciona` |
+
+**Dos advertencias que no son opcionales:**
+
+- **Las `VITE_*` se compilan dentro del bundle.** Cambiarlas exige una imagen nueva y una release nueva; reiniciar contenedores no hace nada, porque `public/build` viaja horneado en la imagen (§2, §6). Esto incluye `VITE_REVERB_*` y `VITE_DEMO_MAIL_URL`.
+- **`SESSION_DRIVER=database` es obligatorio, no una preferencia.** Con otro driver, `App\Support\UserAccessRevoker` lanza `UnsupportedSessionDriverException`: el cambio de contraseña, la desactivación de usuarios y `demo:restore-access` fallarían con 500 en producción, porque los tres invalidan sesiones ajenas borrando filas de la tabla `sessions`.
+
+## 8. Las tres direcciones de Reverb y la cadena de confianza del proxy
+
+**Tres pares de direcciones que no hay que confundir**, porque ninguno reemplaza a otro:
+
+`REVERB_HOST`/`REVERB_PORT` es dónde el **servidor** (la aplicación, el worker de cola) encuentra a Reverb — un nombre de servicio de la red interna del stack. `VITE_REVERB_HOST`/`VITE_REVERB_PORT` es dónde lo encuentra el **navegador** — el host público, compilado dentro del bundle. `REVERB_SERVER_HOST`/`REVERB_SERVER_PORT` es dónde el propio proceso **escucha** (`0.0.0.0` y el puerto interno).
+
+**La cadena de confianza del proxy inverso**, tan concreta como lo anterior porque decide si las cookies seguras y las URLs firmadas funcionan: `web` (Nginx) es el único borde HTTP; `bootstrap/app.php` confía en él vía `TRUSTED_PROXIES=*` porque `app` no tiene otro llamante posible en la red interna (el puerto 9000 nunca se publica). `web` a su vez conserva el `X-Forwarded-Proto` que ya traiga una petición y solo lo calcula de su propia conexión cuando no viene nada (`map` en `default.conf`) — necesario porque el destino real tiene un proxy externo que termina TLS y reenvía HTTP simple hacia este contenedor; `$scheme` de Nginx por sí solo siempre diría `http` en ese caso. Lo que hace esto seguro sin conocer al proxy real: el default `WEB_BIND=127.0.0.1` (§5) — nada en internet puede ser el peer de `web`, solo un proceso del mismo VPS. **Si el operador expone `web` directamente** (`WEB_BIND=0.0.0.0`, sin un proxy de por medio), sanitizar `X-Forwarded-*` antes de que lleguen acá pasa a ser su responsabilidad — este repositorio ya no puede garantizarlo.
+
+**Proxy con soporte de WebSocket:** el entrypoint público (fuera de este repositorio, decisión de operaciones) tiene que distinguir tres rutas y dos destinos:
+
+| Ruta | Destino | Protocolo |
+|---|---|---|
+| `/app/*` | Reverb | WebSocket: requiere `Upgrade`/`Connection: Upgrade` y HTTP/1.1 |
+| `/apps/*` | Reverb | HTTP normal (API de publicación del protocolo Pusher) |
+| `/broadcasting/auth` | Aplicación Laravel | HTTP normal, autenticado por sesión |
+| todo lo demás | Aplicación Laravel | HTTP normal |
+
+La autorización de canal privado sigue siendo una petición HTTP de la aplicación con cookie de sesión, no tráfico de Reverb. Preferencia arquitectónica: una sola frontera pública de ReservaHub capaz de servir HTTP y de hacer upgrade a WebSocket — Reverb es un proceso interno, no una segunda aplicación pública.
+
+## 9. Cómo migrar
 
 ```bash
-composer install --no-interaction --prefer-dist --no-dev --optimize-autoloader
-pnpm install --frozen-lockfile
-pnpm build            # genera public/build
-php artisan config:cache
-php artisan route:cache
-php artisan view:cache
+docker compose -f compose.production.yaml exec app php artisan migrate --force
 ```
 
-- El gestor de paquetes JS es **pnpm** (`pnpm-lock.yaml`); no existe `package-lock.json`.
-- Si `public/build` falta, **toda página Inertia falla** (`Not a valid Inertia response`). Es un fallo de deploy, no un bug de la app.
-- `--no-dev` excluye Scramble (documentación OpenAPI), que es dependencia de desarrollo.
-- Si existiera `public/hot` (artefacto del dev server de Vite), borrarlo: hace que la app apunte a un servidor Vite inexistente.
+Idempotente, **obligatoria en cada deploy**. **Nunca** `migrate:fresh`, `migrate:refresh` ni `db:wipe` sobre datos que deban conservarse — esos tres comandos sí se usan, a propósito, dentro de `demo:reset` (§12), donde borrar la base entera es la operación deseada.
 
-## 6. Migración y bootstrap
+## 10. Cómo arrancar
+
+Procedimiento manual, en nueve pasos:
+
+1. **Elegir release** — un tag `vX.Y.Z` concreto (§2). Nunca `latest`.
+2. **Obtener imágenes** — `docker compose -f compose.production.yaml --env-file .env pull`.
+3. **Configurar entorno** — copiar `.env.production.example` a `.env`, completar los valores marcados `secret` y `runtime público` (§7). No omitir `COMPOSE_ENV_FILE` (debe apuntar a este mismo archivo).
+4. **Levantar infraestructura** — `docker compose -f compose.production.yaml --env-file .env up -d pgsql redis mailpit`, esperar a que los tres healthchecks reporten `healthy` (§16).
+5. **Ejecutar migraciones** — §9.
+6. **Iniciar runtime** — `docker compose -f compose.production.yaml --env-file .env up -d`, esperar `web`/`app`/`reverb` en `healthy`.
+7. **Ejecutar bootstrap demo si corresponde** — `db:seed --class=DemoSeeder --force` (§11); omitir si la instancia no es demo pública.
+8. **Ejecutar smoke** — `scripts/smoke.sh <base-url>` (§17).
+9. **Verificar logs** — sin errores de arranque en `app`/`queue`/`scheduler`/`reverb` (§16).
+
+Este procedimiento lo ejecutará después el agente de operaciones sobre el VPS real; la Fase 12 no despliega todavía. Solo después de que el deployment manual haya demostrado ser reproducible se evaluará CD automático — no hay, ni debe agregarse aquí, un GitHub Action que haga SSH al servidor.
+
+## 11. Cómo sembrar
 
 ```bash
-php artisan migrate --force                    # migración, idempotente, obligatoria en cada deploy
-php artisan db:seed --class=DemoSeeder         # datos de demo, opcional, idempotente
+docker compose -f compose.production.yaml exec app php artisan db:seed --class=DemoSeeder --force
 ```
 
-- Las migraciones no destruyen datos; no hay migraciones `down` pensadas para rollback en caliente.
-- **Nunca** `migrate:fresh`, `migrate:refresh` ni `db:wipe` sobre datos que deban persistir.
-- `DemoSeeder` es seguro y repetible: siembra solo los negocios de demo que falten (guard por slug), así que volver a correrlo no duplica nada. Hoy crea dos negocios — `peluqueria-demo` (un owner, dos empleados, cinco servicios, cuatro clientes) y `estudio-demo` (un owner, un empleado, dos servicios, dos clientes) — con horarios semanales en ambos y un dataset completo de reservas (23 en total, en los cuatro estados estables `confirmed`/`cancelled`/`completed`/`no_show`, nunca `pending`, más tres pagos de seña ya aprobados). Sin datos reales de clientes ni de pagos: todos los clientes, reservas y pagos son ficticios y deterministas.
-- **No usar `db:seed` sin `--class`**: el `DatabaseSeeder` por defecto crea además un usuario de prueba `test@example.com`.
-- Las credenciales de demo (`owner@reservahub.test`) son públicas por diseño. Si la instancia es accesible desde internet, la contraseña de demo debe cambiarse tras el seed o gestionarse desde el entorno.
+**Nunca `db:seed` a secas**: `DatabaseSeeder` por defecto crea además un usuario de conveniencia `test@example.com`, ajeno al dataset de demo. `DemoSeeder` es idempotente por slug de negocio (`peluqueria-demo`, `estudio-demo`): volver a correrlo no duplica nada, pero tampoco es la operación pensada para "reiniciar" la demo — eso es `demo:reset` (§12).
 
-## 7. Salud, smoke checks y logs
-
-**Health:** `GET /up` — endpoint de health de Laravel (arranca el framework; falla si falta `APP_KEY`, la config está rota o la app no bootea). Es el check apto para orquestación. No verifica la base de datos.
-
-**Smoke tras deploy:**
+## 12. Cómo ejecutar `demo:reset`
 
 ```bash
-curl -fsS  https://HOST/up                       # 200
-curl -fsSI https://HOST/                         # portada pública responde
-curl -fsS  -X POST https://HOST/api/auth/login \
-  -H 'Accept: application/json' \
-  -d 'email=...&password=...&device_name=smoke'  # 200 con {success:true,...,data.token}
+docker compose -f compose.production.yaml exec app php artisan demo:reset --force
 ```
 
-Un token válido permite además `GET /api/services` y `GET /api/availability` (ver `docs/api.md`). Señales de que el deploy salió bien: `/up` en 200, una página Inertia que renderiza (assets presentes), login de API devolviendo token, worker consumiendo la cola y `php artisan schedule:list` mostrando `bookings:send-reminders`, `bookings:expire-unpaid` y `payments:reconcile`.
+**Borra la base entera** (`migrate:fresh` + `DemoSeeder`, nunca `DatabaseSeeder`) y vacía la cola de Redis antes y después del reset, para que ningún job pendiente opere sobre IDs que ya no existen. `--force` es obligatorio en ejecución no interactiva (sin una terminal real, el comando aborta sin pedir confirmación por stdin).
 
-**Reverb:** el proceso `reverb:start` corriendo y el puerto interno aceptando
-conexiones. Un fallo de autorización de canal se ve como un `POST
-/broadcasting/auth` con 403; un broadcast encolado que no pudo entregarse queda
-en `failed_jobs` y lo lista `php artisan queue:failed`. Reverb escribe sus logs
-a stdout del proceso; `reverb:start --debug` imprime el flujo de mensajes y es
-solo para diagnóstico.
+Tres guardas independientes, todas en `App\Support\DemoEnvironment`, cualquiera que falle produce `ABORT` sin tocar un solo dato:
 
-**Logs:** canal `stack`/`single` → `storage/logs/laravel.log` dentro del contenedor de la app. El worker y el scheduler escriben además a stdout del proceso. Nivel por `LOG_LEVEL`. Los logs no requieren backup; conviene rotarlos.
+1. `DEMO_PUBLIC_MODE=true` — declara la intención. `APP_ENV=production` no participa de esta guarda: una base productiva de verdad también tiene `APP_ENV=production`.
+2. `DEMO_TARGET_DATABASE` coincide exactamente con el nombre real de la base conectada — segunda confirmación no booleana; un `.env` copiado a otra instancia se delata acá.
+3. La base, si ya tiene la tabla `businesses`, contiene al menos uno de los slugs canónicos (`peluqueria-demo`, `estudio-demo`) — una base sin `businesses` es un primer arranque legítimo; una que la tiene pero no reconoce ningún slug de demo no se toca.
 
-## 8. Datos persistentes y backup
+Programación: **lunes 00:00 `America/Argentina/Buenos_Aires`** (§15).
 
-| Dato | Persistente | Backup | Por qué |
-|---|---|---|---|
-| Volumen de PostgreSQL | **Sí** | **Sí** | Único dato irrecuperable |
-| `storage/app` | Sí | No, por ahora | La app no sube archivos y no está previsto que lo haga: el logo es un asset fijo del frontend y `businesses.logo_path` queda sin uso a propósito (§2 del roadmap). Si algún día se agregan uploads, este directorio pasa a ser dato de usuario y entra al backup |
-| `storage/logs` | Conveniente | No | Diagnóstico |
-| `storage/framework/{cache,views,sessions}` | No | No | Regenerable; sesiones y cache viven en PostgreSQL |
-| Volumen de Redis | Opcional | No | Solo trabajos encolados |
-| `.env` de producción | Sí | Sí, en el gestor de secretos del operador | Nunca en git |
-| `public/build` | No | No | Se regenera con `pnpm build` |
+## 13. Cómo ejecutar `demo:restore-access`
 
-Información relevante para rollback: volver a un commit anterior es seguro mientras el esquema no haya avanzado. Si el deploy incluyó migraciones, el rollback de código **no** revierte el esquema; hay que restaurar desde backup de base de datos o aplicar una migración correctiva. Cada deploy debería registrar el commit desplegado y si aplicó migraciones.
+```bash
+docker compose -f compose.production.yaml exec app php artisan demo:restore-access
+```
 
-## 9. Qué no debe exponerse nunca
+Para cada cuenta publicada en `config/demo.accounts` (localizada por email, o por `business_slug`+rol si un visitante le cambió el email al owner compartido): restaura email, contraseña (`DEMO_ACCOUNT_PASSWORD`), `is_active=true` y `email_verified_at`; corta los tres vectores de re-autenticación de quien haya tomado la cuenta vía `UserAccessRevoker` (`remember_token`, tokens de Sanctum, filas de `sessions`); y borra cualquier `password_reset_tokens` pendiente para el email nuevo y el viejo.
 
-- PostgreSQL y Redis: solo en la red interna del stack, sin puertos publicados.
-- El puerto del dev server de Vite (5173): no existe en producción.
-- `/docs/api` (OpenAPI de Scramble): dependencia de desarrollo, restringida a `local`; con `composer install --no-dev` ni siquiera se registra.
+**Qué NO toca:** reservas, pagos, servicios, horarios, historial — nada del dataset funcional de la semana en curso. Es exclusivamente restauración de acceso, no un reset de datos.
+
+Diaria, **00:00** (misma zona horaria, §15). No pide `--force`: corre desatendida todos los días y no destruye datos funcionales, aunque comparte las mismas guardas de `DemoEnvironment` que `demo:reset`.
+
+## 14. Cómo limpiar Mailpit
+
+Responsabilidad de **operaciones**, no de este repositorio: diaria, a las 00:00 `America/Argentina/Buenos_Aires`. `demo:reset` **no** la llama — es otro servicio, con su propio ciclo de vida, y limpiarlo no es parte del contrato de la aplicación.
+
+`MP_MAX_MESSAGES` (`MAILPIT_MAX_MESSAGES`, por defecto `2000` en `compose.production.yaml`) es una retención **complementaria**, no un reemplazo: acota cuánto puede crecer el buzón entre limpiezas, pero no sustituye la limpieza diaria real que decide y ejecuta operaciones.
+
+## 15. El contrato de scheduling
+
+```text
+SEMANAL   lunes 00:00 America/Argentina/Buenos_Aires  → demo:reset
+DIARIO    00:00       America/Argentina/Buenos_Aires  → demo:restore-access
+DIARIO    00:00       America/Argentina/Buenos_Aires  → limpiar Mailpit
+```
+
+Verificado contra `routes/console.php` y `php artisan schedule:list` en este mismo checkout:
+
+```text
+*/5 * * * *  php artisan bookings:send-reminders
+*/5 * * * *  php artisan bookings:expire-unpaid
+*/5 * * * *  php artisan payments:reconcile
+0   0 * * *  php artisan demo:restore-access     [America/Argentina/Buenos_Aires]
+0   0 * * 1  php artisan demo:reset --force      [America/Argentina/Buenos_Aires]
+```
+
+`demo:reset` y `demo:restore-access` ya están **dentro** del scheduler de Laravel (`routes/console.php`), así que basta con mantener vivo el contenedor `scheduler` (§4) — el host **no** necesita cron propio para esos dos. Solo la limpieza de Mailpit (§14) queda fuera del scheduler de Laravel y sí es responsabilidad de un cron/systemd timer del lado de operaciones.
+
+**Advertencia de deriva:** `resources/js/Components/domain/DemoResetCountdown.jsx` le promete al visitante exactamente el horario semanal de arriba (constante de módulo `RESET_HOUR = 0`, zona horaria de demo, no una variable de entorno — así que ese archivo requiere recompilar el frontend si el horario real cambia alguna vez). Un desfase entre lo que el contador promete y lo que el scheduler ejecuta rompe la confianza del visitante en la demo, aunque no rompa ninguna regla de negocio.
+
+## 16. Cómo comprobar salud
+
+Healthchecks reales, tal como están declarados en `compose.production.yaml`:
+
+| Servicio | Chequeo | Verificado |
+|---|---|---|
+| `web` | `wget -qO- http://127.0.0.1:8080/up` | Atraviesa Nginx → PHP-FPM → Laravel a propósito: es el health de la cadena completa, no un ping a Nginx. `127.0.0.1`, no `localhost` — Nginx solo escucha IPv4 y `/etc/hosts` resuelve `localhost` a `::1` primero |
+| `app` | `fsockopen 127.0.0.1:9000` | Solo confirma que el puerto FastCGI acepta conexión; el health real de la cadena lo hace `web` |
+| `reverb` | `file_get_contents http://127.0.0.1:8080/up` | **Reverb responde 200 en `/up`** y 404 en `/` y `/health` — verificado con curl contra el contenedor real |
+| `pgsql` | `pg_isready -q -d $DB_DATABASE -U $DB_USERNAME` | |
+| `redis` | `redis-cli ping` | |
+| `mailpit` | `wget -qO- http://localhost:8025/readyz` | **Mailpit expone `/readyz`**, verificado en la versión instalada |
+| `queue` / `scheduler` | Sin healthcheck, a propósito | `queue:monitor` comprueba que Redis responde, no que el worker siga vivo — pasaría en verde con el proceso muerto. Se prefiere no declarar un healthcheck ficticio y dejar que `restart: unless-stopped` cubra la caída del proceso |
+
+Señales adicionales de salud real: un broadcast que no pudo entregarse queda en `failed_jobs` (`php artisan queue:failed`); un fallo de autorización de canal se ve como `POST /broadcasting/auth` con 403; los logs de la aplicación van a `storage/logs/laravel.log` dentro del contenedor `app` (canal `stack`/`single`, nivel por `LOG_LEVEL`), y el worker/scheduler/Reverb escriben además a su propio stdout.
+
+## 17. Cómo ejecutar smoke
+
+```bash
+scripts/smoke.sh <base-url>
+```
+
+Solo lectura: health (`/up`), portada pública, `/negocios`, `/como-funciona`, `/login`, el bundle JS referenciado por la portada, y el gateway de Reverb (`/apps/*` responde "matching application" o "authentication signature", cualquiera de las dos confirma que Reverb está detrás del proxy). Con `SMOKE_EMAIL`/`SMOKE_PASSWORD` en el entorno, agrega login de API y `GET /api/services`.
+
+Verificación manual completa (recomendada tras el primer deployment real y tras cualquier cambio de infraestructura): cola consumiendo jobs, emails llegando a Mailpit, pago simulado + webhook + confirmación de reserva, y Reverb con dos sesiones de navegador — el procedimiento paso a paso está en `CLAUDE.md` ("Smoke de dos navegadores" y "Smoke de fallo de Reverb"), que ya cubre aislamiento entre negocios y el caso de Reverb caído sin afectar la corrección del dominio.
+
+## 18. Qué datos pueden destruirse y cuáles no
+
+La demo es **descartable por decisión de producto**: no se requiere backup histórico de sus reservas, y el reset semanal las destruye a propósito (§12, §15). Lo único que **no puede perderse entre reinicios normales** es el volumen de PostgreSQL (`pgsql-data`, §6) — es el único dato irrecuperable del stack. Redis y Mailpit son convenientes de conservar pero no críticos; perderlos entre reinicios pierde a lo sumo jobs encolados sin ejecutar o correos ya vistos por sus destinatarios.
+
+## 19. Cómo hacer rollback
+
+Ver `docs/RELEASE.md` para el procedimiento completo. Resumen: se elige la imagen o el digest del release anterior (§2) y se vuelve a levantar el stack contra ella. **El rollback de imagen no revierte el esquema** — si el release que se abandona incluyó migraciones nuevas, hace falta restaurar desde backup de base de datos o aplicar una migración correctiva; volver el código atrás por sí solo no deshace un `migrate --force` ya aplicado.
+
+## 20. Qué NO exponer nunca
+
+- PostgreSQL y Redis: solo en la red interna del stack, sin `ports:` publicados (§5).
+- El puerto del dev server de Vite (`5173`): no existe en producción — no hay proceso Node en runtime (§1).
+- `/docs/api` (OpenAPI de Scramble): dependencia de desarrollo; con `composer install --no-dev` (como se construye la imagen productiva) ni siquiera se registra.
 - `APP_DEBUG=true` en un entorno accesible: filtra entorno y stack traces.
-- `.env`, `APP_KEY`, credenciales de base de datos, de Redis y de SMTP, y tokens de Sanctum.
-- El `compose.yaml` del repo publica puertos al host (`80`, `5432`, `6379`, `1025`, `8025`, `5173`) porque es de desarrollo: **no reutilizarlo tal cual en producción**.
-- `/demo/*` (checkout simulado) existe mientras el proveedor sea el simulado; es superficie de demostración, nunca un cobro real.
-- `REVERB_APP_SECRET` y cualquier credencial de Reverb que no sea la *key*: la
-  key es pública por el protocolo, el secreto no.
+- `.env`, `APP_KEY`, `REVERB_APP_SECRET`, credenciales de base de datos/Redis/SMTP y tokens de Sanctum.
 
-**Excepción deliberada: Mailpit sí se expone.** A diferencia de PostgreSQL, Redis y el puerto de Vite,
-el dashboard de Mailpit (`FORWARD_MAILPIT_DASHBOARD_PORT`) se publica intencionalmente en el despliegue
-de portfolio — es la bandeja pública de la demo (§10 y `01-reservahub.md` §11.5), no un tooling operativo
-olvidado. No tiene autenticación propia ni aislamiento por usuario: cualquiera con la URL ve **todos**
-los correos capturados, de cualquier visitante de la demo. Es una limitación aceptada del modelo de demo
-compartida (mismo espíritu que la cuenta `owner@reservahub.test` compartida, ver §10) y no un defecto a
-corregir; el operador decide el hostname/subdominio público de Mailpit igual que decide el de la
-aplicación principal.
+**Excepción deliberada: Mailpit sí se expone.** Es la bandeja pública de la demo (§14, `01-reservahub.md` §11.5), sin autenticación ni aislamiento por usuario — cualquiera con la URL ve todos los correos capturados, de cualquier visitante. Es una limitación aceptada del modelo de demo compartida, no un defecto a corregir; el operador decide su hostname público igual que decide el de la aplicación principal.
 
-## 10. Asunciones de la aplicación que el operador debe cubrir
+## 21. Frontera repositorio ↔ operaciones
 
-- **Proxy inverso / tunnel:** la app todavía no configura proxies de confianza. Detrás de un proxy que termina TLS hay que fijar `TRUSTED_PROXIES` (o equivalente) y `APP_URL` con `https://`, o los links generados en emails y redirecciones saldrán con esquema o host incorrectos.
-- **Zona horaria:** la app opera en la zona horaria de cada negocio (`businesses.timezone`) y persiste las reservas en UTC. El host puede quedar en UTC.
-- **HTTPS:** se asume terminación TLS delante de la app.
-- **Webhook de pagos:** la entrega del proveedor simulado es **en proceso** y no depende de HTTP, DNS,
-  Cloudflare ni del hostname público: no hace falta contenedor, puerto, dominio, túnel ni servicio
-  nuevo. Aun así, si ReservaHub está expuesto públicamente, `POST /api/webhooks/payments/{provider}`
-  es alcanzable por el hostname normal de la aplicación, así que la verificación de firma, la
-  tolerancia temporal, la validación del payload y el rate limiting son obligatorios en producción.
-- **Reloj:** el scheduler y los recordatorios dependen de un reloj correcto en el host; además del
-  scheduler, ahora el reloj del host afecta la tolerancia temporal de las firmas de webhook.
-- **Un solo worker es suficiente** para la carga de demo; escalar horizontalmente es seguro (los recordatorios se deduplican en la tabla `booking_reminders` y la creación de reservas usa advisory locks de PostgreSQL).
-- **Proxy con soporte de WebSocket:** el entrypoint público tiene que distinguir
-  tres rutas y dos destinos:
+**ReservaHub entrega:**
 
-  | Ruta | Destino | Protocolo |
-  |---|---|---|
-  | `/app/*` | Reverb | WebSocket: requiere `Upgrade` / `Connection: Upgrade` y HTTP/1.1 |
-  | `/apps/*` | Reverb | HTTP normal (API de publicación del protocolo Pusher) |
-  | `/broadcasting/auth` | aplicación Laravel | HTTP normal, autenticado por sesión |
-  | todo lo demás | aplicación Laravel | HTTP normal |
+```text
+Dockerfile productivo
+compose productivo portable
+imágenes GHCR
+Nginx
+PHP-FPM
+queue
+scheduler
+Reverb
+PostgreSQL
+Redis
+Mailpit
+healthchecks
+restart policies
+migraciones
+DemoSeeder
+demo:reset
+demo:restore-access
+contrato de entorno
+CI
+workflow de release
+smoke checks
+README
+DEPLOYMENT_HANDOFF
+procedimiento de rollback
+```
 
-  La distinción importa: el proxy necesita upgrade de WebSocket **para Reverb**,
-  pero la autorización de canal privado sigue siendo una petición HTTP de la
-  aplicación, con cookie de sesión y middleware `web`. No es tráfico de Reverb.
+**El agente de operaciones del VPS decide y ejecuta:**
 
-  Preferencia arquitectónica: **una sola frontera pública** de ReservaHub capaz
-  de servir HTTP y de hacer upgrade a WebSocket. Reverb es un proceso interno de
-  la aplicación, no una segunda aplicación pública, y este repositorio no decide
-  hostname, puerto, túnel ni topología de producción.
+```text
+distribución Linux
+usuario del servidor
+SSH
+firewall
+Docker del host
+estructura física /srv
+paths reales de volúmenes
+reverse proxy del host
+Cloudflare Proxy vs Tunnel
+DNS
+secretos reales
+hostname real
+certificados
+scheduling real
+limpieza real de Mailpit
+retención real de Mailpit
+reboot recovery
+snapshots/backups del host
+pull de release
+migraciones reales
+primer deployment
+smoke real
+rollback real
+```
 
-- **Escala de Reverb:** una sola instancia. `REVERB_SCALING_ENABLED` queda en
-  `false`; Redis sigue siendo únicamente el transporte de la cola.
-- **Buzón público de la demo.** Mailpit (§3, §9) es parte del producto, no solo tooling de desarrollo:
-  el frontend enlaza a él desde `/como-funciona`, el resumen de reserva y el registro (ver
-  `VITE_DEMO_MAIL_URL` en §4). Topología registrada por la Fase 11 (no configurada por este repositorio):
-  un hostname separado para el buzón (p. ej. `mail.reservahub.<dominio>`) en vez de una ruta bajo la
-  aplicación, para mantener separados el enrutamiento de Laravel, sus assets y la API HTTP de Mailpit —
-  coherente con la frontera pública única que ya se pide para Reverb. El operador decide el hostname,
-  el tunnel y el TLS reales; este repositorio solo registra la intención.
-- **Reinicio diario y su acoplamiento con el contador del frontend.** Ver la sección nueva **11.
-  Contrato de reinicio diario** más abajo para el procedimiento completo. Un punto de deriva concreto:
-  `resources/js/Components/domain/DemoResetCountdown.jsx` tiene el horario de reinicio (00:00
-  `America/Argentina/Buenos_Aires`) hardcodeado en una constante de módulo (`RESET_HOUR = 0`,
-  `DEMO_TIMEZONE`), no en una variable de entorno — una env var no elimina el acoplamiento con la
-  programación real del reinicio, solo lo reubica, y hoy hay un solo despliegue. Si el horario del
-  reinicio real cambia alguna vez, ese archivo también tiene que cambiar; **no hay forma de configurarlo
-  sin recompilar el frontend**.
-- **Limitaciones de seguridad aceptadas del modelo de demo compartida** (no defectos a corregir):
-  - Un visitante puede borrar o marcar como leídos mensajes ajenos en el buzón compartido de Mailpit.
-  - Los correos capturados contienen enlaces accionables (verificación de email, restablecimiento de
-    contraseña, invitaciones de empleado) y cualquier visitante con acceso al buzón puede abrirlos.
-  - **Concretamente:** un visitante puede iniciar el restablecimiento de contraseña de la cuenta
-    compartida `owner@reservahub.test`, encontrar el correo en el buzón público y tomar esa cuenta hasta
-    el próximo reinicio diario. Esto es aceptado a propósito: toda la instancia es descartable, ninguna
-    contraseña de demo es secreta, y el reinicio diario restaura las credenciales sembradas. La Fase 11
-    **no rediseñó** autenticación, restablecimiento, invitaciones ni verificación de email para cerrar
-    esto — la frontera de seguridad real es "todo es demo, se avisa, no se cargan datos reales,
-    contraseñas descartables, reinicio diario", no el aislamiento del buzón.
+La Fase 12 no filtra decisiones de host hacia este repositorio sin necesidad.
 
-## 11. Contrato de reinicio diario de la demo
+## 22. Consumo de recursos
 
-Este repositorio define **qué** se reinicia y **cómo** — la programación real (cron, systemd timer o
-equivalente que dispare esto a la hora exacta) la implementa el workflow externo de operaciones que
-consume este handoff; aquí no se crea ningún cron ni unidad systemd.
+Dos mediciones, **no intercambiables** — corresponden a topologías de proceso distintas y ninguna es una garantía de dimensionamiento para un VPS real.
 
-- **Cuándo:** todos los días a las **00:00 `America/Argentina/Buenos_Aires`**. Ese horario ya está
-  comunicado al visitante por `DemoResetCountdown` (Home y `/como-funciona`), así que la programación
-  real tiene que coincidir con él — un desfase entre lo que el contador promete y lo que el operador
-  ejecuta rompe la confianza del visitante en la demo, aunque no rompa ninguna regla de negocio.
-- **Qué se re-siembra:** `php artisan db:seed --class=DemoSeeder` — **nunca** `php artisan db:seed` a
-  secas ni `DatabaseSeeder`, que además crea un usuario de conveniencia `test@example.com` ajeno al
-  dataset de demo (ver §6). El seeder es idempotente por negocio (guard por slug): volver a correrlo sin
-  vaciar antes la base no duplica los dos negocios de demo, pero tampoco es la operación pensada para
-  "reiniciar" — el reinicio diario asume que la base vuelve primero a un estado conocido (restaurar desde
-  el estado sembrado o `migrate:fresh` seguido del seed, decisión del operador) y luego se siembra.
-- **Qué se vacía:** el buzón de Mailpit (todos los correos capturados desde el reinicio anterior). Sin
-  esto, el buzón compartido crecería indefinidamente y acumularía enlaces de verificación/reset viejos
-  de sesiones de demo ya descartadas.
-- **Qué NO se toca:** el código desplegado, la configuración de entorno, los certificados TLS, y
-  cualquier credencial real del operador — el reinicio es exclusivamente de datos de demo (base de datos
-  + buzón), no un redeploy.
-- **Candidato de Fase 12, fuera de alcance aquí:** `php artisan demo:reset`, un comando único que
-  envuelva el reset de base + vaciado de buzón + cualquier guarda adicional (p. ej. rechazar correr
-  contra una base que no tenga el guard de negocios de demo, o confirmar que `APP_ENV` no sea
-  `production` sin la bandera explícita de entorno de demo). Este repositorio no lo construye en la
-  Fase 11; queda anotado como trabajo futuro para que la Fase 12 (o el propio workflow de operaciones) lo
-  implemente si aporta valor sobre encadenar los comandos existentes a mano.
+**Medición heredada** (Laravel Sail + `artisan serve` sobre WSL2, dataset chico, un solo queue worker, pocas conexiones Reverb, PostgreSQL sin tuning de producción):
+
+```text
+reposo       ≈ 0,30 GB
+uso normal   ≈ 0,36 GB
+pico medido  ≈ 0,45 GB
+```
+
+**No predice producción**, porque producción usa Nginx + PHP-FPM, un pool de workers configurado explícitamente y, en el modelo multiproyecto, comparte el host con otros servicios.
+
+**Medición real del stack productivo** (Tarea 12, `docker stats` sobre los ocho contenedores de `compose.production.yaml`, base sembrada con `DemoSeeder` pero **sin** tráfico real encima — el paso de carga con navegador de esa misma tarea no pudo ejecutarse, así que esto es consumo "recién arrancado y sembrado", no "uso normal" ni "pico"):
+
+| Contenedor | Memoria | CPU |
+|---|---|---|
+| `app` | 42,5 MiB | 0,00 % |
+| `reverb` | 39,2 MiB | 0,00 % |
+| `queue` | 38,0 MiB | 0,00 % |
+| `scheduler` | 36,7 MiB | 0,07 % |
+| `web` | 11,1 MiB | 0,00 % |
+| `pgsql` | 50,1 MiB | 0,02 % |
+| `redis` | 5,6 MiB | 0,12 % |
+| `mailpit` | 11,1 MiB | 0,00 % |
+| **Total** | **≈ 234 MiB (≈ 0,23 GB)** | |
+
+Estos ≈234 MiB no son directamente comparables con la medición heredada de arriba (topología de contenedores distinta, y esta cifra no incluye la carga de un uso real). Queda pendiente, para cuando el agente de operaciones pueda ejercer tráfico real contra un deployment, volver a medir "uso normal" y "pico" sobre esta misma topología productiva.
+
+**Variables que dominan la RAM real en producción**, de mayor a menor impacto esperado:
+
+- El pool de PHP-FPM — `pm.max_children` y `pm = static` (o `dynamic`) son la variable principal: cada worker PHP-FPM reserva su propia memoria.
+- El tuning de PostgreSQL (`shared_buffers`, `work_mem`, conexiones máximas).
+- Cada worker de cola adicional, si se escala horizontalmente (§10 de `01-reservahub.md` nota que escalar es seguro: recordatorios deduplicados, advisory locks).
+- Reverb bajo uso real (conexiones WebSocket concurrentes).
+- Linux, Docker, builds de imagen, logs y page cache consumen memoria del host **aparte** de los ocho contenedores — no está incluida en ninguna de las dos mediciones de arriba.
+
+**Referencia inicial** — la aplicación no codifica ni depende de ningún tamaño de VPS específico:
+
+```text
+ReservaHub solo         → un VPS de 4 GB debería tener margen cómodo.
+Servidor multiproyecto  → 8 GB como punto de partida.
+```
