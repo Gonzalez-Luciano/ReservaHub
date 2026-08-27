@@ -253,7 +253,7 @@ docker compose exec laravel.test vendor/bin/pint --test
 - [`docs/DEPLOYMENT_HANDOFF.md`](docs/DEPLOYMENT_HANDOFF.md) — contrato de aplicación para quien
   opere el servidor de producción (procesos, variables de entorno, health checks, contrato de
   reinicio de la demo).
-- `docs/RELEASE.md` — procedimiento de release y rollback. Se agrega en una tarea posterior de esta
-  misma fase; todavía no existe en el repositorio.
+- [`docs/RELEASE.md`](docs/RELEASE.md) — procedimiento de release, esquema de `v1.0.0` y
+  rollback por versión de imagen.
 - [`01-reservahub.md`](01-reservahub.md) — especificación completa del proyecto, autoridad sobre
   cualquier comportamiento no cubierto por los documentos anteriores.

@@ -305,7 +305,7 @@ La demo es **descartable por decisión de producto**: no se requiere backup hist
 
 ## 19. Cómo hacer rollback
 
-Ver `docs/RELEASE.md` para el procedimiento completo. Resumen: se elige la imagen o el digest del release anterior (§2) y se vuelve a levantar el stack contra ella. **El rollback de imagen no revierte el esquema** — si el release que se abandona incluyó migraciones nuevas, hace falta restaurar desde backup de base de datos o aplicar una migración correctiva; volver el código atrás por sí solo no deshace un `migrate --force` ya aplicado.
+Ver [`docs/RELEASE.md`](RELEASE.md) para el procedimiento completo. Resumen: se elige la imagen o el digest del release anterior (§2) y se vuelve a levantar el stack contra ella. **El rollback de imagen no revierte el esquema** — si el release que se abandona incluyó migraciones nuevas, hace falta restaurar desde backup de base de datos o aplicar una migración correctiva; volver el código atrás por sí solo no deshace un `migrate --force` ya aplicado.
 
 ## 20. Qué NO exponer nunca
 
