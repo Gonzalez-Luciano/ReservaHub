@@ -62,23 +62,27 @@ function groupByDay(bookings) {
         groups.get(booking.date_key).bookings.push(booking);
     }
 
-    const list = order.map((key) => groups.get(key));
-    const today = list.filter((group) => group.day_bucket === 'today');
-    const future = list.filter((group) => group.day_bucket === 'future');
-    const past = list.filter((group) => group.day_bucket === 'past').reverse();
-
-    return [...today, ...future, ...past];
+    // Cronológico descendente y sin cortes: lo más lejano en el futuro arriba,
+    // bajando día a día hasta lo más viejo. El backend ya ordena ascendente, así
+    // que alcanza con invertir. Antes se agrupaba en hoy → futuras → pasadas
+    // invertidas, y ese salto (29, 28, 27, 26…) rompía la lectura en el punto
+    // exacto donde el ojo espera continuidad.
+    return order.map((key) => groups.get(key)).reverse();
 }
 
 function DayHeading({ group }) {
-    const label = group.day_bucket === 'today'
+    const isToday = group.day_bucket === 'today';
+    const label = isToday
         ? `Hoy · ${group.weekday.toLowerCase()} ${group.day_month}`
         : `${group.weekday} ${group.day_month}`;
 
+    // Sin el corte por buckets, "hoy" ya no se deduce de la posición en la
+    // lista: tiene que distinguirse solo.
     return (
-        <div className="mb-2 flex items-center gap-2.5">
-            <span className="micro">{label}</span>
-            <div className="h-px flex-grow bg-border" aria-hidden="true" />
+        <div className={`flex items-center gap-2.5 ${isToday ? 'mt-1 mb-2.5' : 'mb-2'}`}>
+            {isToday && <div className="h-3.5 w-[3px] rounded-full bg-fg" aria-hidden="true" />}
+            <span className={isToday ? 'micro font-semibold text-fg' : 'micro'}>{label}</span>
+            <div className={`h-px flex-grow ${isToday ? 'bg-fg/25' : 'bg-border'}`} aria-hidden="true" />
         </div>
     );
 }
