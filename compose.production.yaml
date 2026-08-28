@@ -177,6 +177,12 @@ services:
     environment:
       MP_MAX_MESSAGES: ${MAILPIT_MAX_MESSAGES:-2000}
       MP_DATABASE: /data/mailpit.db
+      # El buzón de la demo es compartido: sin esto, cualquier visitante lo
+      # vacía de un clic y arruina la demo para el resto. Es `hide`, no
+      # `disable`: el endpoint DELETE de la API sigue abierto y responde 200
+      # (verificado), así que esto cubre el clic accidental, no a alguien
+      # decidido. La garantía real es la limpieza diaria del contrato de demo.
+      MP_HIDE_DELETE_ALL_BUTTON: 'true'
     volumes:
       - mailpit-data:/data
     healthcheck:

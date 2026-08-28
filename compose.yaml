@@ -137,6 +137,12 @@ services:
         ports:
             - '${FORWARD_MAILPIT_PORT:-1025}:1025'
             - '${FORWARD_MAILPIT_DASHBOARD_PORT:-8025}:8025'
+        environment:
+            # Espeja el comportamiento de producción para que el buzón se vea
+            # igual en los dos entornos. Por defecto oculto; quien necesite
+            # vaciar el buzón seguido en desarrollo lo pone en 'false' en su
+            # .env sin tocar este archivo.
+            MP_HIDE_DELETE_ALL_BUTTON: '${MAILPIT_HIDE_DELETE_ALL:-true}'
         networks:
             - sail
 networks:
