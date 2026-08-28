@@ -41,6 +41,27 @@ Una release concreta (`X.Y.Z`) o sus digests — nunca otra cosa. En particular:
   manualmente, pero apuntar producción a una etiqueta móvil significa que un `docker compose
   pull` sin cambiar nada más puede traer un release distinto sin que nadie lo pidiera.
 
+### Releases publicadas
+
+Los digests son la referencia inmutable: una etiqueta (`1.0.0`) puede reapuntarse, un digest no.
+Es lo que se fija en producción.
+
+| Versión | Commit | Imagen | Digest |
+|---|---|---|---|
+| `1.0.0` | `53d79a4` | `reservahub-app` | `sha256:b621765f4c8e15cf8419f4f5eed8b2f1de89b8792f47421f2d13833c7b831d40` |
+| `1.0.0` | `53d79a4` | `reservahub-web` | `sha256:c3af88e762d4e61222ae52e278d6a736d0d074424cc1e1c14fab87591f956bca` |
+
+Verificado tras la publicación: ambas imágenes se descargan **sin autenticación** (paquetes
+públicos), y sus labels OCI declaran `version=1.0.0` y
+`revision=53d79a4d3d39678b27e85374483d2826918f2003`.
+
+Fijar un digest en el compose de producción:
+
+```yaml
+APP_IMAGE=ghcr.io/gonzalez-luciano/reservahub-app@sha256:b621765f4c8e15cf8419f4f5eed8b2f1de89b8792f47421f2d13833c7b831d40
+WEB_IMAGE=ghcr.io/gonzalez-luciano/reservahub-web@sha256:c3af88e762d4e61222ae52e278d6a736d0d074424cc1e1c14fab87591f956bca
+```
+
 ## 3. Esquema de `v1.0.0`
 
 **23 migraciones**, verificadas contra `database/migrations/` y `php artisan migrate:status`
