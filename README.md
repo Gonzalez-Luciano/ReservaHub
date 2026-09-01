@@ -4,6 +4,9 @@ SaaS de reservas por turnos, multi-tenant, en español, para negocios que trabaj
 horarias.
 
 [![CI](https://github.com/Gonzalez-Luciano/reservahub/actions/workflows/ci.yml/badge.svg)](https://github.com/Gonzalez-Luciano/reservahub/actions/workflows/ci.yml)
+[![Demo](https://img.shields.io/badge/demo-online-brightgreen)](https://reservahub.lucianogonzalez.dev)
+
+**Demo online:** [reservahub.lucianogonzalez.dev](https://reservahub.lucianogonzalez.dev)
 
 ## El problema
 
@@ -18,6 +21,9 @@ confirmación por seña, recordatorios automáticos y un panel en tiempo real pa
 Proyecto de aprendizaje y portfolio. Los pagos son **simulados** — no hay ningún cobro real, ninguna
 pasarela real y ninguna tarjeta involucrada. El objetivo es mostrar una implementación completa de
 Laravel (dominio, API, colas, tiempo real, Docker, CI) de punta a punta, no operar un negocio real.
+
+La aplicación se encuentra desplegada públicamente como demo en
+[reservahub.lucianogonzalez.dev](https://reservahub.lucianogonzalez.dev).
 
 ## Stack
 
@@ -194,9 +200,22 @@ Documentación completa, con ejemplos de cada endpoint, en [`docs/api.md`](docs/
 
 ## Demo pública
 
-El repositorio está preparado para operar como una demo pública descartable, aunque **todavía no
-hay ningún despliegue real** — la URL se agrega en un commit posterior, cuando el deployment exista.
-El contrato, ya implementado, es:
+ReservaHub está desplegado como una **demo pública descartable**:
+
+- **Aplicación:** [https://reservahub.lucianogonzalez.dev](https://reservahub.lucianogonzalez.dev)
+- **Buzón de correo:** [https://reservahub-mail.lucianogonzalez.dev](https://reservahub-mail.lucianogonzalez.dev)
+
+### Credenciales de demostración
+
+**Owner de Peluquería Demo**
+
+- Email: `owner@reservahub.test`
+- Contraseña: `password`
+
+Los pagos son completamente simulados: no existe ningún cobro real ni se solicitan datos de tarjeta.
+
+La demo está preparada para ser modificada libremente por los visitantes. El estado se restaura
+automáticamente mediante las tareas programadas del proyecto:
 
 - **Dataset semanal:** el domingo a la noche / lunes 00:00 (`America/Argentina/Buenos_Aires`) se
   reinicia toda la base de datos al estado sembrado por `DemoSeeder` (`demo:reset`).
